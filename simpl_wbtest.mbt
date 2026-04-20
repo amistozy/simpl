@@ -1,0 +1,25 @@
+///|
+/// Whitebox: evaluate with preloaded environment
+test "eval_with_env reads env chain" {
+  let env = Extend("x", VInt(7), Empty)
+  assert_true(
+    try eval_with_env(Var("x"), env) catch {
+      _ => false
+    } noraise {
+      VInt(v) => v == 7
+      _ => false
+    },
+  )
+}
+
+///|
+test "inner let shadows outer binding" {
+  let expr = Let("x", IntLit(1), Let("x", IntLit(2), Var("x")))
+  assert_true(eval_is_int(expr, 2))
+}
+
+///|
+test "calling non function errors" {
+  let expr = Call(IntLit(1), exprs0())
+  assert_true(eval_is_error(expr))
+}

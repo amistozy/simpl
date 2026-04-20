@@ -1,0 +1,146 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "amistozy/simpl"
+
+import {
+  "moonbitlang/core/list",
+}
+
+// Values
+pub fn add(Expr, Expr) -> Expr
+
+pub fn binary(BinOp, Expr, Expr) -> Expr
+
+pub fn bool_lit(Bool) -> Expr
+
+pub fn call(Expr, @list.List[Expr]) -> Expr
+
+pub fn div(Expr, Expr) -> Expr
+
+pub fn eq(Expr, Expr) -> Expr
+
+pub fn eval(Expr) -> Value raise
+
+pub fn eval_is_bool(Expr, Bool) -> Bool
+
+pub fn eval_is_error(Expr) -> Bool
+
+pub fn eval_is_int(Expr, Int) -> Bool
+
+pub fn eval_is_string(Expr, String) -> Bool
+
+pub fn eval_source(String) -> Value raise
+
+pub fn eval_source_is_error(String) -> Bool
+
+pub fn eval_source_is_int(String, Int) -> Bool
+
+pub fn eval_with_env(Expr, Env) -> Value raise
+
+pub fn exprs0() -> @list.List[Expr]
+
+pub fn exprs1(Expr) -> @list.List[Expr]
+
+pub fn exprs2(Expr, Expr) -> @list.List[Expr]
+
+pub fn gt(Expr, Expr) -> Expr
+
+pub fn if_then_else(Expr, Expr, Expr) -> Expr
+
+pub fn int_lit(Int) -> Expr
+
+pub fn lambda(@list.List[String], Expr) -> Expr
+
+pub fn let_in(String, Expr, Expr) -> Expr
+
+pub fn logic_and(Expr, Expr) -> Expr
+
+pub fn logic_or(Expr, Expr) -> Expr
+
+pub fn lt(Expr, Expr) -> Expr
+
+pub fn mul(Expr, Expr) -> Expr
+
+pub fn neg(Expr) -> Expr
+
+pub fn nil_lit() -> Expr
+
+pub fn not(Expr) -> Expr
+
+pub fn parse(String) -> Expr raise
+
+pub fn parse_is_error(String) -> Bool
+
+pub fn parse_is_ok(String) -> Bool
+
+pub fn string_lit(String) -> Expr
+
+pub fn strings0() -> @list.List[String]
+
+pub fn strings1(String) -> @list.List[String]
+
+pub fn strings2(String, String) -> @list.List[String]
+
+pub fn sub(Expr, Expr) -> Expr
+
+pub fn unary(UnOp, Expr) -> Expr
+
+pub fn var_ref(String) -> Expr
+
+// Errors
+pub suberror EvalError {
+  RuntimeError(String)
+}
+
+pub suberror ParseError {
+  SyntaxError(String)
+}
+
+// Types and methods
+pub enum BinOp {
+  Add
+  Sub
+  Mul
+  Div
+  Eq
+  Lt
+  Gt
+  And
+  Or
+}
+
+pub enum Env {
+  Empty
+  Extend(String, Value, Env)
+}
+
+pub enum Expr {
+  IntLit(Int)
+  BoolLit(Bool)
+  StringLit(String)
+  NilLit
+  Var(String)
+  If(Expr, Expr, Expr)
+  Let(String, Expr, Expr)
+  Lambda(@list.List[String], Expr)
+  Call(Expr, @list.List[Expr])
+  Unary(UnOp, Expr)
+  Binary(BinOp, Expr, Expr)
+}
+
+pub enum UnOp {
+  Neg
+  Not
+}
+
+pub enum Value {
+  VInt(Int)
+  VBool(Bool)
+  VString(String)
+  VNil
+  VClosure(@list.List[String], Expr, Env)
+}
+
+// Type aliases
+
+// Traits
+
