@@ -121,7 +121,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
         VRecord(fields) =>
           match fields.get(name) {
             Some(value) => value
-            None => raise RuntimeError("missing field: " + name)
+            None => raise RuntimeError("missing field: \{name}")
           }
         _ => raise RuntimeError("type error: '.' expects Record")
       }
@@ -156,7 +156,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
 fn lookup(env : Env, name : String) -> Value raise {
   match env.get(name) {
     Some(value) => value
-    None => raise RuntimeError("undefined variable: " + name)
+    None => raise RuntimeError("undefined variable: \{name}")
   }
 }
 
@@ -204,9 +204,8 @@ fn eval_record_fields(
   env : Env,
 ) -> @hashmap.HashMap[String, Value] raise {
   fields.fold(init=@hashmap.new(), (acc, field) => {
-    match field {
-      (name, expr) => acc.add(name, eval_with_env(expr, env))
-    }
+    let (name, expr) = field
+    acc.add(name, eval_with_env(expr, env))
   })
 }
 
