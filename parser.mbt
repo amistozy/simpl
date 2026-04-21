@@ -36,6 +36,7 @@ priv enum Token {
   ArrowTok
   BangTok
   ColonEqTok
+  SemiTok
   LParenTok
   RParenTok
   CommaTok
@@ -135,6 +136,7 @@ fn lex_loop(
     '(' => lex_loop(source, i + 1, @list.cons(LParenTok, acc))
     ')' => lex_loop(source, i + 1, @list.cons(RParenTok, acc))
     ',' => lex_loop(source, i + 1, @list.cons(CommaTok, acc))
+    ';' => lex_loop(source, i + 1, @list.cons(SemiTok, acc))
     '+' => lex_loop(source, i + 1, @list.cons(PlusTok, acc))
     '-' => lex_loop(source, i + 1, @list.cons(MinusTok, acc))
     '*' => lex_loop(source, i + 1, @list.cons(StarTok, acc))
@@ -339,6 +341,7 @@ fn token_name(tok : Token) -> String {
     ArrowTok => "=>"
     BangTok => "!"
     ColonEqTok => ":="
+    SemiTok => ";"
     LParenTok => "("
     RParenTok => ")"
     CommaTok => ","
@@ -348,7 +351,21 @@ fn token_name(tok : Token) -> String {
 
 ///|
 fn parse_expr(tokens : @list.List[Token]) -> (Expr, @list.List[Token]) raise {
-  parse_assign_expr(tokens)
+  parse_seq_expr(tokens)
+}
+
+///|
+fn parse_seq_expr(
+  tokens : @list.List[Token],
+) -> (Expr, @list.List[Token]) raise {
+  let (left, rest) = parse_assign_expr(tokens)
+  match rest {
+    More(SemiTok, tail=rest1) => {
+      let (right, rest2) = parse_seq_expr(rest1)
+      (Let("_", left, right), rest2)
+    }
+    _ => (left, rest)
+  }
 }
 
 ///|

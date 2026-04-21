@@ -107,8 +107,8 @@ test "man or boy with refs (mutual recursion through cells)" {
     #| let q_ref = ref nil in
     #| let p(n) = if n == 0 then 1 else (!q_ref)(n - 1) in
     #| let q(n) = if n == 0 then 0 else (!p_ref)(n - 1) in
-    #| let _ = (p_ref := p) in
-    #| let _ = (q_ref := q) in
+    #| p_ref := p;
+    #| q_ref := q;
     #| (!p_ref)(10)
   assert_true(@simpl.eval_source_is_int(code, 1))
 }
@@ -122,7 +122,7 @@ test "man or boy (Knuth) translated from let rec version" {
     #|   else
     #|     let m = ref k in
     #|     let rec b() =
-    #|       let _ = (m := !m - 1) in
+    #|       m := !m - 1;
     #|       a(!m, b, x1, x2, x3, x4)
     #|     in
     #|     b()
@@ -158,4 +158,20 @@ test "let function sugar equals lambda binding" {
     #| let add2(x) = x + 2 in
     #| add2(40)
   assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "sequence sugar ';' equals let _ = ... in ..." {
+  let code =
+    #| let r = ref 0 in
+    #| r := 1; r := !r + 41; !r
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "sequence sugar is right associative" {
+  let code =
+    #| let r = ref 0 in
+    #| r := 1; r := !r + 1; r := !r + 1; !r
+  assert_true(@simpl.eval_source_is_int(code, 3))
 }
