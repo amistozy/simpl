@@ -229,6 +229,23 @@ test "nested record fields" {
 ///|
 test "record field access can be used in expressions" {
   let code =
-    #| let p = {x: 10, y: 32} in p.x + p.y
+    #| let p = {x: 10, y: 32} in 
+    #| p.x + p.y
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "record destructuring binds fields" {
+  let code =
+    #| let {x, y} = {x: 10, y: 32} in 
+    #| x + y
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "record destructuring supports renaming" {
+  let code =
+    #| let {x: left, y: right} = {x: 10, y: 32} in 
+    #| left + right
   assert_true(@simpl.eval_source_is_int(code, 42))
 }

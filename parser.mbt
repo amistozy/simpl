@@ -437,30 +437,43 @@ fn parse_plain_let_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("expected identifier after 'let'")
   }
-  match tokens[i] {
-    IdentTok(name) =>
-      if i + 1 < tokens.length() && tokens[i + 1] == LParenTok {
-        let (params, j) = parse_params(tokens, i + 2)
-        if j >= tokens.length() || tokens[j] != AssignTok {
-          raise SyntaxError("expected '=' after let function params")
+  if tokens[i] == LBraceTok {
+    let (bindings, j) = parse_record_pattern(tokens, i + 1)
+    if j >= tokens.length() || tokens[j] != AssignTok {
+      raise SyntaxError("expected '=' after record pattern")
+    }
+    let (value_expr, k) = parse_expr(tokens, j + 1)
+    if k >= tokens.length() || tokens[k] != InTok {
+      raise SyntaxError("expected 'in' after let binding")
+    }
+    let (body, m) = parse_expr(tokens, k + 1)
+    (LetRecord(bindings, value_expr, body), m)
+  } else {
+    match tokens[i] {
+      IdentTok(name) =>
+        if i + 1 < tokens.length() && tokens[i + 1] == LParenTok {
+          let (params, j) = parse_params(tokens, i + 2)
+          if j >= tokens.length() || tokens[j] != AssignTok {
+            raise SyntaxError("expected '=' after let function params")
+          }
+          let (func_body, k) = parse_expr(tokens, j + 1)
+          if k >= tokens.length() || tokens[k] != InTok {
+            raise SyntaxError("expected 'in' after let function binding")
+          }
+          let (body, m) = parse_expr(tokens, k + 1)
+          (Let(name, Lambda(params, func_body), body), m)
+        } else if i + 1 < tokens.length() && tokens[i + 1] == AssignTok {
+          let (value_expr, j) = parse_expr(tokens, i + 2)
+          if j >= tokens.length() || tokens[j] != InTok {
+            raise SyntaxError("expected 'in' after let binding")
+          }
+          let (body, k) = parse_expr(tokens, j + 1)
+          (Let(name, value_expr, body), k)
+        } else {
+          raise SyntaxError("expected '=' after let name")
         }
-        let (func_body, k) = parse_expr(tokens, j + 1)
-        if k >= tokens.length() || tokens[k] != InTok {
-          raise SyntaxError("expected 'in' after let function binding")
-        }
-        let (body, m) = parse_expr(tokens, k + 1)
-        (Let(name, Lambda(params, func_body), body), m)
-      } else if i + 1 < tokens.length() && tokens[i + 1] == AssignTok {
-        let (value_expr, j) = parse_expr(tokens, i + 2)
-        if j >= tokens.length() || tokens[j] != InTok {
-          raise SyntaxError("expected 'in' after let binding")
-        }
-        let (body, k) = parse_expr(tokens, j + 1)
-        (Let(name, value_expr, body), k)
-      } else {
-        raise SyntaxError("expected '=' after let name")
-      }
-    _ => raise SyntaxError("expected identifier after 'let'")
+      _ => raise SyntaxError("expected identifier after 'let'")
+    }
   }
 }
 
@@ -842,6 +855,58 @@ fn parse_record_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     }
     raise SyntaxError(
       "unexpected token in record: " + token_name(tokens[next_expr]),
+    )
+  }
+}
+
+///|
+fn parse_record_pattern(
+  tokens : Array[Token],
+  i : Int,
+) -> (Array[(String, String)], Int) raise {
+  if i < tokens.length() && tokens[i] == RBraceTok {
+    return ([], i + 1)
+  }
+  let bindings = []
+  for j = i, _pos = 0 {
+    if j >= tokens.length() {
+      raise SyntaxError("unexpected end in record pattern")
+    }
+    let field_name = match tokens[j] {
+      IdentTok(name) => name
+      tok => raise SyntaxError("expected field name, found: " + token_name(tok))
+    }
+    let local_name = if j + 1 < tokens.length() && tokens[j + 1] == ColonTok {
+      if j + 2 >= tokens.length() {
+        raise SyntaxError("expected name after ':'")
+      }
+      match tokens[j + 2] {
+        IdentTok(rename) => rename
+        tok =>
+          raise SyntaxError(
+            "expected name after ':', found: " + token_name(tok),
+          )
+      }
+    } else {
+      field_name
+    }
+    let next = if j + 1 < tokens.length() && tokens[j + 1] == ColonTok {
+      j + 3
+    } else {
+      j + 1
+    }
+    bindings.push((field_name, local_name))
+    if next >= tokens.length() {
+      raise SyntaxError("unexpected end in record pattern")
+    }
+    if tokens[next] == CommaTok {
+      continue next + 1, _pos + 1
+    }
+    if tokens[next] == RBraceTok {
+      break (bindings, next + 1)
+    }
+    raise SyntaxError(
+      "unexpected token in record pattern: " + token_name(tokens[next]),
     )
   }
 }

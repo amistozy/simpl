@@ -60,6 +60,8 @@ pub fn let_in(String, Expr, Expr) -> Expr
 
 pub fn let_rec_in(String, Array[String], Expr, Expr) -> Expr
 
+pub fn let_record_in(Array[(String, String)], Expr, Expr) -> Expr
+
 pub fn logic_and(Expr, Expr) -> Expr
 
 pub fn logic_or(Expr, Expr) -> Expr
@@ -132,6 +134,7 @@ pub enum Expr {
   Record(Array[(String, Expr)])
   If(Expr, Expr, Expr)
   Let(String, Expr, Expr)
+  LetRecord(Array[(String, String)], Expr, Expr)
   LetRec(String, Array[String], Expr, Expr)
   Lambda(Array[String], Expr)
   Call(Expr, Array[Expr])

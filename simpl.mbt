@@ -9,6 +9,7 @@ pub enum Expr {
   Record(Array[(String, Expr)])
   If(Expr, Expr, Expr)
   Let(String, Expr, Expr)
+  LetRecord(Array[(String, String)], Expr, Expr)
   LetRec(String, Array[String], Expr, Expr)
   Lambda(Array[String], Expr)
   Call(Expr, Array[Expr])
@@ -87,6 +88,17 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     Let(name, value_expr, body) => {
       let v = eval_with_env(value_expr, env)
       eval_with_env(body, env.add(name, v))
+    }
+    LetRecord(bindings, value_expr, body) => {
+      let v = eval_with_env(value_expr, env)
+      match v {
+        VRecord(fields) => {
+          let bound_env = bind_record_pattern(bindings, fields, env)
+          eval_with_env(body, bound_env)
+        }
+        _ =>
+          raise RuntimeError("type error: record destructuring expects Record")
+      }
     }
     LetRec(name, params, func_body, body) => {
       let rec_closure = VRecClosure(name, params, func_body, env)
@@ -206,6 +218,22 @@ fn eval_record_fields(
   fields.fold(init=@hashmap.new(), (acc, field) => {
     let (name, expr) = field
     acc.add(name, eval_with_env(expr, env))
+  })
+}
+
+///|
+fn bind_record_pattern(
+  bindings : Array[(String, String)],
+  fields : @hashmap.HashMap[String, Value],
+  env : Env,
+) -> Env raise {
+  bindings.fold(init=env, (acc, binding) => {
+    let (field_name, local_name) = binding
+    match fields.get(field_name) {
+      Some(value) => acc.add(local_name, value)
+      None =>
+        raise RuntimeError("missing field in destructuring: " + field_name)
+    }
   })
 }
 
@@ -359,6 +387,15 @@ pub fn if_then_else(
 ///|
 pub fn let_in(name : String, value_expr : Expr, body : Expr) -> Expr {
   Let(name, value_expr, body)
+}
+
+///|
+pub fn let_record_in(
+  bindings : Array[(String, String)],
+  value_expr : Expr,
+  body : Expr,
+) -> Expr {
+  LetRecord(bindings, value_expr, body)
 }
 
 ///|
