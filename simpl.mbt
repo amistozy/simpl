@@ -16,7 +16,7 @@ pub enum Expr {
   RefSet(Expr, Expr)
   Unary(UnOp, Expr)
   Binary(BinOp, Expr, Expr)
-}
+} derive(Debug)
 
 ///|
 pub enum BinOp {
@@ -32,13 +32,13 @@ pub enum BinOp {
   Ge
   And
   Or
-}
+} derive(Debug)
 
 ///|
 pub enum UnOp {
   Neg
   Not
-}
+} derive(Debug)
 
 ///|
 /// Dynamic runtime values + environment model
@@ -50,7 +50,7 @@ pub enum Value {
   VRef(@ref.Ref[Value])
   VClosure(@list.List[String], Expr, Env)
   VRecClosure(String, @list.List[String], Expr, Env)
-}
+} derive(Debug)
 
 ///|
 pub type Env = @hashmap.HashMap[String, Value]
