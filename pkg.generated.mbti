@@ -70,6 +70,8 @@ pub fn logic_or(Expr, Expr) -> Expr
 
 pub fn lt(Expr, Expr) -> Expr
 
+pub fn match_cases(Expr, Array[(MatchPattern, Expr)]) -> Expr
+
 pub fn match_list(Expr, Array[(Array[String], Expr)]) -> Expr
 
 pub fn match_variant(Expr, Array[(String, String, Expr)]) -> Expr
@@ -89,6 +91,12 @@ pub fn parse(String) -> Expr raise
 pub fn parse_is_error(String) -> Bool
 
 pub fn parse_is_ok(String) -> Bool
+
+pub fn pbind(String) -> MatchPattern
+
+pub fn plist(Array[MatchPattern]) -> MatchPattern
+
+pub fn pvariant(String, MatchPattern) -> MatchPattern
 
 pub fn record(Array[(String, Expr)]) -> Expr
 
@@ -158,8 +166,9 @@ pub enum Expr {
 } derive(@debug.Debug)
 
 pub enum MatchPattern {
-  PVariant(String, String)
-  PList(Array[String])
+  PBind(String)
+  PVariant(String, MatchPattern)
+  PList(Array[MatchPattern])
 } derive(@debug.Debug)
 
 pub enum UnOp {

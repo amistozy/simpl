@@ -26,8 +26,9 @@ pub enum Expr {
 
 ///|
 pub enum MatchPattern {
-  PVariant(String, String)
-  PList(Array[String])
+  PBind(String)
+  PVariant(String, MatchPattern)
+  PList(Array[MatchPattern])
 } derive(Debug)
 
 ///|
@@ -254,21 +255,9 @@ fn eval_match_cases(
     }
   }
   let (pattern, body) = cases[i]
-  match (value, pattern) {
-    (VVariant(tag, payload), PVariant(case_tag, binding)) =>
-      if case_tag == tag {
-        eval_with_env(body, env.add(binding, payload))
-      } else {
-        eval_match_cases(value, cases, env, i + 1)
-      }
-    (VList(items), PList(bindings)) =>
-      if bindings.length() == items.length() {
-        let bound_env = bind_list_pattern(bindings, items, env)
-        eval_with_env(body, bound_env)
-      } else {
-        eval_match_cases(value, cases, env, i + 1)
-      }
-    _ => eval_match_cases(value, cases, env, i + 1)
+  match try_bind_pattern(pattern, value, env) {
+    Some(bound_env) => eval_with_env(body, bound_env)
+    None => eval_match_cases(value, cases, env, i + 1)
   }
 }
 
@@ -289,12 +278,51 @@ fn bind_record_pattern(
 }
 
 ///|
-fn bind_list_pattern(
-  bindings : Array[String],
-  items : Array[Value],
+fn try_bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env? {
+  match pattern {
+    PBind(name) =>
+      if name == "_" {
+        Some(env)
+      } else {
+        Some(env.add(name, value))
+      }
+    PVariant(tag, inner) =>
+      match value {
+        VVariant(value_tag, payload) =>
+          if tag == value_tag {
+            try_bind_pattern(inner, payload, env)
+          } else {
+            None
+          }
+        _ => None
+      }
+    PList(items) =>
+      match value {
+        VList(values) =>
+          if items.length() != values.length() {
+            None
+          } else {
+            try_bind_list_pattern(items, values, env, 0)
+          }
+        _ => None
+      }
+  }
+}
+
+///|
+fn try_bind_list_pattern(
+  patterns : Array[MatchPattern],
+  values : Array[Value],
   env : Env,
-) -> Env {
-  bindings.foldi(init=env, (i, acc_env, name) => acc_env.add(name, items[i]))
+  i : Int,
+) -> Env? {
+  if i >= patterns.length() {
+    return Some(env)
+  }
+  match try_bind_pattern(patterns[i], values[i], env) {
+    Some(next_env) => try_bind_list_pattern(patterns, values, next_env, i + 1)
+    None => None
+  }
 }
 
 ///|
@@ -495,11 +523,11 @@ pub fn match_variant(
   value_expr : Expr,
   cases : Array[(String, String, Expr)],
 ) -> Expr {
-  Match(
+  match_cases(
     value_expr,
     cases.map(case => {
       let (tag, binding, body) = case
-      (PVariant(tag, binding), body)
+      (PVariant(tag, PBind(binding)), body)
     }),
   )
 }
@@ -509,13 +537,36 @@ pub fn match_list(
   value_expr : Expr,
   cases : Array[(Array[String], Expr)],
 ) -> Expr {
-  Match(
+  match_cases(
     value_expr,
     cases.map(case => {
       let (bindings, body) = case
-      (PList(bindings), body)
+      (PList(bindings.map(name => PBind(name))), body)
     }),
   )
+}
+
+///|
+pub fn match_cases(
+  value_expr : Expr,
+  cases : Array[(MatchPattern, Expr)],
+) -> Expr {
+  Match(value_expr, cases)
+}
+
+///|
+pub fn pbind(name : String) -> MatchPattern {
+  PBind(name)
+}
+
+///|
+pub fn pvariant(tag : String, pattern : MatchPattern) -> MatchPattern {
+  PVariant(tag, pattern)
+}
+
+///|
+pub fn plist(items : Array[MatchPattern]) -> MatchPattern {
+  PList(items)
 }
 
 ///|

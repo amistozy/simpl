@@ -20,7 +20,7 @@ A small interpreter-style language implemented in MoonBit.
   - `let rec f(...) = ... in ...`
   - `if ... then ... else ...`
   - `fn(...) => ...`
-  - `match e { #Left(x) => ..., #Right(y) => ..., [x, y] => ... }`
+  - `match e { #Left(x) => ..., #Right(y) => ..., [x, #Right(z)] => ... }`
   - references: `ref e`, `!e`, `e1 := e2`
   - records: `{a: 1, b: 2}`, `e.a`, `let {a, b} = e in ...`
   - lists: `[1, 2, 3]`
@@ -72,8 +72,12 @@ let value = @simpl.eval_source(
   - `list(items) -> Expr`
   - `variant(tag, value) -> Expr`
   - `let_record_in(bindings, value_expr, body) -> Expr`
+  - `match_cases(value_expr, cases) -> Expr`
   - `match_variant(value_expr, cases) -> Expr`
   - `match_list(value_expr, cases) -> Expr`
+  - `pbind(name) -> MatchPattern`
+  - `pvariant(tag, pattern) -> MatchPattern`
+  - `plist(items) -> MatchPattern`
 - Test helpers:
   - `eval_is_int / eval_is_bool / eval_is_string / eval_is_error`
   - `parse_is_ok / parse_is_error`

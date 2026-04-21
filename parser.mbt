@@ -975,79 +975,72 @@ fn parse_match_case(
   tokens : Array[Token],
   i : Int,
 ) -> ((MatchPattern, Expr), Int) raise {
+  let (pattern, j) = parse_pattern(tokens, i)
+  if j >= tokens.length() || tokens[j] != ArrowTok {
+    raise SyntaxError("expected '=>' after match pattern")
+  }
+  let (body, next_expr) = parse_expr(tokens, j + 1)
+  ((pattern, body), next_expr)
+}
+
+///|
+fn parse_pattern(tokens : Array[Token], i : Int) -> (MatchPattern, Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("unexpected end in match")
+    raise SyntaxError("unexpected end in pattern")
   }
-  if tokens[i] == HashTok {
-    if i + 1 >= tokens.length() {
-      raise SyntaxError("expected variant name after '#'")
-    }
-    let tag = match tokens[i + 1] {
-      IdentTok(name) => name
-      tok =>
-        raise SyntaxError("expected variant name, found: " + token_name(tok))
-    }
-    if i + 2 >= tokens.length() || tokens[i + 2] != LParenTok {
-      raise SyntaxError("expected '(' after variant name")
-    }
-    if i + 3 >= tokens.length() {
-      raise SyntaxError("expected binding name in variant case")
-    }
-    let binding = match tokens[i + 3] {
-      IdentTok(name) => name
-      tok =>
-        raise SyntaxError("expected binding name, found: " + token_name(tok))
-    }
-    if i + 4 >= tokens.length() || tokens[i + 4] != RParenTok {
-      raise SyntaxError("expected ')' after variant binding")
-    }
-    if i + 5 >= tokens.length() || tokens[i + 5] != ArrowTok {
-      raise SyntaxError("expected '=>' after variant case")
-    }
-    let (body, next_expr) = parse_expr(tokens, i + 6)
-    ((PVariant(tag, binding), body), next_expr)
-  } else if tokens[i] == LBracketTok {
-    let (bindings, j) = parse_list_pattern(tokens, i + 1)
-    if j >= tokens.length() || tokens[j] != ArrowTok {
-      raise SyntaxError("expected '=>' after list pattern")
-    }
-    let (body, next_expr) = parse_expr(tokens, j + 1)
-    ((PList(bindings), body), next_expr)
-  } else {
-    raise SyntaxError("expected '#' or '[' starting a match case")
+  match tokens[i] {
+    IdentTok(name) => (PBind(name), i + 1)
+    HashTok => parse_variant_pattern(tokens, i + 1)
+    LBracketTok => parse_list_pattern(tokens, i + 1)
+    tok => raise SyntaxError("unexpected token in pattern: " + token_name(tok))
   }
+}
+
+///|
+fn parse_variant_pattern(
+  tokens : Array[Token],
+  i : Int,
+) -> (MatchPattern, Int) raise {
+  if i >= tokens.length() {
+    raise SyntaxError("expected variant name after '#'")
+  }
+  let tag = match tokens[i] {
+    IdentTok(name) => name
+    tok => raise SyntaxError("expected variant name, found: " + token_name(tok))
+  }
+  if i + 1 >= tokens.length() || tokens[i + 1] != LParenTok {
+    raise SyntaxError("expected '(' after variant name")
+  }
+  let (inner, j) = parse_pattern(tokens, i + 2)
+  if j >= tokens.length() || tokens[j] != RParenTok {
+    raise SyntaxError("expected ')' after variant pattern")
+  }
+  (PVariant(tag, inner), j + 1)
 }
 
 ///|
 fn parse_list_pattern(
   tokens : Array[Token],
   i : Int,
-) -> (Array[String], Int) raise {
+) -> (MatchPattern, Int) raise {
   if i < tokens.length() && tokens[i] == RBracketTok {
-    return ([], i + 1)
+    return (PList([]), i + 1)
   }
-  let bindings = []
+  let items = []
   for j = i, _pos = 0 {
-    if j >= tokens.length() {
+    let (pattern, next_pattern) = parse_pattern(tokens, j)
+    items.push(pattern)
+    if next_pattern >= tokens.length() {
       raise SyntaxError("unexpected end in list pattern")
     }
-    let binding = match tokens[j] {
-      IdentTok(name) => name
-      tok =>
-        raise SyntaxError("expected binding name, found: " + token_name(tok))
+    if tokens[next_pattern] == CommaTok {
+      continue next_pattern + 1, _pos + 1
     }
-    bindings.push(binding)
-    if j + 1 >= tokens.length() {
-      raise SyntaxError("unexpected end in list pattern")
-    }
-    if tokens[j + 1] == CommaTok {
-      continue j + 2, _pos + 1
-    }
-    if tokens[j + 1] == RBracketTok {
-      break (bindings, j + 2)
+    if tokens[next_pattern] == RBracketTok {
+      break (PList(items), next_pattern + 1)
     }
     raise SyntaxError(
-      "unexpected token in list pattern: " + token_name(tokens[j + 1]),
+      "unexpected token in list pattern: " + token_name(tokens[next_pattern]),
     )
   }
 }

@@ -321,3 +321,30 @@ test "empty list pattern match" {
     #| }
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
+
+///|
+test "nested list pattern match" {
+  let code =
+    #| match [#Left(1), #Right(2)] {
+    #|   [#Left(x), #Right(y)] => x + y
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 3))
+}
+
+///|
+test "nested variant pattern match" {
+  let code =
+    #| match #Outer(#Inner(41)) {
+    #|   #Outer(#Inner(x)) => x + 1
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "variant carrying list pattern match" {
+  let code =
+    #| match #Wrap([10, 32]) {
+    #|   #Wrap([x, y]) => x + y
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
