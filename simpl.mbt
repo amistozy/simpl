@@ -7,9 +7,11 @@ pub enum Expr {
   NilLit
   Var(String)
   Record(Array[(String, Expr)])
+  Variant(String, Expr)
   If(Expr, Expr, Expr)
   Let(String, Expr, Expr)
   LetRecord(Array[(String, String)], Expr, Expr)
+  Match(Expr, Array[(String, String, Expr)])
   LetRec(String, Array[String], Expr, Expr)
   Lambda(Array[String], Expr)
   Call(Expr, Array[Expr])
@@ -51,6 +53,7 @@ pub enum Value {
   VString(String)
   VNil
   VRecord(@hashmap.HashMap[String, Value])
+  VVariant(String, Value)
   VRef(@ref.Ref[Value])
   VClosure(Array[String], Expr, Env)
   VRecClosure(String, Array[String], Expr, Env)
@@ -79,6 +82,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     NilLit => VNil
     Var(name) => lookup(env, name)
     Record(fields) => VRecord(eval_record_fields(fields, env))
+    Variant(tag, value_expr) => VVariant(tag, eval_with_env(value_expr, env))
     If(cond, then_branch, else_branch) =>
       if truthy(eval_with_env(cond, env)) {
         eval_with_env(then_branch, env)
@@ -98,6 +102,13 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
         }
         _ =>
           raise RuntimeError("type error: record destructuring expects Record")
+      }
+    }
+    Match(value_expr, cases) => {
+      let value = eval_with_env(value_expr, env)
+      match value {
+        VVariant(tag, payload) => eval_variant_cases(tag, payload, cases, env)
+        _ => raise RuntimeError("type error: match expects variant value")
       }
     }
     LetRec(name, params, func_body, body) => {
@@ -222,6 +233,35 @@ fn eval_record_fields(
 }
 
 ///|
+fn eval_variant_cases(
+  tag : String,
+  payload : Value,
+  cases : Array[(String, String, Expr)],
+  env : Env,
+) -> Value raise {
+  eval_variant_cases_from(tag, payload, cases, env, 0)
+}
+
+///|
+fn eval_variant_cases_from(
+  tag : String,
+  payload : Value,
+  cases : Array[(String, String, Expr)],
+  env : Env,
+  i : Int,
+) -> Value raise {
+  if i >= cases.length() {
+    raise RuntimeError("non-exhaustive match on variant: " + tag)
+  }
+  let (case_tag, binding, body) = cases[i]
+  if case_tag == tag {
+    eval_with_env(body, env.add(binding, payload))
+  } else {
+    eval_variant_cases_from(tag, payload, cases, env, i + 1)
+  }
+}
+
+///|
 fn bind_record_pattern(
   bindings : Array[(String, String)],
   fields : @hashmap.HashMap[String, Value],
@@ -320,6 +360,8 @@ fn value_eq(a : Value, b : Value) -> Bool {
     (VString(x), VString(y)) => x == y
     (VNil, VNil) => true
     (VRecord(x), VRecord(y)) => record_eq(x, y)
+    (VVariant(tag1, value1), VVariant(tag2, value2)) =>
+      tag1 == tag2 && value_eq(value1, value2)
     _ => false
   }
 }
@@ -376,6 +418,11 @@ pub fn record(fields : Array[(String, Expr)]) -> Expr {
 }
 
 ///|
+pub fn variant(tag : String, value : Expr) -> Expr {
+  Variant(tag, value)
+}
+
+///|
 pub fn if_then_else(
   cond : Expr,
   then_branch : Expr,
@@ -396,6 +443,14 @@ pub fn let_record_in(
   body : Expr,
 ) -> Expr {
   LetRecord(bindings, value_expr, body)
+}
+
+///|
+pub fn match_variant(
+  value_expr : Expr,
+  cases : Array[(String, String, Expr)],
+) -> Expr {
+  Match(value_expr, cases)
 }
 
 ///|

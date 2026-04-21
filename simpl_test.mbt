@@ -249,3 +249,24 @@ test "record destructuring supports renaming" {
     #| left + right
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
+
+///|
+test "variant literal and match" {
+  let code =
+    #| match #Left(41) {
+    #|   #Left(x) => x + 1,
+    #|   #Right(y) => y
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "variant can be stored in let binding" {
+  let code =
+    #| let v = #Right(42) in
+    #| match v {
+    #|   #Left(x) => x,
+    #|   #Right(y) => y
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}

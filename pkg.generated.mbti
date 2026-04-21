@@ -68,6 +68,8 @@ pub fn logic_or(Expr, Expr) -> Expr
 
 pub fn lt(Expr, Expr) -> Expr
 
+pub fn match_variant(Expr, Array[(String, String, Expr)]) -> Expr
+
 pub fn mul(Expr, Expr) -> Expr
 
 pub fn ne(Expr, Expr) -> Expr
@@ -99,6 +101,8 @@ pub fn sub(Expr, Expr) -> Expr
 pub fn unary(UnOp, Expr) -> Expr
 
 pub fn var_ref(String) -> Expr
+
+pub fn variant(String, Expr) -> Expr
 
 // Errors
 pub suberror EvalError {
@@ -132,9 +136,11 @@ pub enum Expr {
   NilLit
   Var(String)
   Record(Array[(String, Expr)])
+  Variant(String, Expr)
   If(Expr, Expr, Expr)
   Let(String, Expr, Expr)
   LetRecord(Array[(String, String)], Expr, Expr)
+  Match(Expr, Array[(String, String, Expr)])
   LetRec(String, Array[String], Expr, Expr)
   Lambda(Array[String], Expr)
   Call(Expr, Array[Expr])
@@ -157,6 +163,7 @@ pub enum Value {
   VString(String)
   VNil
   VRecord(@hashmap.HashMap[String, Value])
+  VVariant(String, Value)
   VRef(@ref.Ref[Value])
   VClosure(Array[String], Expr, @hashmap.HashMap[String, Value])
   VRecClosure(String, Array[String], Expr, @hashmap.HashMap[String, Value])

@@ -21,6 +21,7 @@ priv enum Token {
   FnTok
   NotTok
   RefTok
+  MatchTok
   AndWordTok
   OrWordTok
   PlusTok
@@ -41,6 +42,7 @@ priv enum Token {
   ColonEqTok
   ColonTok
   DotTok
+  HashTok
   SemiTok
   LBraceTok
   RBraceTok
@@ -235,6 +237,10 @@ fn lex_loop(source : String, i : Int, acc : Array[Token]) -> Unit raise {
       acc.push(DotTok)
       lex_loop(source, i + 1, acc)
     }
+    '#' => {
+      acc.push(HashTok)
+      lex_loop(source, i + 1, acc)
+    }
     '{' => {
       acc.push(LBraceTok)
       lex_loop(source, i + 1, acc)
@@ -335,6 +341,7 @@ fn keyword_or_ident(text : String) -> Token {
     "fn" => FnTok
     "not" => NotTok
     "ref" => RefTok
+    "match" => MatchTok
     "and" => AndWordTok
     "or" => OrWordTok
     _ => IdentTok(text)
@@ -359,6 +366,7 @@ fn token_name(tok : Token) -> String {
     FnTok => "fn"
     NotTok => "not"
     RefTok => "ref"
+    MatchTok => "match"
     AndWordTok => "and"
     OrWordTok => "or"
     PlusTok => "+"
@@ -379,6 +387,7 @@ fn token_name(tok : Token) -> String {
     ColonEqTok => ":="
     ColonTok => ":"
     DotTok => "."
+    HashTok => "#"
     SemiTok => ";"
     LBraceTok => "{"
     RBraceTok => "}"
@@ -515,6 +524,20 @@ fn parse_if_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     }
     let (else_expr, m) = parse_expr(tokens, k + 1)
     (If(cond, then_expr, else_expr), m)
+  } else {
+    parse_match_expr(tokens, i)
+  }
+}
+
+///|
+fn parse_match_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+  if i < tokens.length() && tokens[i] == MatchTok {
+    let (value_expr, j) = parse_expr(tokens, i + 1)
+    if j >= tokens.length() || tokens[j] != LBraceTok {
+      raise SyntaxError("expected '{' after match expression")
+    }
+    let (cases, k) = parse_variant_cases(tokens, j + 1)
+    (Match(value_expr, cases), k)
   } else {
     parse_lambda_expr(tokens, i)
   }
@@ -810,6 +833,7 @@ fn parse_primary_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     FalseTok => (BoolLit(false), i + 1)
     NilTok => (NilLit, i + 1)
     IdentTok(name) => (Var(name), i + 1)
+    HashTok => parse_variant_literal(tokens, i + 1)
     LBraceTok => parse_record_literal(tokens, i + 1)
     LParenTok => {
       let (expr, j) = parse_expr(tokens, i + 1)
@@ -822,6 +846,26 @@ fn parse_primary_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
       }
     }
     tok => raise SyntaxError("unexpected token: " + token_name(tok))
+  }
+}
+
+///|
+fn parse_variant_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+  if i >= tokens.length() {
+    raise SyntaxError("expected variant name after '#'")
+  }
+  match tokens[i] {
+    IdentTok(tag) => {
+      if i + 1 >= tokens.length() || tokens[i + 1] != LParenTok {
+        raise SyntaxError("expected '(' after variant tag")
+      }
+      let (value_expr, j) = parse_expr(tokens, i + 2)
+      if j >= tokens.length() || tokens[j] != RParenTok {
+        raise SyntaxError("expected ')' after variant payload")
+      }
+      (Variant(tag, value_expr), j + 1)
+    }
+    tok => raise SyntaxError("expected variant name, found: " + token_name(tok))
   }
 }
 
@@ -857,6 +901,74 @@ fn parse_record_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
       "unexpected token in record: " + token_name(tokens[next_expr]),
     )
   }
+}
+
+///|
+fn parse_variant_cases(
+  tokens : Array[Token],
+  i : Int,
+) -> (Array[(String, String, Expr)], Int) raise {
+  if i < tokens.length() && tokens[i] == RBraceTok {
+    return ([], i + 1)
+  }
+  let (case, j) = parse_variant_case(tokens, i)
+  let (rest, k) = parse_variant_cases_tail(tokens, j)
+  ([case] + rest, k)
+}
+
+///|
+fn parse_variant_cases_tail(
+  tokens : Array[Token],
+  i : Int,
+) -> (Array[(String, String, Expr)], Int) raise {
+  if i >= tokens.length() {
+    raise SyntaxError("unexpected end in match")
+  }
+  if tokens[i] == CommaTok {
+    parse_variant_cases(tokens, i + 1)
+  } else if tokens[i] == RBraceTok {
+    ([], i + 1)
+  } else {
+    raise SyntaxError("unexpected token in match: " + token_name(tokens[i]))
+  }
+}
+
+///|
+fn parse_variant_case(
+  tokens : Array[Token],
+  i : Int,
+) -> ((String, String, Expr), Int) raise {
+  if i >= tokens.length() {
+    raise SyntaxError("unexpected end in match")
+  }
+  if tokens[i] != HashTok {
+    raise SyntaxError("expected '#' starting a variant case")
+  }
+  if i + 1 >= tokens.length() {
+    raise SyntaxError("expected variant name after '#'")
+  }
+  let tag = match tokens[i + 1] {
+    IdentTok(name) => name
+    tok => raise SyntaxError("expected variant name, found: " + token_name(tok))
+  }
+  if i + 2 >= tokens.length() || tokens[i + 2] != LParenTok {
+    raise SyntaxError("expected '(' after variant name")
+  }
+  if i + 3 >= tokens.length() {
+    raise SyntaxError("expected binding name in variant case")
+  }
+  let binding = match tokens[i + 3] {
+    IdentTok(name) => name
+    tok => raise SyntaxError("expected binding name, found: " + token_name(tok))
+  }
+  if i + 4 >= tokens.length() || tokens[i + 4] != RParenTok {
+    raise SyntaxError("expected ')' after variant binding")
+  }
+  if i + 5 >= tokens.length() || tokens[i + 5] != ArrowTok {
+    raise SyntaxError("expected '=>' after variant case")
+  }
+  let (body, next_expr) = parse_expr(tokens, i + 6)
+  ((tag, binding, body), next_expr)
 }
 
 ///|
