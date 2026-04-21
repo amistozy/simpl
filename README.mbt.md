@@ -23,7 +23,6 @@
   - 函数调用：`f(x, y)`
   - 一元运算：`-x`、`not x`
   - 二元运算：`+ - * / == != < <= > >= and or && ||`
-- 错误处理：使用 MoonBit `raise` 风格（`EvalError` / `ParseError`）
 
 ## 语法示例
 
