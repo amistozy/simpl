@@ -32,6 +32,8 @@ pub fn eval_is_string(Expr, String) -> Bool
 
 pub fn eval_source(String) -> Value raise
 
+pub fn eval_source_is_bool(String, Bool) -> Bool
+
 pub fn eval_source_is_error(String) -> Bool
 
 pub fn eval_source_is_int(String, Int) -> Bool
@@ -39,6 +41,8 @@ pub fn eval_source_is_int(String, Int) -> Bool
 pub fn eval_source_is_string(String, String) -> Bool
 
 pub fn eval_with_env(Expr, @hashmap.HashMap[String, Value]) -> Value raise
+
+pub fn field(Expr, String) -> Expr
 
 pub fn ge(Expr, Expr) -> Expr
 
@@ -77,6 +81,8 @@ pub fn parse(String) -> Expr raise
 pub fn parse_is_error(String) -> Bool
 
 pub fn parse_is_ok(String) -> Bool
+
+pub fn record(Array[(String, Expr)]) -> Expr
 
 pub fn ref_get(Expr) -> Expr
 
@@ -123,6 +129,7 @@ pub enum Expr {
   StringLit(String)
   NilLit
   Var(String)
+  Record(Array[(String, Expr)])
   If(Expr, Expr, Expr)
   Let(String, Expr, Expr)
   LetRec(String, Array[String], Expr, Expr)
@@ -131,6 +138,7 @@ pub enum Expr {
   RefNew(Expr)
   RefGet(Expr)
   RefSet(Expr, Expr)
+  Field(Expr, String)
   Unary(UnOp, Expr)
   Binary(BinOp, Expr, Expr)
 } derive(@debug.Debug)
@@ -145,6 +153,7 @@ pub enum Value {
   VBool(Bool)
   VString(String)
   VNil
+  VRecord(@hashmap.HashMap[String, Value])
   VRef(@ref.Ref[Value])
   VClosure(Array[String], Expr, @hashmap.HashMap[String, Value])
   VRecClosure(String, Array[String], Expr, @hashmap.HashMap[String, Value])

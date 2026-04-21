@@ -23,3 +23,10 @@ test "calling non function errors" {
   let expr = Call(IntLit(1), [])
   assert_true(eval_is_error(expr))
 }
+
+///|
+test "record equality" {
+  let left = Record([("a", IntLit(1)), ("b", BoolLit(true))])
+  let right = Record([("a", IntLit(1)), ("b", BoolLit(true))])
+  assert_true(eval_is_bool(Binary(Eq, left, right), true))
+}

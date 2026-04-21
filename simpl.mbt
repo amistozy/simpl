@@ -6,6 +6,7 @@ pub enum Expr {
   StringLit(String)
   NilLit
   Var(String)
+  Record(Array[(String, Expr)])
   If(Expr, Expr, Expr)
   Let(String, Expr, Expr)
   LetRec(String, Array[String], Expr, Expr)
@@ -14,6 +15,7 @@ pub enum Expr {
   RefNew(Expr)
   RefGet(Expr)
   RefSet(Expr, Expr)
+  Field(Expr, String)
   Unary(UnOp, Expr)
   Binary(BinOp, Expr, Expr)
 } derive(Debug)
@@ -47,6 +49,7 @@ pub enum Value {
   VBool(Bool)
   VString(String)
   VNil
+  VRecord(@hashmap.HashMap[String, Value])
   VRef(@ref.Ref[Value])
   VClosure(Array[String], Expr, Env)
   VRecClosure(String, Array[String], Expr, Env)
@@ -74,6 +77,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     StringLit(v) => VString(v)
     NilLit => VNil
     Var(name) => lookup(env, name)
+    Record(fields) => VRecord(eval_record_fields(fields, env))
     If(cond, then_branch, else_branch) =>
       if truthy(eval_with_env(cond, env)) {
         eval_with_env(then_branch, env)
@@ -109,6 +113,17 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
           new_value
         }
         _ => raise RuntimeError("type error: ':=' expects Ref on left side")
+      }
+    }
+    Field(target, name) => {
+      let target_value = eval_with_env(target, env)
+      match target_value {
+        VRecord(fields) =>
+          match fields.get(name) {
+            Some(value) => value
+            None => raise RuntimeError("missing field: " + name)
+          }
+        _ => raise RuntimeError("type error: '.' expects Record")
       }
     }
     Unary(op, one) => eval_unary(op, eval_with_env(one, env))
@@ -181,6 +196,18 @@ fn bind_params(
 /// Helpers: expression list evaluation
 fn eval_expr_list(exprs : Array[Expr], env : Env) -> Array[Value] raise {
   exprs.map(expr => eval_with_env(expr, env))
+}
+
+///|
+fn eval_record_fields(
+  fields : Array[(String, Expr)],
+  env : Env,
+) -> @hashmap.HashMap[String, Value] raise {
+  fields.fold(init=@hashmap.new(), (acc, field) => {
+    match field {
+      (name, expr) => acc.add(name, eval_with_env(expr, env))
+    }
+  })
 }
 
 ///|
@@ -265,8 +292,29 @@ fn value_eq(a : Value, b : Value) -> Bool {
     (VBool(x), VBool(y)) => x == y
     (VString(x), VString(y)) => x == y
     (VNil, VNil) => true
+    (VRecord(x), VRecord(y)) => record_eq(x, y)
     _ => false
   }
+}
+
+///|
+fn record_eq(
+  left : @hashmap.HashMap[String, Value],
+  right : @hashmap.HashMap[String, Value],
+) -> Bool {
+  if left.length() != right.length() {
+    return false
+  }
+  left.fold(init=true, (acc, name, value) => {
+    if !acc {
+      false
+    } else {
+      match right.get(name) {
+        Some(other) => value_eq(value, other)
+        None => false
+      }
+    }
+  })
 }
 
 ///|
@@ -293,6 +341,11 @@ pub fn nil_lit() -> Expr {
 ///|
 pub fn var_ref(name : String) -> Expr {
   Var(name)
+}
+
+///|
+pub fn record(fields : Array[(String, Expr)]) -> Expr {
+  Record(fields)
 }
 
 ///|
@@ -342,6 +395,11 @@ pub fn ref_get(inner : Expr) -> Expr {
 ///|
 pub fn ref_set(ref_expr : Expr, value_expr : Expr) -> Expr {
   RefSet(ref_expr, value_expr)
+}
+
+///|
+pub fn field(target : Expr, name : String) -> Expr {
+  Field(target, name)
 }
 
 ///|
@@ -460,6 +518,16 @@ pub fn eval_source_is_string(source : String, expected : String) -> Bool {
     _ => false
   } noraise {
     VString(v) => v == expected
+    _ => false
+  }
+}
+
+///|
+pub fn eval_source_is_bool(source : String, expected : Bool) -> Bool {
+  try eval_source(source) catch {
+    _ => false
+  } noraise {
+    VBool(v) => v == expected
     _ => false
   }
 }

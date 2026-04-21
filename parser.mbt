@@ -39,7 +39,11 @@ priv enum Token {
   ArrowTok
   BangTok
   ColonEqTok
+  ColonTok
+  DotTok
   SemiTok
+  LBraceTok
+  RBraceTok
   LParenTok
   RParenTok
   CommaTok
@@ -224,8 +228,21 @@ fn lex_loop(source : String, i : Int, acc : Array[Token]) -> Unit raise {
         acc.push(ColonEqTok)
         lex_loop(source, i + 2, acc)
       } else {
-        raise SyntaxError("unexpected token ':'")
+        acc.push(ColonTok)
+        lex_loop(source, i + 1, acc)
       }
+    '.' => {
+      acc.push(DotTok)
+      lex_loop(source, i + 1, acc)
+    }
+    '{' => {
+      acc.push(LBraceTok)
+      lex_loop(source, i + 1, acc)
+    }
+    '}' => {
+      acc.push(RBraceTok)
+      lex_loop(source, i + 1, acc)
+    }
     '&' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '&' {
@@ -360,7 +377,11 @@ fn token_name(tok : Token) -> String {
     ArrowTok => "=>"
     BangTok => "!"
     ColonEqTok => ":="
+    ColonTok => ":"
+    DotTok => "."
     SemiTok => ";"
+    LBraceTok => "{"
+    RBraceTok => "}"
     LParenTok => "("
     RParenTok => ")"
     CommaTok => ","
@@ -696,27 +717,35 @@ fn parse_unary_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (Unary(Not, expr), j)
   } else {
-    parse_call_expr(tokens, i)
+    parse_postfix_expr(tokens, i)
   }
 }
 
 ///|
-fn parse_call_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
-  let (callee, j) = parse_primary_expr(tokens, i)
-  parse_call_tail(callee, tokens, j)
+fn parse_postfix_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+  let (expr, j) = parse_primary_expr(tokens, i)
+  parse_postfix_tail(expr, tokens, j)
 }
 
 ///|
-fn parse_call_tail(
-  callee : Expr,
+fn parse_postfix_tail(
+  expr : Expr,
   tokens : Array[Token],
   i : Int,
 ) -> (Expr, Int) raise {
   if i < tokens.length() && tokens[i] == LParenTok {
     let (args, j) = parse_args(tokens, i + 1)
-    parse_call_tail(Call(callee, args), tokens, j)
+    parse_postfix_tail(Call(expr, args), tokens, j)
+  } else if i < tokens.length() && tokens[i] == DotTok {
+    if i + 1 >= tokens.length() {
+      raise SyntaxError("expected field name after '.'")
+    }
+    match tokens[i + 1] {
+      IdentTok(name) => parse_postfix_tail(Field(expr, name), tokens, i + 2)
+      tok => raise SyntaxError("expected field name, found: " + token_name(tok))
+    }
   } else {
-    (callee, i)
+    (expr, i)
   }
 }
 
@@ -768,6 +797,7 @@ fn parse_primary_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     FalseTok => (BoolLit(false), i + 1)
     NilTok => (NilLit, i + 1)
     IdentTok(name) => (Var(name), i + 1)
+    LBraceTok => parse_record_literal(tokens, i + 1)
     LParenTok => {
       let (expr, j) = parse_expr(tokens, i + 1)
       if j < tokens.length() && tokens[j] == RParenTok {
@@ -779,5 +809,39 @@ fn parse_primary_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
       }
     }
     tok => raise SyntaxError("unexpected token: " + token_name(tok))
+  }
+}
+
+///|
+fn parse_record_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+  if i < tokens.length() && tokens[i] == RBraceTok {
+    return (Record([]), i + 1)
+  }
+  let fields = []
+  for j = i, _pos = 0 {
+    if j >= tokens.length() {
+      raise SyntaxError("unexpected end in record")
+    }
+    let name = match tokens[j] {
+      IdentTok(field_name) => field_name
+      tok => raise SyntaxError("expected field name, found: " + token_name(tok))
+    }
+    if j + 1 >= tokens.length() || tokens[j + 1] != ColonTok {
+      raise SyntaxError("expected ':' after field name")
+    }
+    let (value_expr, next_expr) = parse_expr(tokens, j + 2)
+    fields.push((name, value_expr))
+    if next_expr >= tokens.length() {
+      raise SyntaxError("unexpected end in record")
+    }
+    if tokens[next_expr] == CommaTok {
+      continue next_expr + 1, _pos + 1
+    }
+    if tokens[next_expr] == RBraceTok {
+      break (Record(fields), next_expr + 1)
+    }
+    raise SyntaxError(
+      "unexpected token in record: " + token_name(tokens[next_expr]),
+    )
   }
 }

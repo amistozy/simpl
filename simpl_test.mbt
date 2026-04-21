@@ -201,3 +201,34 @@ test "or returns the actual operand value" {
     #| nil or "fallback"
   assert_true(@simpl.eval_source_is_string(code, "fallback"))
 }
+
+///|
+test "&& and || also return operand values" {
+  let and_code =
+    #| "left" && "right"
+  let or_code =
+    #| nil || "fallback"
+  assert_true(@simpl.eval_source_is_string(and_code, "right"))
+  assert_true(@simpl.eval_source_is_string(or_code, "fallback"))
+}
+
+///|
+test "record literal and field access" {
+  let code =
+    #| {name: "moon", count: 2}.name
+  assert_true(@simpl.eval_source_is_string(code, "moon"))
+}
+
+///|
+test "nested record fields" {
+  let code =
+    #| {user: {name: "moon", active: true}}.user.name
+  assert_true(@simpl.eval_source_is_string(code, "moon"))
+}
+
+///|
+test "record field access can be used in expressions" {
+  let code =
+    #| let p = {x: 10, y: 32} in p.x + p.y
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
