@@ -33,18 +33,14 @@ if true then f(5) else 0
 
 ### 1) 直接构造 AST 并求值
 
-```moonbit nocheck
-///|
+```moonbit
 let expr = @simpl.add(@simpl.int_lit(1), @simpl.int_lit(2))
-
-///|
 let value = @simpl.eval(expr) // VInt(3)
 ```
 
 ### 2) 从源码字符串解析并求值
 
-```moonbit nocheck
-///|
+```moonbit
 let value = @simpl.eval_source("1 + 2 * 3") // VInt(7)
 ```
 
