@@ -301,3 +301,23 @@ test "list equality is recursive" {
     #| [1, [2, 3]] == [1, [2, 3]]
   assert_true(@simpl.eval_source_is_bool(code, true))
 }
+
+///|
+test "list pattern match" {
+  let code =
+    #| match [1, 2] {
+    #|   [x, y] => x + y,
+    #|   [] => 0
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 3))
+}
+
+///|
+test "empty list pattern match" {
+  let code =
+    #| match [] {
+    #|   [] => 42,
+    #|   [x] => x
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}

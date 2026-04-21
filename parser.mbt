@@ -548,7 +548,7 @@ fn parse_match_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     if j >= tokens.length() || tokens[j] != LBraceTok {
       raise SyntaxError("expected '{' after match expression")
     }
-    let (cases, k) = parse_variant_cases(tokens, j + 1)
+    let (cases, k) = parse_match_cases(tokens, j + 1)
     (Match(value_expr, cases), k)
   } else {
     parse_lambda_expr(tokens, i)
@@ -941,28 +941,28 @@ fn parse_list_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 }
 
 ///|
-fn parse_variant_cases(
+fn parse_match_cases(
   tokens : Array[Token],
   i : Int,
-) -> (Array[(String, String, Expr)], Int) raise {
+) -> (Array[(MatchPattern, Expr)], Int) raise {
   if i < tokens.length() && tokens[i] == RBraceTok {
     return ([], i + 1)
   }
-  let (case, j) = parse_variant_case(tokens, i)
-  let (rest, k) = parse_variant_cases_tail(tokens, j)
+  let (case, j) = parse_match_case(tokens, i)
+  let (rest, k) = parse_match_cases_tail(tokens, j)
   ([case] + rest, k)
 }
 
 ///|
-fn parse_variant_cases_tail(
+fn parse_match_cases_tail(
   tokens : Array[Token],
   i : Int,
-) -> (Array[(String, String, Expr)], Int) raise {
+) -> (Array[(MatchPattern, Expr)], Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("unexpected end in match")
   }
   if tokens[i] == CommaTok {
-    parse_variant_cases(tokens, i + 1)
+    parse_match_cases(tokens, i + 1)
   } else if tokens[i] == RBraceTok {
     ([], i + 1)
   } else {
@@ -971,41 +971,85 @@ fn parse_variant_cases_tail(
 }
 
 ///|
-fn parse_variant_case(
+fn parse_match_case(
   tokens : Array[Token],
   i : Int,
-) -> ((String, String, Expr), Int) raise {
+) -> ((MatchPattern, Expr), Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("unexpected end in match")
   }
-  if tokens[i] != HashTok {
-    raise SyntaxError("expected '#' starting a variant case")
+  if tokens[i] == HashTok {
+    if i + 1 >= tokens.length() {
+      raise SyntaxError("expected variant name after '#'")
+    }
+    let tag = match tokens[i + 1] {
+      IdentTok(name) => name
+      tok =>
+        raise SyntaxError("expected variant name, found: " + token_name(tok))
+    }
+    if i + 2 >= tokens.length() || tokens[i + 2] != LParenTok {
+      raise SyntaxError("expected '(' after variant name")
+    }
+    if i + 3 >= tokens.length() {
+      raise SyntaxError("expected binding name in variant case")
+    }
+    let binding = match tokens[i + 3] {
+      IdentTok(name) => name
+      tok =>
+        raise SyntaxError("expected binding name, found: " + token_name(tok))
+    }
+    if i + 4 >= tokens.length() || tokens[i + 4] != RParenTok {
+      raise SyntaxError("expected ')' after variant binding")
+    }
+    if i + 5 >= tokens.length() || tokens[i + 5] != ArrowTok {
+      raise SyntaxError("expected '=>' after variant case")
+    }
+    let (body, next_expr) = parse_expr(tokens, i + 6)
+    ((PVariant(tag, binding), body), next_expr)
+  } else if tokens[i] == LBracketTok {
+    let (bindings, j) = parse_list_pattern(tokens, i + 1)
+    if j >= tokens.length() || tokens[j] != ArrowTok {
+      raise SyntaxError("expected '=>' after list pattern")
+    }
+    let (body, next_expr) = parse_expr(tokens, j + 1)
+    ((PList(bindings), body), next_expr)
+  } else {
+    raise SyntaxError("expected '#' or '[' starting a match case")
   }
-  if i + 1 >= tokens.length() {
-    raise SyntaxError("expected variant name after '#'")
+}
+
+///|
+fn parse_list_pattern(
+  tokens : Array[Token],
+  i : Int,
+) -> (Array[String], Int) raise {
+  if i < tokens.length() && tokens[i] == RBracketTok {
+    return ([], i + 1)
   }
-  let tag = match tokens[i + 1] {
-    IdentTok(name) => name
-    tok => raise SyntaxError("expected variant name, found: " + token_name(tok))
+  let bindings = []
+  for j = i, _pos = 0 {
+    if j >= tokens.length() {
+      raise SyntaxError("unexpected end in list pattern")
+    }
+    let binding = match tokens[j] {
+      IdentTok(name) => name
+      tok =>
+        raise SyntaxError("expected binding name, found: " + token_name(tok))
+    }
+    bindings.push(binding)
+    if j + 1 >= tokens.length() {
+      raise SyntaxError("unexpected end in list pattern")
+    }
+    if tokens[j + 1] == CommaTok {
+      continue j + 2, _pos + 1
+    }
+    if tokens[j + 1] == RBracketTok {
+      break (bindings, j + 2)
+    }
+    raise SyntaxError(
+      "unexpected token in list pattern: " + token_name(tokens[j + 1]),
+    )
   }
-  if i + 2 >= tokens.length() || tokens[i + 2] != LParenTok {
-    raise SyntaxError("expected '(' after variant name")
-  }
-  if i + 3 >= tokens.length() {
-    raise SyntaxError("expected binding name in variant case")
-  }
-  let binding = match tokens[i + 3] {
-    IdentTok(name) => name
-    tok => raise SyntaxError("expected binding name, found: " + token_name(tok))
-  }
-  if i + 4 >= tokens.length() || tokens[i + 4] != RParenTok {
-    raise SyntaxError("expected ')' after variant binding")
-  }
-  if i + 5 >= tokens.length() || tokens[i + 5] != ArrowTok {
-    raise SyntaxError("expected '=>' after variant case")
-  }
-  let (body, next_expr) = parse_expr(tokens, i + 6)
-  ((tag, binding, body), next_expr)
 }
 
 ///|

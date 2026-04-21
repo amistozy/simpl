@@ -12,7 +12,7 @@ pub enum Expr {
   If(Expr, Expr, Expr)
   Let(String, Expr, Expr)
   LetRecord(Array[(String, String)], Expr, Expr)
-  Match(Expr, Array[(String, String, Expr)])
+  Match(Expr, Array[(MatchPattern, Expr)])
   LetRec(String, Array[String], Expr, Expr)
   Lambda(Array[String], Expr)
   Call(Expr, Array[Expr])
@@ -22,6 +22,12 @@ pub enum Expr {
   Field(Expr, String)
   Unary(UnOp, Expr)
   Binary(BinOp, Expr, Expr)
+} derive(Debug)
+
+///|
+pub enum MatchPattern {
+  PVariant(String, String)
+  PList(Array[String])
 } derive(Debug)
 
 ///|
@@ -109,10 +115,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     }
     Match(value_expr, cases) => {
       let value = eval_with_env(value_expr, env)
-      match value {
-        VVariant(tag, payload) => eval_variant_cases(tag, payload, cases, env)
-        _ => raise RuntimeError("type error: match expects variant value")
-      }
+      eval_match_cases(value, cases, env, 0)
     }
     LetRec(name, params, func_body, body) => {
       let rec_closure = VRecClosure(name, params, func_body, env)
@@ -236,31 +239,36 @@ fn eval_record_fields(
 }
 
 ///|
-fn eval_variant_cases(
-  tag : String,
-  payload : Value,
-  cases : Array[(String, String, Expr)],
-  env : Env,
-) -> Value raise {
-  eval_variant_cases_from(tag, payload, cases, env, 0)
-}
-
-///|
-fn eval_variant_cases_from(
-  tag : String,
-  payload : Value,
-  cases : Array[(String, String, Expr)],
+fn eval_match_cases(
+  value : Value,
+  cases : Array[(MatchPattern, Expr)],
   env : Env,
   i : Int,
 ) -> Value raise {
   if i >= cases.length() {
-    raise RuntimeError("non-exhaustive match on variant: " + tag)
+    match value {
+      VVariant(tag, _) =>
+        raise RuntimeError("non-exhaustive match on variant: " + tag)
+      VList(_) => raise RuntimeError("non-exhaustive match on list")
+      _ => raise RuntimeError("type error: match expects variant or list value")
+    }
   }
-  let (case_tag, binding, body) = cases[i]
-  if case_tag == tag {
-    eval_with_env(body, env.add(binding, payload))
-  } else {
-    eval_variant_cases_from(tag, payload, cases, env, i + 1)
+  let (pattern, body) = cases[i]
+  match (value, pattern) {
+    (VVariant(tag, payload), PVariant(case_tag, binding)) =>
+      if case_tag == tag {
+        eval_with_env(body, env.add(binding, payload))
+      } else {
+        eval_match_cases(value, cases, env, i + 1)
+      }
+    (VList(items), PList(bindings)) =>
+      if bindings.length() == items.length() {
+        let bound_env = bind_list_pattern(bindings, items, env)
+        eval_with_env(body, bound_env)
+      } else {
+        eval_match_cases(value, cases, env, i + 1)
+      }
+    _ => eval_match_cases(value, cases, env, i + 1)
   }
 }
 
@@ -278,6 +286,15 @@ fn bind_record_pattern(
         raise RuntimeError("missing field in destructuring: " + field_name)
     }
   })
+}
+
+///|
+fn bind_list_pattern(
+  bindings : Array[String],
+  items : Array[Value],
+  env : Env,
+) -> Env {
+  bindings.foldi(init=env, (i, acc_env, name) => acc_env.add(name, items[i]))
 }
 
 ///|
@@ -478,7 +495,27 @@ pub fn match_variant(
   value_expr : Expr,
   cases : Array[(String, String, Expr)],
 ) -> Expr {
-  Match(value_expr, cases)
+  Match(
+    value_expr,
+    cases.map(case => {
+      let (tag, binding, body) = case
+      (PVariant(tag, binding), body)
+    }),
+  )
+}
+
+///|
+pub fn match_list(
+  value_expr : Expr,
+  cases : Array[(Array[String], Expr)],
+) -> Expr {
+  Match(
+    value_expr,
+    cases.map(case => {
+      let (bindings, body) = case
+      (PList(bindings), body)
+    }),
+  )
 }
 
 ///|
