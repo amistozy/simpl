@@ -25,8 +25,11 @@ pub enum BinOp {
   Mul
   Div
   Eq
+  Ne
   Lt
+  Le
   Gt
+  Ge
   And
   Or
 }
@@ -110,7 +113,26 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     }
     Unary(op, one) => eval_unary(op, eval_with_env(one, env))
     Binary(op, left, right) =>
-      eval_binary(op, eval_with_env(left, env), eval_with_env(right, env))
+      match op {
+        And => {
+          let left_value = eval_with_env(left, env)
+          if truthy(left_value) {
+            VBool(truthy(eval_with_env(right, env)))
+          } else {
+            VBool(false)
+          }
+        }
+        Or => {
+          let left_value = eval_with_env(left, env)
+          if truthy(left_value) {
+            VBool(true)
+          } else {
+            VBool(truthy(eval_with_env(right, env)))
+          }
+        }
+        _ =>
+          eval_binary(op, eval_with_env(left, env), eval_with_env(right, env))
+      }
   }
 }
 
@@ -220,15 +242,26 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
         _ => raise RuntimeError("type error: '/' expects Int+Int")
       }
     Eq => VBool(value_eq(left, right))
+    Ne => VBool(!value_eq(left, right))
     Lt =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a < b)
         _ => raise RuntimeError("type error: '<' expects Int+Int")
       }
+    Le =>
+      match (left, right) {
+        (VInt(a), VInt(b)) => VBool(a <= b)
+        _ => raise RuntimeError("type error: '<=' expects Int+Int")
+      }
     Gt =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a > b)
         _ => raise RuntimeError("type error: '>' expects Int+Int")
+      }
+    Ge =>
+      match (left, right) {
+        (VInt(a), VInt(b)) => VBool(a >= b)
+        _ => raise RuntimeError("type error: '>=' expects Int+Int")
       }
     And => VBool(truthy(left) && truthy(right))
     Or => VBool(truthy(left) || truthy(right))
@@ -357,13 +390,28 @@ pub fn eq(left : Expr, right : Expr) -> Expr {
 }
 
 ///|
+pub fn ne(left : Expr, right : Expr) -> Expr {
+  Binary(Ne, left, right)
+}
+
+///|
 pub fn lt(left : Expr, right : Expr) -> Expr {
   Binary(Lt, left, right)
 }
 
 ///|
+pub fn le(left : Expr, right : Expr) -> Expr {
+  Binary(Le, left, right)
+}
+
+///|
 pub fn gt(left : Expr, right : Expr) -> Expr {
   Binary(Gt, left, right)
+}
+
+///|
+pub fn ge(left : Expr, right : Expr) -> Expr {
+  Binary(Ge, left, right)
 }
 
 ///|

@@ -44,6 +44,8 @@ pub fn exprs1(Expr) -> @list.List[Expr]
 
 pub fn exprs2(Expr, Expr) -> @list.List[Expr]
 
+pub fn ge(Expr, Expr) -> Expr
+
 pub fn gt(Expr, Expr) -> Expr
 
 pub fn if_then_else(Expr, Expr, Expr) -> Expr
@@ -51,6 +53,8 @@ pub fn if_then_else(Expr, Expr, Expr) -> Expr
 pub fn int_lit(Int) -> Expr
 
 pub fn lambda(@list.List[String], Expr) -> Expr
+
+pub fn le(Expr, Expr) -> Expr
 
 pub fn let_in(String, Expr, Expr) -> Expr
 
@@ -63,6 +67,8 @@ pub fn logic_or(Expr, Expr) -> Expr
 pub fn lt(Expr, Expr) -> Expr
 
 pub fn mul(Expr, Expr) -> Expr
+
+pub fn ne(Expr, Expr) -> Expr
 
 pub fn neg(Expr) -> Expr
 
@@ -112,8 +118,11 @@ pub enum BinOp {
   Mul
   Div
   Eq
+  Ne
   Lt
+  Le
   Gt
+  Ge
   And
   Or
 }

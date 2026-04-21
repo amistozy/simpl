@@ -32,6 +32,13 @@ test "comparison and logic operators" {
 }
 
 ///|
+test "extended comparisons (!= <= >=)" {
+  let code =
+    #| if 1 != 2 and 2 <= 2 and 3 >= 2 then 1 else 0
+  assert_true(@simpl.eval_source_is_int(code, 1))
+}
+
+///|
 /// Blackbox: functional closures with lexical environment
 test "closure captures lexical env" {
   let expr = @simpl.let_in(
@@ -174,4 +181,20 @@ test "sequence sugar is right associative" {
     #| let r = ref 0 in
     #| r := 1; r := !r + 1; r := !r + 1; !r
   assert_true(@simpl.eval_source_is_int(code, 3))
+}
+
+///|
+test "and short-circuits right-hand side" {
+  let code =
+    #| let r = ref 0 in
+    #| false and (r := 1 == 1); !r
+  assert_true(@simpl.eval_source_is_int(code, 0))
+}
+
+///|
+test "or short-circuits right-hand side" {
+  let code =
+    #| let r = ref 0 in
+    #| true or (r := 1 == 1); !r
+  assert_true(@simpl.eval_source_is_int(code, 0))
 }

@@ -28,8 +28,11 @@ priv enum Token {
   StarTok
   SlashTok
   EqEqTok
+  BangEqTok
   LtTok
+  LeTok
   GtTok
+  GeTok
   AndAndTok
   OrOrTok
   AssignTok
@@ -141,8 +144,20 @@ fn lex_loop(
     '-' => lex_loop(source, i + 1, @list.cons(MinusTok, acc))
     '*' => lex_loop(source, i + 1, @list.cons(StarTok, acc))
     '/' => lex_loop(source, i + 1, @list.cons(SlashTok, acc))
-    '<' => lex_loop(source, i + 1, @list.cons(LtTok, acc))
-    '>' => lex_loop(source, i + 1, @list.cons(GtTok, acc))
+    '>' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '=' {
+        lex_loop(source, i + 2, @list.cons(GeTok, acc))
+      } else {
+        lex_loop(source, i + 1, @list.cons(GtTok, acc))
+      }
+    '<' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '=' {
+        lex_loop(source, i + 2, @list.cons(LeTok, acc))
+      } else {
+        lex_loop(source, i + 1, @list.cons(LtTok, acc))
+      }
     '=' =>
       if i + 1 < source.length() {
         let n = source.unsafe_get(i + 1).unsafe_to_char()
@@ -156,7 +171,13 @@ fn lex_loop(
       } else {
         lex_loop(source, i + 1, @list.cons(AssignTok, acc))
       }
-    '!' => lex_loop(source, i + 1, @list.cons(BangTok, acc))
+    '!' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '=' {
+        lex_loop(source, i + 2, @list.cons(BangEqTok, acc))
+      } else {
+        lex_loop(source, i + 1, @list.cons(BangTok, acc))
+      }
     ':' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '=' {
@@ -333,8 +354,11 @@ fn token_name(tok : Token) -> String {
     StarTok => "*"
     SlashTok => "/"
     EqEqTok => "=="
+    BangEqTok => "!="
     LtTok => "<"
+    LeTok => "<="
     GtTok => ">"
+    GeTok => ">="
     AndAndTok => "&&"
     OrOrTok => "||"
     AssignTok => "="
@@ -600,6 +624,10 @@ fn parse_eq_tail(
       let (right, rest2) = parse_cmp_expr(rest1)
       parse_eq_tail(Binary(Eq, left, right), rest2)
     }
+    More(BangEqTok, tail=rest1) => {
+      let (right, rest2) = parse_cmp_expr(rest1)
+      parse_eq_tail(Binary(Ne, left, right), rest2)
+    }
     _ => (left, tokens)
   }
 }
@@ -622,9 +650,17 @@ fn parse_cmp_tail(
       let (right, rest2) = parse_add_expr(rest1)
       parse_cmp_tail(Binary(Lt, left, right), rest2)
     }
+    More(LeTok, tail=rest1) => {
+      let (right, rest2) = parse_add_expr(rest1)
+      parse_cmp_tail(Binary(Le, left, right), rest2)
+    }
     More(GtTok, tail=rest1) => {
       let (right, rest2) = parse_add_expr(rest1)
       parse_cmp_tail(Binary(Gt, left, right), rest2)
+    }
+    More(GeTok, tail=rest1) => {
+      let (right, rest2) = parse_add_expr(rest1)
+      parse_cmp_tail(Binary(Ge, left, right), rest2)
     }
     _ => (left, tokens)
   }
