@@ -270,3 +270,34 @@ test "variant can be stored in let binding" {
     #| }
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
+
+///|
+test "list literal and equality" {
+  let code =
+    #| [1, 2, 3]
+  match @simpl.eval_source(code) {
+    @simpl.VList(items) => {
+      assert_true(items.length() == 3)
+      match items[0] {
+        @simpl.VInt(v) => assert_true(v == 1)
+        _ => assert_true(false)
+      }
+      match items[1] {
+        @simpl.VInt(v) => assert_true(v == 2)
+        _ => assert_true(false)
+      }
+      match items[2] {
+        @simpl.VInt(v) => assert_true(v == 3)
+        _ => assert_true(false)
+      }
+    }
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "list equality is recursive" {
+  let code =
+    #| [1, [2, 3]] == [1, [2, 3]]
+  assert_true(@simpl.eval_source_is_bool(code, true))
+}

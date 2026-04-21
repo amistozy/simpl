@@ -5,6 +5,7 @@ pub enum Expr {
   BoolLit(Bool)
   StringLit(String)
   NilLit
+  List(Array[Expr])
   Var(String)
   Record(Array[(String, Expr)])
   Variant(String, Expr)
@@ -52,6 +53,7 @@ pub enum Value {
   VBool(Bool)
   VString(String)
   VNil
+  VList(Array[Value])
   VRecord(@hashmap.HashMap[String, Value])
   VVariant(String, Value)
   VRef(@ref.Ref[Value])
@@ -80,6 +82,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     BoolLit(v) => VBool(v)
     StringLit(v) => VString(v)
     NilLit => VNil
+    List(items) => VList(eval_expr_list(items, env))
     Var(name) => lookup(env, name)
     Record(fields) => VRecord(eval_record_fields(fields, env))
     Variant(tag, value_expr) => VVariant(tag, eval_with_env(value_expr, env))
@@ -359,6 +362,7 @@ fn value_eq(a : Value, b : Value) -> Bool {
     (VBool(x), VBool(y)) => x == y
     (VString(x), VString(y)) => x == y
     (VNil, VNil) => true
+    (VList(x), VList(y)) => list_eq(x, y)
     (VRecord(x), VRecord(y)) => record_eq(x, y)
     (VVariant(tag1, value1), VVariant(tag2, value2)) =>
       tag1 == tag2 && value_eq(value1, value2)
@@ -387,6 +391,25 @@ fn record_eq(
 }
 
 ///|
+fn list_eq(left : Array[Value], right : Array[Value]) -> Bool {
+  if left.length() != right.length() {
+    return false
+  }
+  list_eq_from(left, right, 0)
+}
+
+///|
+fn list_eq_from(left : Array[Value], right : Array[Value], i : Int) -> Bool {
+  if i >= left.length() {
+    return true
+  }
+  if !value_eq(left[i], right[i]) {
+    return false
+  }
+  list_eq_from(left, right, i + 1)
+}
+
+///|
 /// Constructors for users and tests
 pub fn int_lit(v : Int) -> Expr {
   IntLit(v)
@@ -405,6 +428,11 @@ pub fn string_lit(v : String) -> Expr {
 ///|
 pub fn nil_lit() -> Expr {
   NilLit
+}
+
+///|
+pub fn list(items : Array[Expr]) -> Expr {
+  List(items)
 }
 
 ///|

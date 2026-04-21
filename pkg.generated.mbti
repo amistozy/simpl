@@ -62,6 +62,8 @@ pub fn let_rec_in(String, Array[String], Expr, Expr) -> Expr
 
 pub fn let_record_in(Array[(String, String)], Expr, Expr) -> Expr
 
+pub fn list(Array[Expr]) -> Expr
+
 pub fn logic_and(Expr, Expr) -> Expr
 
 pub fn logic_or(Expr, Expr) -> Expr
@@ -134,6 +136,7 @@ pub enum Expr {
   BoolLit(Bool)
   StringLit(String)
   NilLit
+  List(Array[Expr])
   Var(String)
   Record(Array[(String, Expr)])
   Variant(String, Expr)
@@ -162,6 +165,7 @@ pub enum Value {
   VBool(Bool)
   VString(String)
   VNil
+  VList(Array[Value])
   VRecord(@hashmap.HashMap[String, Value])
   VVariant(String, Value)
   VRef(@ref.Ref[Value])

@@ -46,6 +46,8 @@ priv enum Token {
   SemiTok
   LBraceTok
   RBraceTok
+  LBracketTok
+  RBracketTok
   LParenTok
   RParenTok
   CommaTok
@@ -249,6 +251,14 @@ fn lex_loop(source : String, i : Int, acc : Array[Token]) -> Unit raise {
       acc.push(RBraceTok)
       lex_loop(source, i + 1, acc)
     }
+    '[' => {
+      acc.push(LBracketTok)
+      lex_loop(source, i + 1, acc)
+    }
+    ']' => {
+      acc.push(RBracketTok)
+      lex_loop(source, i + 1, acc)
+    }
     '&' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '&' {
@@ -391,6 +401,8 @@ fn token_name(tok : Token) -> String {
     SemiTok => ";"
     LBraceTok => "{"
     RBraceTok => "}"
+    LBracketTok => "["
+    RBracketTok => "]"
     LParenTok => "("
     RParenTok => ")"
     CommaTok => ","
@@ -835,6 +847,7 @@ fn parse_primary_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     IdentTok(name) => (Var(name), i + 1)
     HashTok => parse_variant_literal(tokens, i + 1)
     LBraceTok => parse_record_literal(tokens, i + 1)
+    LBracketTok => parse_list_literal(tokens, i + 1)
     LParenTok => {
       let (expr, j) = parse_expr(tokens, i + 1)
       if j < tokens.length() && tokens[j] == RParenTok {
@@ -899,6 +912,30 @@ fn parse_record_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     }
     raise SyntaxError(
       "unexpected token in record: " + token_name(tokens[next_expr]),
+    )
+  }
+}
+
+///|
+fn parse_list_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+  if i < tokens.length() && tokens[i] == RBracketTok {
+    return (List([]), i + 1)
+  }
+  let items = []
+  for j = i, _pos = 0 {
+    let (item, next_expr) = parse_expr(tokens, j)
+    items.push(item)
+    if next_expr >= tokens.length() {
+      raise SyntaxError("unexpected end in list")
+    }
+    if tokens[next_expr] == CommaTok {
+      continue next_expr + 1, _pos + 1
+    }
+    if tokens[next_expr] == RBracketTok {
+      break (List(items), next_expr + 1)
+    }
+    raise SyntaxError(
+      "unexpected token in list: " + token_name(tokens[next_expr]),
     )
   }
 }

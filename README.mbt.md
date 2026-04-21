@@ -13,7 +13,7 @@ A small interpreter-style language implemented in MoonBit.
 
 ## Syntax
 
-- Values: `Int`, `Bool`, `String`, `nil`, closures, records, variants
+- Values: `Int`, `Bool`, `String`, `nil`, lists, closures, records, variants
 - Expressions:
   - literals and variables
   - `let ... = ... in ...`
@@ -23,6 +23,7 @@ A small interpreter-style language implemented in MoonBit.
   - `match e { #Left(x) => ..., #Right(y) => ... }`
   - references: `ref e`, `!e`, `e1 := e2`
   - records: `{a: 1, b: 2}`, `e.a`, `let {a, b} = e in ...`
+  - lists: `[1, 2, 3]`
   - variants: `#Left(1)`, `#Right("x")`
   - sequencing: `e1; e2`
   - function call: `f(x, y)`
@@ -68,6 +69,7 @@ let value = @simpl.eval_source(
   - `eval_source(source) -> Value raise`
 - Constructors:
   - `record(fields) -> Expr`
+  - `list(items) -> Expr`
   - `variant(tag, value) -> Expr`
   - `let_record_in(bindings, value_expr, body) -> Expr`
   - `match_variant(value_expr, cases) -> Expr`
@@ -80,7 +82,7 @@ let value = @simpl.eval_source(
 
 - Strings do not yet support escape sequences.
 - `match` currently supports a minimal variant matching form.
-- There are no statement blocks or list literals yet.
+- There are no statement blocks yet.
 
 ## Semantics
 
