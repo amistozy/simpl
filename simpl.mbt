@@ -8,9 +8,9 @@ pub enum Expr {
   Var(String)
   If(Expr, Expr, Expr)
   Let(String, Expr, Expr)
-  LetRec(String, @list.List[String], Expr, Expr)
-  Lambda(@list.List[String], Expr)
-  Call(Expr, @list.List[Expr])
+  LetRec(String, Array[String], Expr, Expr)
+  Lambda(Array[String], Expr)
+  Call(Expr, Array[Expr])
   RefNew(Expr)
   RefGet(Expr)
   RefSet(Expr, Expr)
@@ -48,8 +48,8 @@ pub enum Value {
   VString(String)
   VNil
   VRef(@ref.Ref[Value])
-  VClosure(@list.List[String], Expr, Env)
-  VRecClosure(String, @list.List[String], Expr, Env)
+  VClosure(Array[String], Expr, Env)
+  VRecClosure(String, Array[String], Expr, Env)
 } derive(Debug)
 
 ///|
@@ -146,7 +146,7 @@ fn lookup(env : Env, name : String) -> Value raise {
 }
 
 ///|
-fn apply(func_value : Value, args : @list.List[Value]) -> Value raise {
+fn apply(func_value : Value, args : Array[Value]) -> Value raise {
   match func_value {
     VClosure(params, body, closure_env) => {
       let call_env = bind_params(params, args, closure_env)
@@ -164,33 +164,23 @@ fn apply(func_value : Value, args : @list.List[Value]) -> Value raise {
 
 ///|
 fn bind_params(
-  params : @list.List[String],
-  args : @list.List[Value],
+  params : Array[String],
+  args : Array[Value],
   base : Env,
 ) -> Env raise {
-  match (params, args) {
-    (@list.Empty, @list.Empty) => base
-    (@list.Empty, More(_, tail=_)) => raise RuntimeError("too many arguments")
-    (More(_, tail=_), @list.Empty) => raise RuntimeError("too few arguments")
-    (More(name, tail=rest_params), More(value, tail=rest_args)) =>
-      bind_params(rest_params, rest_args, base.add(name, value))
+  if params.length() < args.length() {
+    raise RuntimeError("too many arguments")
   }
+  if params.length() > args.length() {
+    raise RuntimeError("too few arguments")
+  }
+  params.foldi(init=base, (i, acc_env, name) => acc_env.add(name, args[i]))
 }
 
 ///|
 /// Helpers: expression list evaluation
-fn eval_expr_list(
-  exprs : @list.List[Expr],
-  env : Env,
-) -> @list.List[Value] raise {
-  match exprs {
-    @list.Empty => @list.empty()
-    More(head, tail~) => {
-      let head_value = eval_with_env(head, env)
-      let values_tail = eval_expr_list(tail, env)
-      @list.cons(head_value, values_tail)
-    }
-  }
+fn eval_expr_list(exprs : Array[Expr], env : Env) -> Array[Value] raise {
+  exprs.map(expr => eval_with_env(expr, env))
 }
 
 ///|
@@ -322,7 +312,7 @@ pub fn let_in(name : String, value_expr : Expr, body : Expr) -> Expr {
 ///|
 pub fn let_rec_in(
   name : String,
-  params : @list.List[String],
+  params : Array[String],
   func_body : Expr,
   body : Expr,
 ) -> Expr {
@@ -330,12 +320,12 @@ pub fn let_rec_in(
 }
 
 ///|
-pub fn lambda(params : @list.List[String], body : Expr) -> Expr {
+pub fn lambda(params : Array[String], body : Expr) -> Expr {
   Lambda(params, body)
 }
 
 ///|
-pub fn call(func : Expr, args : @list.List[Expr]) -> Expr {
+pub fn call(func : Expr, args : Array[Expr]) -> Expr {
   Call(func, args)
 }
 
@@ -471,34 +461,4 @@ pub fn eval_is_error(expr : Expr) -> Bool {
   } noraise {
     _ => false
   }
-}
-
-///|
-pub fn strings0() -> @list.List[String] {
-  @list.empty()
-}
-
-///|
-pub fn strings1(a : String) -> @list.List[String] {
-  @list.from_array([a])
-}
-
-///|
-pub fn strings2(a : String, b : String) -> @list.List[String] {
-  @list.from_array([a, b])
-}
-
-///|
-pub fn exprs0() -> @list.List[Expr] {
-  @list.empty()
-}
-
-///|
-pub fn exprs1(a : Expr) -> @list.List[Expr] {
-  @list.from_array([a])
-}
-
-///|
-pub fn exprs2(a : Expr, b : Expr) -> @list.List[Expr] {
-  @list.from_array([a, b])
 }

@@ -46,14 +46,11 @@ test "closure captures lexical env" {
     @simpl.int_lit(10),
     @simpl.let_in(
       "f",
-      @simpl.lambda(
-        @simpl.strings1("y"),
-        @simpl.add(@simpl.var_ref("x"), @simpl.var_ref("y")),
-      ),
+      @simpl.lambda(["y"], @simpl.add(@simpl.var_ref("x"), @simpl.var_ref("y"))),
       @simpl.let_in(
         "x",
         @simpl.int_lit(100),
-        @simpl.call(@simpl.var_ref("f"), @simpl.exprs1(@simpl.int_lit(5))),
+        @simpl.call(@simpl.var_ref("f"), [@simpl.int_lit(5)]),
       ),
     ),
   )
@@ -63,16 +60,8 @@ test "closure captures lexical env" {
 ///|
 test "higher order function" {
   let expr = @simpl.call(
-    @simpl.lambda(
-      @simpl.strings1("f"),
-      @simpl.call(@simpl.var_ref("f"), @simpl.exprs1(@simpl.int_lit(41))),
-    ),
-    @simpl.exprs1(
-      @simpl.lambda(
-        @simpl.strings1("x"),
-        @simpl.add(@simpl.var_ref("x"), @simpl.int_lit(1)),
-      ),
-    ),
+    @simpl.lambda(["f"], @simpl.call(@simpl.var_ref("f"), [@simpl.int_lit(41)])),
+    [@simpl.lambda(["x"], @simpl.add(@simpl.var_ref("x"), @simpl.int_lit(1)))],
   )
   assert_true(@simpl.eval_is_int(expr, 42))
 }

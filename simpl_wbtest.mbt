@@ -20,6 +20,6 @@ test "inner let shadows outer binding" {
 
 ///|
 test "calling non function errors" {
-  let expr = Call(IntLit(1), exprs0())
+  let expr = Call(IntLit(1), [])
   assert_true(eval_is_error(expr))
 }

@@ -2,8 +2,8 @@
 package "amistozy/simpl"
 
 import {
+  "moonbitlang/core/debug",
   "moonbitlang/core/immut/hashmap",
-  "moonbitlang/core/list",
   "moonbitlang/core/ref",
 }
 
@@ -14,7 +14,7 @@ pub fn binary(BinOp, Expr, Expr) -> Expr
 
 pub fn bool_lit(Bool) -> Expr
 
-pub fn call(Expr, @list.List[Expr]) -> Expr
+pub fn call(Expr, Array[Expr]) -> Expr
 
 pub fn div(Expr, Expr) -> Expr
 
@@ -38,12 +38,6 @@ pub fn eval_source_is_int(String, Int) -> Bool
 
 pub fn eval_with_env(Expr, @hashmap.HashMap[String, Value]) -> Value raise
 
-pub fn exprs0() -> @list.List[Expr]
-
-pub fn exprs1(Expr) -> @list.List[Expr]
-
-pub fn exprs2(Expr, Expr) -> @list.List[Expr]
-
 pub fn ge(Expr, Expr) -> Expr
 
 pub fn gt(Expr, Expr) -> Expr
@@ -52,13 +46,13 @@ pub fn if_then_else(Expr, Expr, Expr) -> Expr
 
 pub fn int_lit(Int) -> Expr
 
-pub fn lambda(@list.List[String], Expr) -> Expr
+pub fn lambda(Array[String], Expr) -> Expr
 
 pub fn le(Expr, Expr) -> Expr
 
 pub fn let_in(String, Expr, Expr) -> Expr
 
-pub fn let_rec_in(String, @list.List[String], Expr, Expr) -> Expr
+pub fn let_rec_in(String, Array[String], Expr, Expr) -> Expr
 
 pub fn logic_and(Expr, Expr) -> Expr
 
@@ -90,12 +84,6 @@ pub fn ref_set(Expr, Expr) -> Expr
 
 pub fn string_lit(String) -> Expr
 
-pub fn strings0() -> @list.List[String]
-
-pub fn strings1(String) -> @list.List[String]
-
-pub fn strings2(String, String) -> @list.List[String]
-
 pub fn sub(Expr, Expr) -> Expr
 
 pub fn unary(UnOp, Expr) -> Expr
@@ -125,7 +113,7 @@ pub enum BinOp {
   Ge
   And
   Or
-}
+} derive(@debug.Debug)
 
 pub enum Expr {
   IntLit(Int)
@@ -135,20 +123,20 @@ pub enum Expr {
   Var(String)
   If(Expr, Expr, Expr)
   Let(String, Expr, Expr)
-  LetRec(String, @list.List[String], Expr, Expr)
-  Lambda(@list.List[String], Expr)
-  Call(Expr, @list.List[Expr])
+  LetRec(String, Array[String], Expr, Expr)
+  Lambda(Array[String], Expr)
+  Call(Expr, Array[Expr])
   RefNew(Expr)
   RefGet(Expr)
   RefSet(Expr, Expr)
   Unary(UnOp, Expr)
   Binary(BinOp, Expr, Expr)
-}
+} derive(@debug.Debug)
 
 pub enum UnOp {
   Neg
   Not
-}
+} derive(@debug.Debug)
 
 pub enum Value {
   VInt(Int)
@@ -156,9 +144,9 @@ pub enum Value {
   VString(String)
   VNil
   VRef(@ref.Ref[Value])
-  VClosure(@list.List[String], Expr, @hashmap.HashMap[String, Value])
-  VRecClosure(String, @list.List[String], Expr, @hashmap.HashMap[String, Value])
-}
+  VClosure(Array[String], Expr, @hashmap.HashMap[String, Value])
+  VRecClosure(String, Array[String], Expr, @hashmap.HashMap[String, Value])
+} derive(@debug.Debug)
 
 // Type aliases
 pub type Env = @hashmap.HashMap[String, Value]
