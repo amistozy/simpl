@@ -1,7 +1,7 @@
 ///|
 /// Whitebox: evaluate with preloaded environment
 test "eval_with_env reads env chain" {
-  let env = Extend("x", VInt(7), Empty)
+  let env = @hashmap.singleton("x", VInt(7))
   assert_true(
     try eval_with_env(Var("x"), env) catch {
       _ => false

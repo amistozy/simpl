@@ -2,6 +2,7 @@
 package "amistozy/simpl"
 
 import {
+  "moonbitlang/core/immut/hashmap",
   "moonbitlang/core/list",
 }
 
@@ -34,7 +35,7 @@ pub fn eval_source_is_error(String) -> Bool
 
 pub fn eval_source_is_int(String, Int) -> Bool
 
-pub fn eval_with_env(Expr, Env) -> Value raise
+pub fn eval_with_env(Expr, @hashmap.HashMap[String, Value]) -> Value raise
 
 pub fn exprs0() -> @list.List[Expr]
 
@@ -108,11 +109,6 @@ pub enum BinOp {
   Or
 }
 
-pub enum Env {
-  Empty
-  Extend(String, Value, Env)
-}
-
 pub enum Expr {
   IntLit(Int)
   BoolLit(Bool)
@@ -137,10 +133,11 @@ pub enum Value {
   VBool(Bool)
   VString(String)
   VNil
-  VClosure(@list.List[String], Expr, Env)
+  VClosure(@list.List[String], Expr, @hashmap.HashMap[String, Value])
 }
 
 // Type aliases
+pub type Env = @hashmap.HashMap[String, Value]
 
 // Traits
 

@@ -44,10 +44,7 @@ pub enum Value {
 }
 
 ///|
-pub enum Env {
-  Empty
-  Extend(String, Value, Env)
-}
+pub type Env = @hashmap.HashMap[String, Value]
 
 ///|
 pub suberror EvalError {
@@ -57,7 +54,7 @@ pub suberror EvalError {
 ///|
 /// Public API
 pub fn eval(expr : Expr) -> Value raise {
-  eval_with_env(expr, Empty)
+  eval_with_env(expr, @hashmap.new())
 }
 
 ///|
@@ -76,7 +73,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       }
     Let(name, value_expr, body) => {
       let v = eval_with_env(value_expr, env)
-      eval_with_env(body, Extend(name, v, env))
+      eval_with_env(body, env.add(name, v))
     }
     Lambda(params, body) => VClosure(params, body, env)
     Call(func_expr, arg_exprs) => {
@@ -93,14 +90,9 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
 ///|
 /// Helpers: environment and apply
 fn lookup(env : Env, name : String) -> Value raise {
-  match env {
-    Empty => raise RuntimeError("undefined variable: " + name)
-    Extend(key, value, parent) =>
-      if key == name {
-        value
-      } else {
-        lookup(parent, name)
-      }
+  match env.get(name) {
+    Some(value) => value
+    None => raise RuntimeError("undefined variable: " + name)
   }
 }
 
@@ -126,7 +118,7 @@ fn bind_params(
     (@list.Empty, More(_, tail=_)) => raise RuntimeError("too many arguments")
     (More(_, tail=_), @list.Empty) => raise RuntimeError("too few arguments")
     (More(name, tail=rest_params), More(value, tail=rest_args)) =>
-      bind_params(rest_params, rest_args, Extend(name, value, base))
+      bind_params(rest_params, rest_args, base.add(name, value))
   }
 }
 
