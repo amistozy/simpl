@@ -36,6 +36,8 @@ pub fn eval_source_is_error(String) -> Bool
 
 pub fn eval_source_is_int(String, Int) -> Bool
 
+pub fn eval_source_is_string(String, String) -> Bool
+
 pub fn eval_with_env(Expr, @hashmap.HashMap[String, Value]) -> Value raise
 
 pub fn ge(Expr, Expr) -> Expr

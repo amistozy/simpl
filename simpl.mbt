@@ -117,17 +117,17 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
         And => {
           let left_value = eval_with_env(left, env)
           if truthy(left_value) {
-            VBool(truthy(eval_with_env(right, env)))
+            eval_with_env(right, env)
           } else {
-            VBool(false)
+            left_value
           }
         }
         Or => {
           let left_value = eval_with_env(left, env)
           if truthy(left_value) {
-            VBool(true)
+            left_value
           } else {
-            VBool(truthy(eval_with_env(right, env)))
+            eval_with_env(right, env)
           }
         }
         _ =>
@@ -253,8 +253,8 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
         (VInt(a), VInt(b)) => VBool(a >= b)
         _ => raise RuntimeError("type error: '>=' expects Int+Int")
       }
-    And => VBool(truthy(left) && truthy(right))
-    Or => VBool(truthy(left) || truthy(right))
+    And => if truthy(left) { right } else { left }
+    Or => if truthy(left) { left } else { right }
   }
 }
 
@@ -447,6 +447,16 @@ pub fn eval_is_bool(expr : Expr, expected : Bool) -> Bool {
 ///|
 pub fn eval_is_string(expr : Expr, expected : String) -> Bool {
   try eval(expr) catch {
+    _ => false
+  } noraise {
+    VString(v) => v == expected
+    _ => false
+  }
+}
+
+///|
+pub fn eval_source_is_string(source : String, expected : String) -> Bool {
+  try eval_source(source) catch {
     _ => false
   } noraise {
     VString(v) => v == expected

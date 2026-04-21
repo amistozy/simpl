@@ -187,3 +187,17 @@ test "or short-circuits right-hand side" {
     #| true or (r := 1 == 1); !r
   assert_true(@simpl.eval_source_is_int(code, 0))
 }
+
+///|
+test "and returns the actual operand value" {
+  let code =
+    #| "left" and "right"
+  assert_true(@simpl.eval_source_is_string(code, "right"))
+}
+
+///|
+test "or returns the actual operand value" {
+  let code =
+    #| nil or "fallback"
+  assert_true(@simpl.eval_source_is_string(code, "fallback"))
+}
