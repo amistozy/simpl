@@ -8,8 +8,12 @@ pub enum Expr {
   Var(String)
   If(Expr, Expr, Expr)
   Let(String, Expr, Expr)
+  LetRec(String, @list.List[String], Expr, Expr)
   Lambda(@list.List[String], Expr)
   Call(Expr, @list.List[Expr])
+  RefNew(Expr)
+  RefGet(Expr)
+  RefSet(Expr, Expr)
   Unary(UnOp, Expr)
   Binary(BinOp, Expr, Expr)
 }
@@ -40,7 +44,9 @@ pub enum Value {
   VBool(Bool)
   VString(String)
   VNil
+  VRef(@ref.Ref[Value])
   VClosure(@list.List[String], Expr, Env)
+  VRecClosure(String, @list.List[String], Expr, Env)
 }
 
 ///|
@@ -75,11 +81,32 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       let v = eval_with_env(value_expr, env)
       eval_with_env(body, env.add(name, v))
     }
+    LetRec(name, params, func_body, body) => {
+      let rec_closure = VRecClosure(name, params, func_body, env)
+      eval_with_env(body, env.add(name, rec_closure))
+    }
     Lambda(params, body) => VClosure(params, body, env)
     Call(func_expr, arg_exprs) => {
       let func_value = eval_with_env(func_expr, env)
       let args = eval_expr_list(arg_exprs, env)
       apply(func_value, args)
+    }
+    RefNew(inner) => VRef(@ref.new(eval_with_env(inner, env)))
+    RefGet(ref_expr) =>
+      match eval_with_env(ref_expr, env) {
+        VRef(cell) => cell.val
+        _ => raise RuntimeError("type error: '!' expects Ref")
+      }
+    RefSet(ref_expr, value_expr) => {
+      let ref_value = eval_with_env(ref_expr, env)
+      let new_value = eval_with_env(value_expr, env)
+      match ref_value {
+        VRef(cell) => {
+          cell.val = new_value
+          new_value
+        }
+        _ => raise RuntimeError("type error: ':=' expects Ref on left side")
+      }
     }
     Unary(op, one) => eval_unary(op, eval_with_env(one, env))
     Binary(op, left, right) =>
@@ -101,6 +128,12 @@ fn apply(func_value : Value, args : @list.List[Value]) -> Value raise {
   match func_value {
     VClosure(params, body, closure_env) => {
       let call_env = bind_params(params, args, closure_env)
+      eval_with_env(body, call_env)
+    }
+    VRecClosure(name, params, body, closure_env) => {
+      let call_env = bind_params(params, args, closure_env).add(
+        name, func_value,
+      )
       eval_with_env(body, call_env)
     }
     _ => raise RuntimeError("attempt to call a non-function value")
@@ -254,6 +287,16 @@ pub fn let_in(name : String, value_expr : Expr, body : Expr) -> Expr {
 }
 
 ///|
+pub fn let_rec_in(
+  name : String,
+  params : @list.List[String],
+  func_body : Expr,
+  body : Expr,
+) -> Expr {
+  LetRec(name, params, func_body, body)
+}
+
+///|
 pub fn lambda(params : @list.List[String], body : Expr) -> Expr {
   Lambda(params, body)
 }
@@ -261,6 +304,21 @@ pub fn lambda(params : @list.List[String], body : Expr) -> Expr {
 ///|
 pub fn call(func : Expr, args : @list.List[Expr]) -> Expr {
   Call(func, args)
+}
+
+///|
+pub fn ref_new(inner : Expr) -> Expr {
+  RefNew(inner)
+}
+
+///|
+pub fn ref_get(inner : Expr) -> Expr {
+  RefGet(inner)
+}
+
+///|
+pub fn ref_set(ref_expr : Expr, value_expr : Expr) -> Expr {
+  RefSet(ref_expr, value_expr)
 }
 
 ///|

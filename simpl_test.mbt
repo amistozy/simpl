@@ -78,7 +78,10 @@ test "eval_source honors operator precedence" {
 
 ///|
 test "eval_source supports let if lambda call" {
-  let code = "let x = 10 in let f = fn(y) => x + y in if true then f(5) else 0"
+  let code =
+    #| let x = 10 in 
+    #| let f(y) = x + y in 
+    #| if true then f(5) else 0
   assert_true(@simpl.eval_source_is_int(code, 15))
 }
 
@@ -86,4 +89,77 @@ test "eval_source supports let if lambda call" {
 test "parse error is reported" {
   assert_true(@simpl.eval_source_is_error("let x = 1 x + 2"))
   assert_true(@simpl.parse_is_error("let x = 1 x + 2"))
+}
+
+///|
+test "ref basics and assignment expression value" {
+  let code =
+    #| let r = ref 1 in
+    #| let x = (r := 3) in
+    #| !r + x
+  assert_true(@simpl.eval_source_is_int(code, 6))
+}
+
+///|
+test "man or boy with refs (mutual recursion through cells)" {
+  let code =
+    #| let p_ref = ref nil in
+    #| let q_ref = ref nil in
+    #| let p(n) = if n == 0 then 1 else (!q_ref)(n - 1) in
+    #| let q(n) = if n == 0 then 0 else (!p_ref)(n - 1) in
+    #| let _ = (p_ref := p) in
+    #| let _ = (q_ref := q) in
+    #| (!p_ref)(10)
+  assert_true(@simpl.eval_source_is_int(code, 1))
+}
+
+///|
+test "man or boy (Knuth) translated from let rec version" {
+  let code =
+    #| let a_ref = ref nil in
+    #| let a(k, x1, x2, x3, x4, x5) =
+    #|   if k < 1 then
+    #|     x4() + x5()
+    #|   else
+    #|     let m = ref k in
+    #|     let b_ref = ref nil in
+    #|     let b() =
+    #|       let _ = (m := !m - 1) in
+    #|       (!a_ref)(!m, !b_ref, x1, x2, x3, x4)
+    #|     in
+    #|     let _ = (b_ref := b) in
+    #|     (!b_ref)()
+    #| in
+    #| let _ = (a_ref := a) in
+    #| (!a_ref)(3, fn() => 1, fn() => -1, fn() => -1, fn() => 1, fn() => 0)
+  assert_true(@simpl.eval_source_is_int(code, 0))
+}
+
+///|
+test "let rec factorial" {
+  let code =
+    #| let rec fact(n) =
+    #|   if n == 0 then 1 else n * fact(n - 1)
+    #| in
+    #| fact(6)
+  assert_true(@simpl.eval_source_is_int(code, 720))
+}
+
+///|
+test "let rec supports lexical capture" {
+  let code =
+    #| let x = 3 in
+    #| let rec f(n) =
+    #|   if n == 0 then x else f(n - 1)
+    #| in
+    #| f(4)
+  assert_true(@simpl.eval_source_is_int(code, 3))
+}
+
+///|
+test "let function sugar equals lambda binding" {
+  let code =
+    #| let add2(x) = x + 2 in
+    #| add2(40)
+  assert_true(@simpl.eval_source_is_int(code, 42))
 }

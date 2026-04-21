@@ -13,12 +13,14 @@ priv enum Token {
   FalseTok
   NilTok
   LetTok
+  RecTok
   InTok
   IfTok
   ThenTok
   ElseTok
   FnTok
   NotTok
+  RefTok
   AndWordTok
   OrWordTok
   PlusTok
@@ -32,6 +34,8 @@ priv enum Token {
   OrOrTok
   AssignTok
   ArrowTok
+  BangTok
+  ColonEqTok
   LParenTok
   RParenTok
   CommaTok
@@ -150,6 +154,14 @@ fn lex_loop(
       } else {
         lex_loop(source, i + 1, @list.cons(AssignTok, acc))
       }
+    '!' => lex_loop(source, i + 1, @list.cons(BangTok, acc))
+    ':' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '=' {
+        lex_loop(source, i + 2, @list.cons(ColonEqTok, acc))
+      } else {
+        raise SyntaxError("unexpected token ':'")
+      }
     '&' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '&' {
@@ -232,12 +244,14 @@ fn keyword_or_ident(text : String) -> Token {
     "false" => FalseTok
     "nil" => NilTok
     "let" => LetTok
+    "rec" => RecTok
     "in" => InTok
     "if" => IfTok
     "then" => ThenTok
     "else" => ElseTok
     "fn" => FnTok
     "not" => NotTok
+    "ref" => RefTok
     "and" => AndWordTok
     "or" => OrWordTok
     _ => IdentTok(text)
@@ -302,12 +316,14 @@ fn token_name(tok : Token) -> String {
     FalseTok => "false"
     NilTok => "nil"
     LetTok => "let"
+    RecTok => "rec"
     InTok => "in"
     IfTok => "if"
     ThenTok => "then"
     ElseTok => "else"
     FnTok => "fn"
     NotTok => "not"
+    RefTok => "ref"
     AndWordTok => "and"
     OrWordTok => "or"
     PlusTok => "+"
@@ -321,6 +337,8 @@ fn token_name(tok : Token) -> String {
     OrOrTok => "||"
     AssignTok => "="
     ArrowTok => "=>"
+    BangTok => "!"
+    ColonEqTok => ":="
     LParenTok => "("
     RParenTok => ")"
     CommaTok => ","
@@ -330,7 +348,21 @@ fn token_name(tok : Token) -> String {
 
 ///|
 fn parse_expr(tokens : @list.List[Token]) -> (Expr, @list.List[Token]) raise {
-  parse_let_expr(tokens)
+  parse_assign_expr(tokens)
+}
+
+///|
+fn parse_assign_expr(
+  tokens : @list.List[Token],
+) -> (Expr, @list.List[Token]) raise {
+  let (left, rest) = parse_let_expr(tokens)
+  match rest {
+    More(ColonEqTok, tail=rest1) => {
+      let (right, rest2) = parse_assign_expr(rest1)
+      (RefSet(left, right), rest2)
+    }
+    _ => (left, rest)
+  }
 }
 
 ///|
@@ -338,23 +370,73 @@ fn parse_let_expr(
   tokens : @list.List[Token],
 ) -> (Expr, @list.List[Token]) raise {
   match tokens {
-    More(LetTok, tail=rest1) =>
-      match rest1 {
-        More(IdentTok(name), tail=More(AssignTok, tail=rest3)) => {
-          let (value_expr, rest4) = parse_expr(rest3)
-          match rest4 {
-            More(InTok, tail=rest5) => {
-              let (body, rest6) = parse_expr(rest5)
-              (Let(name, value_expr, body), rest6)
+    More(LetTok, tail=More(RecTok, tail=rest1)) => parse_let_rec_expr(rest1)
+    More(LetTok, tail=rest1) => parse_plain_let_expr(rest1)
+    _ => parse_if_expr(tokens)
+  }
+}
+
+///|
+fn parse_plain_let_expr(
+  tokens : @list.List[Token],
+) -> (Expr, @list.List[Token]) raise {
+  match tokens {
+    More(IdentTok(name), tail=More(LParenTok, tail=rest2)) => {
+      let (params, rest3) = parse_params(rest2)
+      match rest3 {
+        More(AssignTok, tail=rest4) => {
+          let (func_body, rest5) = parse_expr(rest4)
+          match rest5 {
+            More(InTok, tail=rest6) => {
+              let (body, rest7) = parse_expr(rest6)
+              (Let(name, Lambda(params, func_body), body), rest7)
             }
-            _ => raise SyntaxError("expected 'in' after let binding")
+            _ => raise SyntaxError("expected 'in' after let function binding")
           }
         }
-        More(IdentTok(_), tail=_) =>
-          raise SyntaxError("expected '=' after let name")
-        _ => raise SyntaxError("expected identifier after 'let'")
+        _ => raise SyntaxError("expected '=' after let function params")
       }
-    _ => parse_if_expr(tokens)
+    }
+    More(IdentTok(name), tail=More(AssignTok, tail=rest3)) => {
+      let (value_expr, rest4) = parse_expr(rest3)
+      match rest4 {
+        More(InTok, tail=rest5) => {
+          let (body, rest6) = parse_expr(rest5)
+          (Let(name, value_expr, body), rest6)
+        }
+        _ => raise SyntaxError("expected 'in' after let binding")
+      }
+    }
+    More(IdentTok(_), tail=_) =>
+      raise SyntaxError("expected '=' after let name")
+    _ => raise SyntaxError("expected identifier after 'let'")
+  }
+}
+
+///|
+fn parse_let_rec_expr(
+  tokens : @list.List[Token],
+) -> (Expr, @list.List[Token]) raise {
+  match tokens {
+    More(IdentTok(name), tail=More(LParenTok, tail=rest2)) => {
+      let (params, rest3) = parse_params(rest2)
+      match rest3 {
+        More(AssignTok, tail=rest4) => {
+          let (func_body, rest5) = parse_expr(rest4)
+          match rest5 {
+            More(InTok, tail=rest6) => {
+              let (body, rest7) = parse_expr(rest6)
+              (LetRec(name, params, func_body, body), rest7)
+            }
+            _ => raise SyntaxError("expected 'in' after let rec binding")
+          }
+        }
+        _ => raise SyntaxError("expected '=' after let rec params")
+      }
+    }
+    More(IdentTok(_), tail=_) =>
+      raise SyntaxError("expected '(...)' after let rec function name")
+    _ => raise SyntaxError("expected function name after 'let rec'")
   }
 }
 
@@ -588,6 +670,14 @@ fn parse_unary_expr(
   tokens : @list.List[Token],
 ) -> (Expr, @list.List[Token]) raise {
   match tokens {
+    More(RefTok, tail=rest) => {
+      let (expr, rest2) = parse_unary_expr(rest)
+      (RefNew(expr), rest2)
+    }
+    More(BangTok, tail=rest) => {
+      let (expr, rest2) = parse_unary_expr(rest)
+      (RefGet(expr), rest2)
+    }
     More(MinusTok, tail=rest) => {
       let (expr, rest2) = parse_unary_expr(rest)
       (Unary(Neg, expr), rest2)

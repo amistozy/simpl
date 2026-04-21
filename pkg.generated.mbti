@@ -4,6 +4,7 @@ package "amistozy/simpl"
 import {
   "moonbitlang/core/immut/hashmap",
   "moonbitlang/core/list",
+  "moonbitlang/core/ref",
 }
 
 // Values
@@ -53,6 +54,8 @@ pub fn lambda(@list.List[String], Expr) -> Expr
 
 pub fn let_in(String, Expr, Expr) -> Expr
 
+pub fn let_rec_in(String, @list.List[String], Expr, Expr) -> Expr
+
 pub fn logic_and(Expr, Expr) -> Expr
 
 pub fn logic_or(Expr, Expr) -> Expr
@@ -72,6 +75,12 @@ pub fn parse(String) -> Expr raise
 pub fn parse_is_error(String) -> Bool
 
 pub fn parse_is_ok(String) -> Bool
+
+pub fn ref_get(Expr) -> Expr
+
+pub fn ref_new(Expr) -> Expr
+
+pub fn ref_set(Expr, Expr) -> Expr
 
 pub fn string_lit(String) -> Expr
 
@@ -117,8 +126,12 @@ pub enum Expr {
   Var(String)
   If(Expr, Expr, Expr)
   Let(String, Expr, Expr)
+  LetRec(String, @list.List[String], Expr, Expr)
   Lambda(@list.List[String], Expr)
   Call(Expr, @list.List[Expr])
+  RefNew(Expr)
+  RefGet(Expr)
+  RefSet(Expr, Expr)
   Unary(UnOp, Expr)
   Binary(BinOp, Expr, Expr)
 }
@@ -133,7 +146,9 @@ pub enum Value {
   VBool(Bool)
   VString(String)
   VNil
+  VRef(@ref.Ref[Value])
   VClosure(@list.List[String], Expr, @hashmap.HashMap[String, Value])
+  VRecClosure(String, @list.List[String], Expr, @hashmap.HashMap[String, Value])
 }
 
 // Type aliases

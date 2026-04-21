@@ -1,4 +1,5 @@
 import {
   "moonbitlang/core/list",
   "moonbitlang/core/immut/hashmap",
+  "moonbitlang/core/ref",
 }
