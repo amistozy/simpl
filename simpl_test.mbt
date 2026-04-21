@@ -116,22 +116,18 @@ test "man or boy with refs (mutual recursion through cells)" {
 ///|
 test "man or boy (Knuth) translated from let rec version" {
   let code =
-    #| let a_ref = ref nil in
-    #| let a(k, x1, x2, x3, x4, x5) =
+    #| let rec a(k, x1, x2, x3, x4, x5) =
     #|   if k < 1 then
     #|     x4() + x5()
     #|   else
     #|     let m = ref k in
-    #|     let b_ref = ref nil in
-    #|     let b() =
+    #|     let rec b() =
     #|       let _ = (m := !m - 1) in
-    #|       (!a_ref)(!m, !b_ref, x1, x2, x3, x4)
+    #|       a(!m, b, x1, x2, x3, x4)
     #|     in
-    #|     let _ = (b_ref := b) in
-    #|     (!b_ref)()
+    #|     b()
     #| in
-    #| let _ = (a_ref := a) in
-    #| (!a_ref)(3, fn() => 1, fn() => -1, fn() => -1, fn() => 1, fn() => 0)
+    #| a(3, fn() => 1, fn() => -1, fn() => -1, fn() => 1, fn() => 0)
   assert_true(@simpl.eval_source_is_int(code, 0))
 }
 
