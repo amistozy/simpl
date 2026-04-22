@@ -203,8 +203,8 @@ test "pattern match failure reports expected pattern and actual value" {
 ///|
 test "non-exhaustive match reports unmatched value" {
   assert_eq(
-    @simpl.eval_error_text("match 42 { 0 => 0 }"),
-    Some("non-exhaustive match: no case matched value 42 at 1:1-20"),
+    @simpl.eval_error_text("match 42 with 0 -> 0"),
+    Some("non-exhaustive match: no case matched value 42 at 1:1-21"),
   )
 }
 
@@ -380,10 +380,9 @@ test "let supports general patterns" {
 ///|
 test "variant literal and match" {
   let code =
-    #| match #Left(41) {
-    #|   #Left(x) => x + 1,
-    #|   #Right(y) => y
-    #| }
+    #| match #Left(41) with
+    #| | #Left(x) -> x + 1
+    #| | #Right(y) -> y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -391,10 +390,9 @@ test "variant literal and match" {
 test "variant can be stored in let binding" {
   let code =
     #| let v = #Right(42) in
-    #| match v {
-    #|   #Left(x) => x,
-    #|   #Right(y) => y
-    #| }
+    #| match v with
+    #| | #Left(x) -> x
+    #| | #Right(y) -> y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -432,181 +430,161 @@ test "list equality is recursive" {
 ///|
 test "list pattern match" {
   let code =
-    #| match [1, 2] {
-    #|   [x, y] => x + y,
-    #|   [] => 0
-    #| }
+    #| match [1, 2] with
+    #| | [x, y] -> x + y
+    #| | [] -> 0
   assert_true(@simpl.eval_source_is_int(code, 3))
 }
 
 ///|
 test "empty list pattern match" {
   let code =
-    #| match [] {
-    #|   [] => 42,
-    #|   [x] => x
-    #| }
+    #| match [] with
+    #| | [] -> 42
+    #| | [x] -> x
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "nested list pattern match" {
   let code =
-    #| match [#Left(1), #Right(2)] {
-    #|   [#Left(x), #Right(y)] => x + y
-    #| }
+    #| match [#Left(1), #Right(2)] with
+    #| | [#Left(x), #Right(y)] -> x + y
   assert_true(@simpl.eval_source_is_int(code, 3))
 }
 
 ///|
 test "list rest pattern supports fixed prefix and suffix" {
   let code =
-    #| match [1, 2, 3, 4, 5, 6] {
-    #|   [a, b, ..c, d, e] =>
-    #|     match c {
-    #|       [x, y] => a + b + d + e + x + y,
-    #|       _ => 0
-    #|     },
-    #|   _ => 0
-    #| }
+    #| match [1, 2, 3, 4, 5, 6] with
+    #| | [a, b, ..c, d, e] ->
+    #|     match c with
+    #|     | [x, y] -> a + b + d + e + x + y
+    #|     | _ -> 0
+    #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 21))
 }
 
 ///|
 test "list rest pattern allows empty middle slice" {
   let code =
-    #| match [10, 20, 30, 40] {
-    #|   [a, b, ..c, d, e] =>
-    #|     match c {
-    #|       [] => a + b + d + e,
-    #|       _ => 0
-    #|     },
-    #|   _ => 0
-    #| }
+    #| match [10, 20, 30, 40] with
+    #| | [a, b, ..c, d, e] ->
+    #|     match c with
+    #|     | [] -> a + b + d + e
+    #|     | _ -> 0
+    #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 100))
 }
 
 ///|
 test "list rest pattern can ignore the middle with bare dotdot" {
   let code =
-    #| match [1, 2, 3, 4, 5] {
-    #|   [a, .., z] => a + z,
-    #|   _ => 0
-    #| }
+    #| match [1, 2, 3, 4, 5] with
+    #| | [a, .., z] -> a + z
+    #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 6))
 }
 
 ///|
 test "list rest pattern can ignore middle before fixed suffix" {
   let code =
-    #| match [10, 20, 30, 40, 50] {
-    #|   [a, .., y, z] => a + y + z,
-    #|   _ => 0
-    #| }
+    #| match [10, 20, 30, 40, 50] with
+    #| | [a, .., y, z] -> a + y + z
+    #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 100))
 }
 
 ///|
 test "list rest pattern works with nested patterns" {
   let code =
-    #| match [#Left(1), #Right(2), #Right(3), #Left(4)] {
-    #|   [#Left(a), ..mid, #Left(b)] =>
-    #|     match mid {
-    #|       [#Right(x), #Right(y)] => a + x + y + b,
-    #|       _ => 0
-    #|     },
-    #|   _ => 0
-    #| }
+    #| match [#Left(1), #Right(2), #Right(3), #Left(4)] with
+    #| | [#Left(a), ..mid, #Left(b)] ->
+    #|     match mid with
+    #|     | [#Right(x), #Right(y)] -> a + x + y + b
+    #|     | _ -> 0
+    #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 10))
 }
 
 ///|
 test "list pattern rejects multiple rest bindings" {
   let code =
-    #| match [1, 2, 3] {
-    #|   [..a, ..b] => 0,
-    #|   _ => 1
-    #| }
+    #| match [1, 2, 3] with
+    #| | [..a, ..b] -> 0
+    #| | _ -> 1
   assert_true(@simpl.parse_is_error(code))
 }
 
 ///|
 test "nested variant pattern match" {
   let code =
-    #| match #Outer(#Inner(41)) {
-    #|   #Outer(#Inner(x)) => x + 1
-    #| }
+    #| match #Outer(#Inner(41)) with
+    #| | #Outer(#Inner(x)) -> x + 1
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "variant carrying list pattern match" {
   let code =
-    #| match #Wrap([10, 32]) {
-    #|   #Wrap([x, y]) => x + y
-    #| }
+    #| match #Wrap([10, 32]) with
+    #| | #Wrap([x, y]) -> x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "match guards can refine successful pattern bindings" {
   let code =
-    #| match #Some(42) {
-    #|   #Some(x) if x < 0 => 0,
-    #|   #Some(x) if x >= 42 => x,
-    #|   _ => -1
-    #| }
+    #| match #Some(42) with
+    #| | #Some(x) if x < 0 -> 0
+    #| | #Some(x) if x >= 42 -> x
+    #| | _ -> -1
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "match guards can use bindings from nested patterns" {
   let code =
-    #| match {pair: [10, 32]} {
-    #|   {pair: [x, y]} if x + y == 42 => y,
-    #|   _ => 0
-    #| }
+    #| match {pair: [10, 32]} with
+    #| | {pair: [x, y]} if x + y == 42 -> y
+    #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 32))
 }
 
 ///|
 test "guard failure falls through to later cases" {
   let code =
-    #| match [20, 22] {
-    #|   [x, y] if x > y => x,
-    #|   [x, y] => x + y
-    #| }
+    #| match [20, 22] with
+    #| | [x, y] if x > y -> x
+    #| | [x, y] -> x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "or patterns match any alternative" {
   let code =
-    #| match #Right(42) {
-    #|   #Left(x) | #Right(x) => x,
-    #|   _ => 0
-    #| }
+    #| match #Right(42) with
+    #| | #Left(x) | #Right(x) -> x
+    #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "or patterns work with guards" {
   let code =
-    #| match [20, 22] {
-    #|   [x, 0] | [0, x] => x,
-    #|   [x, y] | [y, x] if x + y == 42 => y,
-    #|   _ => 0
-    #| }
+    #| match [20, 22] with
+    #| | [x, 0] | [0, x] -> x
+    #| | [x, y] | [y, x] if x + y == 42 -> y
+    #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 22))
 }
 
 ///|
 test "or patterns require the same bindings on each branch" {
   let code =
-    #| match #Left(42) {
-    #|   #Left(x) | #Right(y) => x,
-    #|   _ => 0
-    #| }
+    #| match #Left(42) with
+    #| | #Left(x) | #Right(y) -> x
+    #| | _ -> 0
   assert_true(@simpl.parse_is_error(code))
 }
 
@@ -638,25 +616,21 @@ test "let rec supports parameter patterns" {
 ///|
 test "literal patterns match primitive values" {
   let int_code =
-    #| match 42 {
-    #|   0 => 0,
-    #|   42 => 1
-    #| }
+    #| match 42 with
+    #| | 0 -> 0
+    #| | 42 -> 1
   let string_code =
-    #| match "moon" {
-    #|   "sun" => 0,
-    #|   "moon" => 1
-    #| }
+    #| match "moon" with
+    #| | "sun" -> 0
+    #| | "moon" -> 1
   let bool_code =
-    #| match false {
-    #|   true => 1,
-    #|   false => 42
-    #| }
+    #| match false with
+    #| | true -> 1
+    #| | false -> 42
   let nil_code =
-    #| match nil {
-    #|   nil => 42,
-    #|   _ => 0
-    #| }
+    #| match nil with
+    #| | nil -> 42
+    #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(int_code, 1))
   assert_true(@simpl.eval_source_is_int(string_code, 1))
   assert_true(@simpl.eval_source_is_int(bool_code, 42))
@@ -666,18 +640,16 @@ test "literal patterns match primitive values" {
 ///|
 test "record patterns match and can nest other patterns" {
   let code =
-    #| match {left: #Some(10), right: [1, 32], flag: true} {
-    #|   {left: #Some(x), right: [1, y], flag: true} => x + y,
-    #|   _ => 0
-    #| }
+    #| match {left: #Some(10), right: [1, 32], flag: true} with
+    #| | {left: #Some(x), right: [1, y], flag: true} -> x + y
+    #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "record patterns support shorthand field binding" {
   let code =
-    #| match {x: 10, y: 32} {
-    #|   {x, y} => x + y
-    #| }
+    #| match {x: 10, y: 32} with
+    #| | {x, y} -> x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }

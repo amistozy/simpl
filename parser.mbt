@@ -31,6 +31,7 @@ priv enum Token {
   NotTok
   RefTok
   MatchTok
+  WithTok
   AndWordTok
   OrWordTok
   PlusTok
@@ -47,6 +48,7 @@ priv enum Token {
   OrOrTok
   AssignTok
   ArrowTok
+  ThinArrowTok
   BangTok
   ColonEqTok
   ColonTok
@@ -210,7 +212,13 @@ fn lex_loop(
     ',' => push_single_char_token(source, i, line, column, CommaTok, acc)
     ';' => push_single_char_token(source, i, line, column, SemiTok, acc)
     '+' => push_single_char_token(source, i, line, column, PlusTok, acc)
-    '-' => push_single_char_token(source, i, line, column, MinusTok, acc)
+    '-' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '>' {
+        push_multi_char_token(source, i, i + 2, line, column, ThinArrowTok, acc)
+      } else {
+        push_single_char_token(source, i, line, column, MinusTok, acc)
+      }
     '*' => push_single_char_token(source, i, line, column, StarTok, acc)
     '/' => push_single_char_token(source, i, line, column, SlashTok, acc)
     '>' =>
@@ -600,6 +608,7 @@ fn keyword_or_ident(text : String) -> Token {
     "not" => NotTok
     "ref" => RefTok
     "match" => MatchTok
+    "with" => WithTok
     "and" => AndWordTok
     "or" => OrWordTok
     _ => IdentTok(text)
@@ -625,6 +634,7 @@ fn token_name(tok : Token) -> String {
     NotTok => "not"
     RefTok => "ref"
     MatchTok => "match"
+    WithTok => "with"
     AndWordTok => "and"
     OrWordTok => "or"
     PlusTok => "+"
@@ -641,6 +651,7 @@ fn token_name(tok : Token) -> String {
     OrOrTok => "||"
     AssignTok => "="
     ArrowTok => "=>"
+    ThinArrowTok => "->"
     BangTok => "!"
     ColonEqTok => ":="
     ColonTok => ":"
@@ -816,8 +827,8 @@ fn parse_if_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
 fn parse_match_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == MatchTok {
     let (value_expr, j) = parse_expr(tokens, i + 1)
-    if j >= tokens.length() || token_kind(tokens, j) != LBraceTok {
-      syntax_error_at(tokens, j, "expected '{' after match expression")
+    if j >= tokens.length() || token_kind(tokens, j) != WithTok {
+      syntax_error_at(tokens, j, "expected 'with' after match expression")
     }
     let (cases, k) = parse_match_cases(tokens, j + 1)
     (located_expr(tokens, i, k, Match(value_expr, cases)), k)
@@ -1330,10 +1341,14 @@ fn parse_match_cases(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (Array[(MatchPattern, Expr?, Expr)], Int) raise {
-  if i < tokens.length() && token_kind(tokens, i) == RBraceTok {
-    return ([], i + 1)
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "unexpected end in match")
   }
-  let (case, j) = parse_match_case(tokens, i)
+  let start_i = if token_kind(tokens, i) == PipeTok { i + 1 } else { i }
+  if start_i >= tokens.length() {
+    syntax_error_eof(tokens, "unexpected end in match")
+  }
+  let (case, j) = parse_match_case(tokens, start_i)
   let (rest, k) = parse_match_cases_tail(tokens, j)
   ([case] + rest, k)
 }
@@ -1344,18 +1359,12 @@ fn parse_match_cases_tail(
   i : Int,
 ) -> (Array[(MatchPattern, Expr?, Expr)], Int) raise {
   if i >= tokens.length() {
-    syntax_error_eof(tokens, "unexpected end in match")
+    return ([], i)
   }
-  if token_kind(tokens, i) == CommaTok {
-    parse_match_cases(tokens, i + 1)
-  } else if token_kind(tokens, i) == RBraceTok {
-    ([], i + 1)
+  if token_kind(tokens, i) == PipeTok {
+    parse_match_cases(tokens, i)
   } else {
-    syntax_error_at(
-      tokens,
-      i,
-      "unexpected token in match: " + token_name(token_kind(tokens, i)),
-    )
+    ([], i)
   }
 }
 
@@ -1371,8 +1380,8 @@ fn parse_match_case(
   } else {
     (None, j)
   }
-  if k >= tokens.length() || token_kind(tokens, k) != ArrowTok {
-    syntax_error_at(tokens, k, "expected '=>' after match pattern")
+  if k >= tokens.length() || token_kind(tokens, k) != ThinArrowTok {
+    syntax_error_at(tokens, k, "expected '->' after match pattern")
   }
   let (body, next_expr) = parse_expr(tokens, k + 1)
   ((pattern, cond_expr, body), next_expr)

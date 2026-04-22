@@ -42,7 +42,7 @@ The current implementation already covers a strong set of core features for lang
 - `let rec f(...) = ... in ...`
 - `if cond then a else b`
 - `fn(...) => expr`
-- `match expr { ... }`
+- `match expr with | ...`
 - function calls such as `f(x, y)`
 - unary operators: `-x`, `not x`
 - binary operators: `+ - * / == != < <= > >= and or && ||`
@@ -67,7 +67,7 @@ Supported pattern forms include:
 - list patterns with an ignored middle slice such as `[head, .., tail]`
 - variant patterns such as `#Left(x)`
 - or-patterns such as `1 | 2`
-- guards such as `#Some(x) if x > 0 => ...`
+- guards such as `#Some(x) if x > 0 -> ...`
 
 ## Quick Examples
 
@@ -114,10 +114,9 @@ let value = @simpl.eval_source(
 ///|
 let value = @simpl.eval_source(
   (
-    #| match #Left(41) {
-    #|   #Left(x) => x + 1,
-    #|   #Right(y) => y,
-    #| }
+    #| match #Left(41) with
+    #| | #Left(x) -> x + 1
+    #| | #Right(y) -> y
   ),
 )
 // => VInt(42)
