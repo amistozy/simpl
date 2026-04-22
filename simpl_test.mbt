@@ -110,6 +110,22 @@ test "runtime error includes source position" {
 }
 
 ///|
+test "pattern match failure reports expected pattern and actual value" {
+  assert_eq(
+    @simpl.eval_error_text("let [x, y] = [1] in x"),
+    Some("pattern match failure: expected [x, y], got [1] at 1:5-22"),
+  )
+}
+
+///|
+test "non-exhaustive match reports unmatched value" {
+  assert_eq(
+    @simpl.eval_error_text("match 42 { 0 => 0 }"),
+    Some("non-exhaustive match: no case matched value 42 at 1:1-20"),
+  )
+}
+
+///|
 test "man or boy with refs (mutual recursion through cells)" {
   let code =
     #| let p_ref = ref nil in

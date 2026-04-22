@@ -266,13 +266,9 @@ fn eval_match_cases(
   i : Int,
 ) -> Value raise {
   if i >= cases.length() {
-    match value {
-      VVariant(tag, _) =>
-        raise runtime_error("non-exhaustive match on variant: " + tag)
-      VList(_) => raise runtime_error("non-exhaustive match on list")
-      VRecord(_) => raise runtime_error("non-exhaustive match on record")
-      _ => raise runtime_error("non-exhaustive match")
-    }
+    raise runtime_error(
+      "non-exhaustive match: no case matched value " + value_summary(value),
+    )
   }
   let (pattern, cond_expr, body) = cases[i]
   match try_bind_pattern(pattern, value, env) {
@@ -298,7 +294,13 @@ fn match_guard_passes(cond_expr : Expr?, env : Env) -> Bool raise {
 fn bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env raise {
   match try_bind_pattern(pattern, value, env) {
     Some(bound_env) => bound_env
-    None => raise runtime_error("pattern match failure")
+    None =>
+      raise runtime_error(
+        "pattern match failure: expected " +
+        pattern_summary(pattern) +
+        ", got " +
+        value_summary(value),
+      )
   }
 }
 
@@ -494,6 +496,118 @@ fn truthy(value : Value) -> Bool {
     VBool(v) => v
     VNil => false
     _ => true
+  }
+}
+
+///|
+fn pattern_summary(pattern : MatchPattern) -> String {
+  match pattern {
+    PBind(name) => name
+    PInt(value) => value.to_string()
+    PBool(value) => value.to_string()
+    PString(value) => "\"" + value + "\""
+    PNil => "nil"
+    POr(patterns) => join_pattern_summaries(patterns, 0)
+    PVariant(tag, inner) => "#" + tag + "(" + pattern_summary(inner) + ")"
+    PList(items) => "[" + join_pattern_list(items, 0) + "]"
+    PListRest(prefix, rest_name, suffix) =>
+      "[" + join_list_rest_pattern_parts(prefix, rest_name, suffix) + "]"
+    PRecord(fields) => "{" + join_record_pattern_fields(fields, 0) + "}"
+  }
+}
+
+///|
+fn join_pattern_summaries(patterns : Array[MatchPattern], i : Int) -> String {
+  if i >= patterns.length() {
+    return ""
+  }
+  let current = pattern_summary(patterns[i])
+  if i + 1 >= patterns.length() {
+    current
+  } else {
+    current + " | " + join_pattern_summaries(patterns, i + 1)
+  }
+}
+
+///|
+fn join_pattern_list(patterns : Array[MatchPattern], i : Int) -> String {
+  if i >= patterns.length() {
+    return ""
+  }
+  let current = pattern_summary(patterns[i])
+  if i + 1 >= patterns.length() {
+    current
+  } else {
+    current + ", " + join_pattern_list(patterns, i + 1)
+  }
+}
+
+///|
+fn join_list_rest_pattern_parts(
+  prefix : Array[MatchPattern],
+  rest_name : String,
+  suffix : Array[MatchPattern],
+) -> String {
+  let prefix_text = join_pattern_list(prefix, 0)
+  let rest_text = if rest_name == "_" { ".." } else { ".." + rest_name }
+  let suffix_text = join_pattern_list(suffix, 0)
+  if prefix.length() == 0 && suffix.length() == 0 {
+    rest_text
+  } else if prefix.length() == 0 {
+    rest_text + ", " + suffix_text
+  } else if suffix.length() == 0 {
+    prefix_text + ", " + rest_text
+  } else {
+    prefix_text + ", " + rest_text + ", " + suffix_text
+  }
+}
+
+///|
+fn join_record_pattern_fields(
+  fields : Array[(String, MatchPattern)],
+  i : Int,
+) -> String {
+  if i >= fields.length() {
+    return ""
+  }
+  let (field_name, field_pattern) = fields[i]
+  let current = match field_pattern {
+    PBind(name) if name == field_name => field_name
+    _ => field_name + ": " + pattern_summary(field_pattern)
+  }
+  if i + 1 >= fields.length() {
+    current
+  } else {
+    current + ", " + join_record_pattern_fields(fields, i + 1)
+  }
+}
+
+///|
+fn value_summary(value : Value) -> String {
+  match value {
+    VInt(v) => v.to_string()
+    VBool(v) => v.to_string()
+    VString(v) => "\"" + v + "\""
+    VNil => "nil"
+    VList(items) => "[" + join_value_list(items, 0) + "]"
+    VRecord(fields) => "record(" + fields.length().to_string() + " fields)"
+    VVariant(tag, payload) => "#" + tag + "(" + value_summary(payload) + ")"
+    VRef(_) => "ref"
+    VClosure(_, _, _) => "function"
+    VRecClosure(_, _, _, _) => "function"
+  }
+}
+
+///|
+fn join_value_list(values : Array[Value], i : Int) -> String {
+  if i >= values.length() {
+    return ""
+  }
+  let current = value_summary(values[i])
+  if i + 1 >= values.length() {
+    current
+  } else {
+    current + ", " + join_value_list(values, i + 1)
   }
 }
 
