@@ -10,7 +10,6 @@ type SpannedToken = (Token, SourceSpan)
 ///|
 /// Parser error type
 pub suberror ParseError {
-  SyntaxError(String)
   SyntaxErrorAt(String, SourceSpan)
 } derive(Debug)
 
@@ -109,7 +108,6 @@ pub fn eval_source(source : String) -> Value raise {
 ///|
 pub fn format_parse_error(error : ParseError) -> String {
   match error {
-    SyntaxError(message) => message
     SyntaxErrorAt(message, span) => message + " at " + format_source_span(span)
   }
 }
@@ -117,7 +115,6 @@ pub fn format_parse_error(error : ParseError) -> String {
 ///|
 pub fn parse_error_text(source : String) -> String? {
   try parse(source) catch {
-    SyntaxError(message) => Some(message)
     SyntaxErrorAt(message, span) =>
       Some(message + " at " + format_source_span(span))
     _ => None
@@ -194,7 +191,7 @@ fn lex_loop(
   }
   match c {
     '"' => {
-      let end = scan_string_end(source, i + 1)
+      let end = scan_string_end(source, i, i + 1, line, column)
       let content = source[i + 1:end].to_string()
       let span = make_span(source, i, end + 1, line, column)
       acc.push((StrTok(content), span))
@@ -450,6 +447,23 @@ fn expr_known_span(expr : Expr) -> SourceSpan {
 }
 
 ///|
+fn[T] syntax_error_at(
+  tokens : Array[SpannedToken],
+  i : Int,
+  message : String,
+) -> T raise {
+  raise SyntaxErrorAt(message, token_span_at(tokens, i))
+}
+
+///|
+fn[T] syntax_error_eof(
+  tokens : Array[SpannedToken],
+  message : String,
+) -> T raise {
+  raise SyntaxErrorAt(message, eof_span(tokens))
+}
+
+///|
 fn scan_digits(source : String, i : Int) -> Int {
   if i >= source.length() {
     return i
@@ -476,14 +490,23 @@ fn scan_ident(source : String, i : Int) -> Int {
 }
 
 ///|
-fn scan_string_end(source : String, i : Int) -> Int raise {
+fn scan_string_end(
+  source : String,
+  start : Int,
+  i : Int,
+  line : Int,
+  column : Int,
+) -> Int raise {
   if i >= source.length() {
-    raise SyntaxError("unterminated string literal")
+    raise SyntaxErrorAt(
+      "unterminated string literal",
+      make_span(source, start, source.length(), line, column),
+    )
   }
   if source.unsafe_get(i).unsafe_to_char() == '"' {
     i
   } else {
-    scan_string_end(source, i + 1)
+    scan_string_end(source, start, i + 1, line, column)
   }
 }
 
@@ -615,7 +638,7 @@ fn parse_assign_expr(
 ///|
 fn parse_let_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("unexpected end")
+    syntax_error_eof(tokens, "unexpected end")
   }
   if token_kind(tokens, i) == LetTok {
     if i + 1 < tokens.length() && token_kind(tokens, i + 1) == RecTok {
@@ -634,18 +657,18 @@ fn parse_plain_let_expr(
   i : Int,
 ) -> (Expr, Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("expected pattern after 'let'")
+    syntax_error_eof(tokens, "expected pattern after 'let'")
   }
   match token_kind(tokens, i) {
     IdentTok(name) =>
       if i + 1 < tokens.length() && token_kind(tokens, i + 1) == LParenTok {
         let (params, j) = parse_params(tokens, i + 2)
         if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-          raise SyntaxError("expected '=' after let function params")
+          syntax_error_at(tokens, j, "expected '=' after let function params")
         }
         let (func_body, k) = parse_expr(tokens, j + 1)
         if k >= tokens.length() || token_kind(tokens, k) != InTok {
-          raise SyntaxError("expected 'in' after let function binding")
+          syntax_error_at(tokens, k, "expected 'in' after let function binding")
         }
         let (body, m) = parse_expr(tokens, k + 1)
         (
@@ -660,11 +683,11 @@ fn parse_plain_let_expr(
       } else {
         let (pattern, j) = parse_pattern(tokens, i)
         if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-          raise SyntaxError("expected '=' after let pattern")
+          syntax_error_at(tokens, j, "expected '=' after let pattern")
         }
         let (value_expr, k) = parse_expr(tokens, j + 1)
         if k >= tokens.length() || token_kind(tokens, k) != InTok {
-          raise SyntaxError("expected 'in' after let binding")
+          syntax_error_at(tokens, k, "expected 'in' after let binding")
         }
         let (body, m) = parse_expr(tokens, k + 1)
         (located_expr(tokens, i, m, Let(pattern, value_expr, body)), m)
@@ -672,11 +695,11 @@ fn parse_plain_let_expr(
     _ => {
       let (pattern, j) = parse_pattern(tokens, i)
       if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-        raise SyntaxError("expected '=' after let pattern")
+        syntax_error_at(tokens, j, "expected '=' after let pattern")
       }
       let (value_expr, k) = parse_expr(tokens, j + 1)
       if k >= tokens.length() || token_kind(tokens, k) != InTok {
-        raise SyntaxError("expected 'in' after let binding")
+        syntax_error_at(tokens, k, "expected 'in' after let binding")
       }
       let (body, m) = parse_expr(tokens, k + 1)
       (located_expr(tokens, i, m, Let(pattern, value_expr, body)), m)
@@ -690,25 +713,29 @@ fn parse_let_rec_expr(
   i : Int,
 ) -> (Expr, Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("expected function name after 'let rec'")
+    syntax_error_eof(tokens, "expected function name after 'let rec'")
   }
   match token_kind(tokens, i) {
     IdentTok(name) => {
       if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
-        raise SyntaxError("expected '(...)' after let rec function name")
+        syntax_error_at(
+          tokens,
+          i + 1,
+          "expected '(...)' after let rec function name",
+        )
       }
       let (params, j) = parse_params(tokens, i + 2)
       if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-        raise SyntaxError("expected '=' after let rec params")
+        syntax_error_at(tokens, j, "expected '=' after let rec params")
       }
       let (func_body, k) = parse_expr(tokens, j + 1)
       if k >= tokens.length() || token_kind(tokens, k) != InTok {
-        raise SyntaxError("expected 'in' after let rec binding")
+        syntax_error_at(tokens, k, "expected 'in' after let rec binding")
       }
       let (body, m) = parse_expr(tokens, k + 1)
       (located_expr(tokens, i, m, LetRec(name, params, func_body, body)), m)
     }
-    _ => raise SyntaxError("expected function name after 'let rec'")
+    _ => syntax_error_at(tokens, i, "expected function name after 'let rec'")
   }
 }
 
@@ -717,11 +744,11 @@ fn parse_if_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == IfTok {
     let (cond, j) = parse_expr(tokens, i + 1)
     if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
-      raise SyntaxError("expected 'then' in if expression")
+      syntax_error_at(tokens, j, "expected 'then' in if expression")
     }
     let (then_expr, k) = parse_expr(tokens, j + 1)
     if k >= tokens.length() || token_kind(tokens, k) != ElseTok {
-      raise SyntaxError("expected 'else' in if expression")
+      syntax_error_at(tokens, k, "expected 'else' in if expression")
     }
     let (else_expr, m) = parse_expr(tokens, k + 1)
     (located_expr(tokens, i, m, If(cond, then_expr, else_expr)), m)
@@ -735,7 +762,7 @@ fn parse_match_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise 
   if i < tokens.length() && token_kind(tokens, i) == MatchTok {
     let (value_expr, j) = parse_expr(tokens, i + 1)
     if j >= tokens.length() || token_kind(tokens, j) != LBraceTok {
-      raise SyntaxError("expected '{' after match expression")
+      syntax_error_at(tokens, j, "expected '{' after match expression")
     }
     let (cases, k) = parse_match_cases(tokens, j + 1)
     (located_expr(tokens, i, k, Match(value_expr, cases)), k)
@@ -751,11 +778,11 @@ fn parse_lambda_expr(
 ) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == FnTok {
     if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
-      raise SyntaxError("expected '(' after 'fn'")
+      syntax_error_at(tokens, i + 1, "expected '(' after 'fn'")
     }
     let (params, j) = parse_params(tokens, i + 2)
     if j >= tokens.length() || token_kind(tokens, j) != ArrowTok {
-      raise SyntaxError("expected '=>' after lambda params")
+      syntax_error_at(tokens, j, "expected '=>' after lambda params")
     }
     let (body, k) = parse_expr(tokens, j + 1)
     (located_expr(tokens, i, k, Lambda(params, body)), k)
@@ -770,7 +797,7 @@ fn parse_params(
   i : Int,
 ) -> (Array[MatchPattern], Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("unexpected end in params")
+    syntax_error_eof(tokens, "unexpected end in params")
   }
   if token_kind(tokens, i) == RParenTok {
     ([], i + 1)
@@ -789,7 +816,7 @@ fn parse_params_nonempty(
     let (pattern, next) = parse_pattern(tokens, j)
     params.push(pattern)
     if next >= tokens.length() {
-      raise SyntaxError("unexpected end in params")
+      syntax_error_eof(tokens, "unexpected end in params")
     }
     if token_kind(tokens, next) == CommaTok {
       continue next + 1, _pos + 1
@@ -797,7 +824,9 @@ fn parse_params_nonempty(
     if token_kind(tokens, next) == RParenTok {
       break (params, next + 1)
     }
-    raise SyntaxError(
+    syntax_error_at(
+      tokens,
+      next,
       "unexpected token in params: " + token_name(token_kind(tokens, next)),
     )
   }
@@ -1034,7 +1063,7 @@ fn parse_postfix_tail(
     )
   } else if i < tokens.length() && token_kind(tokens, i) == DotTok {
     if i + 1 >= tokens.length() {
-      raise SyntaxError("expected field name after '.'")
+      syntax_error_eof(tokens, "expected field name after '.'")
     }
     match token_kind(tokens, i + 1) {
       IdentTok(name) =>
@@ -1043,7 +1072,12 @@ fn parse_postfix_tail(
           tokens,
           i + 2,
         )
-      tok => raise SyntaxError("expected field name, found: " + token_name(tok))
+      tok =>
+        syntax_error_at(
+          tokens,
+          i + 1,
+          "expected field name, found: " + token_name(tok),
+        )
     }
   } else {
     (expr, i)
@@ -1056,7 +1090,7 @@ fn parse_args(
   i : Int,
 ) -> (Array[Expr], Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("unexpected end in args")
+    syntax_error_eof(tokens, "unexpected end in args")
   }
   if token_kind(tokens, i) == RParenTok {
     ([], i + 1)
@@ -1075,7 +1109,7 @@ fn parse_args_nonempty(
     let (arg, next_expr) = parse_expr(tokens, j)
     args.push(arg)
     if next_expr >= tokens.length() {
-      raise SyntaxError("unexpected end in args")
+      syntax_error_eof(tokens, "unexpected end in args")
     }
     if token_kind(tokens, next_expr) == CommaTok {
       continue next_expr + 1, _pos + 1
@@ -1083,7 +1117,9 @@ fn parse_args_nonempty(
     if token_kind(tokens, next_expr) == RParenTok {
       break (args, next_expr + 1)
     }
-    raise SyntaxError(
+    syntax_error_at(
+      tokens,
+      next_expr,
       "unexpected token in args: " + token_name(token_kind(tokens, next_expr)),
     )
   }
@@ -1095,7 +1131,7 @@ fn parse_primary_expr(
   i : Int,
 ) -> (Expr, Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("unexpected end")
+    syntax_error_eof(tokens, "unexpected end")
   }
   match token_kind(tokens, i) {
     IntTok(v) => (located_expr(tokens, i, i + 1, IntLit(v)), i + 1)
@@ -1112,14 +1148,16 @@ fn parse_primary_expr(
       if j < tokens.length() && token_kind(tokens, j) == RParenTok {
         (located_expr(tokens, i, j + 1, expr), j + 1)
       } else if j < tokens.length() {
-        raise SyntaxError(
+        syntax_error_at(
+          tokens,
+          j,
           "expected ')', found: " + token_name(token_kind(tokens, j)),
         )
       } else {
-        raise SyntaxError("expected ')' but found end")
+        syntax_error_eof(tokens, "expected ')' but found end")
       }
     }
-    tok => raise SyntaxError("unexpected token: " + token_name(tok))
+    tok => syntax_error_at(tokens, i, "unexpected token: " + token_name(tok))
   }
 }
 
@@ -1129,20 +1167,25 @@ fn parse_variant_literal(
   i : Int,
 ) -> (Expr, Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("expected variant name after '#'")
+    syntax_error_eof(tokens, "expected variant name after '#'")
   }
   match token_kind(tokens, i) {
     IdentTok(tag) => {
       if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
-        raise SyntaxError("expected '(' after variant tag")
+        syntax_error_at(tokens, i + 1, "expected '(' after variant tag")
       }
       let (value_expr, j) = parse_expr(tokens, i + 2)
       if j >= tokens.length() || token_kind(tokens, j) != RParenTok {
-        raise SyntaxError("expected ')' after variant payload")
+        syntax_error_at(tokens, j, "expected ')' after variant payload")
       }
       (located_expr(tokens, i - 1, j + 1, Variant(tag, value_expr)), j + 1)
     }
-    tok => raise SyntaxError("expected variant name, found: " + token_name(tok))
+    tok =>
+      syntax_error_at(
+        tokens,
+        i,
+        "expected variant name, found: " + token_name(tok),
+      )
   }
 }
 
@@ -1157,11 +1200,16 @@ fn parse_record_literal(
   let fields = []
   for j = i, _pos = 0 {
     if j >= tokens.length() {
-      raise SyntaxError("unexpected end in record")
+      syntax_error_eof(tokens, "unexpected end in record")
     }
     let name = match token_kind(tokens, j) {
       IdentTok(field_name) => field_name
-      tok => raise SyntaxError("expected field name, found: " + token_name(tok))
+      tok =>
+        syntax_error_at(
+          tokens,
+          j,
+          "expected field name, found: " + token_name(tok),
+        )
     }
     let (value_expr, next_expr) = if j + 1 < tokens.length() &&
       token_kind(tokens, j + 1) == ColonTok {
@@ -1171,7 +1219,7 @@ fn parse_record_literal(
     }
     fields.push((name, value_expr))
     if next_expr >= tokens.length() {
-      raise SyntaxError("unexpected end in record")
+      syntax_error_eof(tokens, "unexpected end in record")
     }
     if token_kind(tokens, next_expr) == CommaTok {
       continue next_expr + 1, _pos + 1
@@ -1182,7 +1230,9 @@ fn parse_record_literal(
         next_expr + 1,
       )
     }
-    raise SyntaxError(
+    syntax_error_at(
+      tokens,
+      next_expr,
       "unexpected token in record: " + token_name(token_kind(tokens, next_expr)),
     )
   }
@@ -1201,7 +1251,7 @@ fn parse_list_literal(
     let (item, next_expr) = parse_expr(tokens, j)
     items.push(item)
     if next_expr >= tokens.length() {
-      raise SyntaxError("unexpected end in list")
+      syntax_error_eof(tokens, "unexpected end in list")
     }
     if token_kind(tokens, next_expr) == CommaTok {
       continue next_expr + 1, _pos + 1
@@ -1212,7 +1262,9 @@ fn parse_list_literal(
         next_expr + 1,
       )
     }
-    raise SyntaxError(
+    syntax_error_at(
+      tokens,
+      next_expr,
       "unexpected token in list: " + token_name(token_kind(tokens, next_expr)),
     )
   }
@@ -1237,14 +1289,16 @@ fn parse_match_cases_tail(
   i : Int,
 ) -> (Array[(MatchPattern, Expr?, Expr)], Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("unexpected end in match")
+    syntax_error_eof(tokens, "unexpected end in match")
   }
   if token_kind(tokens, i) == CommaTok {
     parse_match_cases(tokens, i + 1)
   } else if token_kind(tokens, i) == RBraceTok {
     ([], i + 1)
   } else {
-    raise SyntaxError(
+    syntax_error_at(
+      tokens,
+      i,
       "unexpected token in match: " + token_name(token_kind(tokens, i)),
     )
   }
@@ -1263,7 +1317,7 @@ fn parse_match_case(
     (None, j)
   }
   if k >= tokens.length() || token_kind(tokens, k) != ArrowTok {
-    raise SyntaxError("expected '=>' after match pattern")
+    syntax_error_at(tokens, k, "expected '=>' after match pattern")
   }
   let (body, next_expr) = parse_expr(tokens, k + 1)
   ((pattern, cond_expr, body), next_expr)
@@ -1290,7 +1344,7 @@ fn parse_pattern_or_tail(
       POr(patterns) => POr(patterns + [right])
       _ => POr([left, right])
     }
-    ensure_or_pattern_bindings(combined)
+    ensure_or_pattern_bindings(combined, tokens, i)
     parse_pattern_or_tail(combined, tokens, j)
   } else {
     (left, i)
@@ -1303,7 +1357,7 @@ fn parse_pattern_atom(
   i : Int,
 ) -> (MatchPattern, Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("unexpected end in pattern")
+    syntax_error_eof(tokens, "unexpected end in pattern")
   }
   match token_kind(tokens, i) {
     IdentTok(name) => (PBind(name), i + 1)
@@ -1315,17 +1369,26 @@ fn parse_pattern_atom(
     HashTok => parse_variant_pattern(tokens, i + 1)
     LBracketTok => parse_list_pattern(tokens, i + 1)
     LBraceTok => parse_match_record_pattern(tokens, i + 1)
-    tok => raise SyntaxError("unexpected token in pattern: " + token_name(tok))
+    tok =>
+      syntax_error_at(
+        tokens,
+        i,
+        "unexpected token in pattern: " + token_name(tok),
+      )
   }
 }
 
 ///|
-fn ensure_or_pattern_bindings(pattern : MatchPattern) -> Unit raise {
+fn ensure_or_pattern_bindings(
+  pattern : MatchPattern,
+  tokens : Array[SpannedToken],
+  error_i : Int,
+) -> Unit raise {
   match pattern {
     POr(patterns) =>
       if patterns.length() > 0 {
         let expected = pattern_binding_names(patterns[0])
-        ensure_or_pattern_bindings_all(patterns, expected, 1)
+        ensure_or_pattern_bindings_all(patterns, expected, 1, tokens, error_i)
       }
     _ => ()
   }
@@ -1336,17 +1399,19 @@ fn ensure_or_pattern_bindings_all(
   patterns : Array[MatchPattern],
   expected : Array[String],
   i : Int,
+  tokens : Array[SpannedToken],
+  error_i : Int,
 ) -> Unit raise {
   if i >= patterns.length() {
     return
   }
   let actual = pattern_binding_names(patterns[i])
   if !same_binding_names(expected, actual) {
-    raise SyntaxError(
-      "all alternatives in an or-pattern must bind the same names",
+    syntax_error_at(
+      tokens, error_i, "all alternatives in an or-pattern must bind the same names",
     )
   }
-  ensure_or_pattern_bindings_all(patterns, expected, i + 1)
+  ensure_or_pattern_bindings_all(patterns, expected, i + 1, tokens, error_i)
 }
 
 ///|
@@ -1436,18 +1501,23 @@ fn parse_variant_pattern(
   i : Int,
 ) -> (MatchPattern, Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("expected variant name after '#'")
+    syntax_error_eof(tokens, "expected variant name after '#'")
   }
   let tag = match token_kind(tokens, i) {
     IdentTok(name) => name
-    tok => raise SyntaxError("expected variant name, found: " + token_name(tok))
+    tok =>
+      syntax_error_at(
+        tokens,
+        i,
+        "expected variant name, found: " + token_name(tok),
+      )
   }
   if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
-    raise SyntaxError("expected '(' after variant name")
+    syntax_error_at(tokens, i + 1, "expected '(' after variant name")
   }
   let (inner, j) = parse_pattern(tokens, i + 2)
   if j >= tokens.length() || token_kind(tokens, j) != RParenTok {
-    raise SyntaxError("expected ')' after variant pattern")
+    syntax_error_at(tokens, j, "expected ')' after variant pattern")
   }
   (PVariant(tag, inner), j + 1)
 }
@@ -1463,7 +1533,7 @@ fn parse_list_pattern(
   let prefix = []
   for j = i, _pos = 0 {
     if j >= tokens.length() {
-      raise SyntaxError("unexpected end in list pattern")
+      syntax_error_eof(tokens, "unexpected end in list pattern")
     }
     if token_kind(tokens, j) == DotDotTok {
       return parse_list_pattern_rest(tokens, j + 1, prefix)
@@ -1471,7 +1541,7 @@ fn parse_list_pattern(
     let (pattern, next_pattern) = parse_pattern(tokens, j)
     prefix.push(pattern)
     if next_pattern >= tokens.length() {
-      raise SyntaxError("unexpected end in list pattern")
+      syntax_error_eof(tokens, "unexpected end in list pattern")
     }
     if token_kind(tokens, next_pattern) == CommaTok {
       continue next_pattern + 1, _pos + 1
@@ -1479,7 +1549,9 @@ fn parse_list_pattern(
     if token_kind(tokens, next_pattern) == RBracketTok {
       break (PList(prefix), next_pattern + 1)
     }
-    raise SyntaxError(
+    syntax_error_at(
+      tokens,
+      next_pattern,
       "unexpected token in list pattern: " +
       token_name(token_kind(tokens, next_pattern)),
     )
@@ -1493,8 +1565,8 @@ fn parse_list_pattern_rest(
   prefix : Array[MatchPattern],
 ) -> (MatchPattern, Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError(
-      "expected binding name, ',' or ']' after '..' in list pattern",
+    syntax_error_eof(
+      tokens, "expected binding name, ',' or ']' after '..' in list pattern",
     )
   }
   let (rest_name, next_i) = match token_kind(tokens, i) {
@@ -1502,19 +1574,23 @@ fn parse_list_pattern_rest(
     CommaTok => ("_", i)
     RBracketTok => ("_", i)
     tok =>
-      raise SyntaxError(
+      syntax_error_at(
+        tokens,
+        i,
         "expected binding name, ',' or ']' after '..', found: " +
         token_name(tok),
       )
   }
   if next_i >= tokens.length() {
-    raise SyntaxError("unexpected end in list pattern")
+    syntax_error_eof(tokens, "unexpected end in list pattern")
   }
   if token_kind(tokens, next_i) == RBracketTok {
     return (PListRest(prefix, rest_name, []), next_i + 1)
   }
   if token_kind(tokens, next_i) != CommaTok {
-    raise SyntaxError(
+    syntax_error_at(
+      tokens,
+      next_i,
       "expected ',' or ']' after list rest binding, found: " +
       token_name(token_kind(tokens, next_i)),
     )
@@ -1522,15 +1598,17 @@ fn parse_list_pattern_rest(
   let suffix = []
   for j = next_i + 1, _pos = 0 {
     if j >= tokens.length() {
-      raise SyntaxError("unexpected end in list pattern")
+      syntax_error_eof(tokens, "unexpected end in list pattern")
     }
     if token_kind(tokens, j) == DotDotTok {
-      raise SyntaxError("list pattern can contain at most one '..' binding")
+      syntax_error_at(
+        tokens, j, "list pattern can contain at most one '..' binding",
+      )
     }
     let (pattern, next_pattern) = parse_pattern(tokens, j)
     suffix.push(pattern)
     if next_pattern >= tokens.length() {
-      raise SyntaxError("unexpected end in list pattern")
+      syntax_error_eof(tokens, "unexpected end in list pattern")
     }
     if token_kind(tokens, next_pattern) == CommaTok {
       continue next_pattern + 1, _pos + 1
@@ -1538,7 +1616,9 @@ fn parse_list_pattern_rest(
     if token_kind(tokens, next_pattern) == RBracketTok {
       break (PListRest(prefix, rest_name, suffix), next_pattern + 1)
     }
-    raise SyntaxError(
+    syntax_error_at(
+      tokens,
+      next_pattern,
       "unexpected token in list pattern: " +
       token_name(token_kind(tokens, next_pattern)),
     )
@@ -1556,11 +1636,16 @@ fn parse_match_record_pattern(
   let fields = []
   for j = i, _pos = 0 {
     if j >= tokens.length() {
-      raise SyntaxError("unexpected end in record pattern")
+      syntax_error_eof(tokens, "unexpected end in record pattern")
     }
     let field_name = match token_kind(tokens, j) {
       IdentTok(name) => name
-      tok => raise SyntaxError("expected field name, found: " + token_name(tok))
+      tok =>
+        syntax_error_at(
+          tokens,
+          j,
+          "expected field name, found: " + token_name(tok),
+        )
     }
     let (field_pattern, next) = if j + 1 < tokens.length() &&
       token_kind(tokens, j + 1) == ColonTok {
@@ -1571,7 +1656,7 @@ fn parse_match_record_pattern(
     }
     fields.push((field_name, field_pattern))
     if next >= tokens.length() {
-      raise SyntaxError("unexpected end in record pattern")
+      syntax_error_eof(tokens, "unexpected end in record pattern")
     }
     if token_kind(tokens, next) == CommaTok {
       continue next + 1, _pos + 1
@@ -1579,7 +1664,9 @@ fn parse_match_record_pattern(
     if token_kind(tokens, next) == RBraceTok {
       break (PRecord(fields), next + 1)
     }
-    raise SyntaxError(
+    syntax_error_at(
+      tokens,
+      next,
       "unexpected token in record pattern: " +
       token_name(token_kind(tokens, next)),
     )

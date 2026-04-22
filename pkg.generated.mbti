@@ -153,7 +153,6 @@ pub suberror EvalError {
 } derive(@debug.Debug)
 
 pub suberror ParseError {
-  SyntaxError(String)
   SyntaxErrorAt(String, ((Int, Int, Int), (Int, Int, Int)))
 } derive(@debug.Debug)
 
