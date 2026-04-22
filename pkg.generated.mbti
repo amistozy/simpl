@@ -76,6 +76,8 @@ pub fn logic_or(Expr, Expr) -> Expr
 
 pub fn lt(Expr, Expr) -> Expr
 
+pub fn match_case_clauses(Expr, Array[(MatchPattern, Expr?, Expr)]) -> Expr
+
 pub fn match_cases(Expr, Array[(MatchPattern, Expr)]) -> Expr
 
 pub fn match_list(Expr, Array[(Array[String], Expr)]) -> Expr
@@ -168,7 +170,7 @@ pub enum Expr {
   Variant(String, Expr)
   If(Expr, Expr, Expr)
   Let(MatchPattern, Expr, Expr)
-  Match(Expr, Array[(MatchPattern, Expr)])
+  Match(Expr, Array[(MatchPattern, Expr?, Expr)])
   LetRec(String, Array[MatchPattern], Expr, Expr)
   Lambda(Array[MatchPattern], Expr)
   Call(Expr, Array[Expr])

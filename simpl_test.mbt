@@ -358,6 +358,37 @@ test "variant carrying list pattern match" {
 }
 
 ///|
+test "match guards can refine successful pattern bindings" {
+  let code =
+    #| match #Some(42) {
+    #|   #Some(x) if x < 0 => 0,
+    #|   #Some(x) if x >= 42 => x,
+    #|   _ => -1
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "match guards can use bindings from nested patterns" {
+  let code =
+    #| match {pair: [10, 32]} {
+    #|   {pair: [x, y]} if x + y == 42 => y,
+    #|   _ => 0
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 32))
+}
+
+///|
+test "guard failure falls through to later cases" {
+  let code =
+    #| match [20, 22] {
+    #|   [x, y] if x > y => x,
+    #|   [x, y] => x + y
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 test "lambda parameters support patterns" {
   let code =
     #| (fn(#Pair(x), {y}) => x + y)(#Pair(10), {y: 32})

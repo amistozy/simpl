@@ -941,7 +941,7 @@ fn parse_list_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 fn parse_match_cases(
   tokens : Array[Token],
   i : Int,
-) -> (Array[(MatchPattern, Expr)], Int) raise {
+) -> (Array[(MatchPattern, Expr?, Expr)], Int) raise {
   if i < tokens.length() && tokens[i] == RBraceTok {
     return ([], i + 1)
   }
@@ -954,7 +954,7 @@ fn parse_match_cases(
 fn parse_match_cases_tail(
   tokens : Array[Token],
   i : Int,
-) -> (Array[(MatchPattern, Expr)], Int) raise {
+) -> (Array[(MatchPattern, Expr?, Expr)], Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("unexpected end in match")
   }
@@ -971,13 +971,19 @@ fn parse_match_cases_tail(
 fn parse_match_case(
   tokens : Array[Token],
   i : Int,
-) -> ((MatchPattern, Expr), Int) raise {
+) -> ((MatchPattern, Expr?, Expr), Int) raise {
   let (pattern, j) = parse_pattern(tokens, i)
-  if j >= tokens.length() || tokens[j] != ArrowTok {
+  let (cond_expr, k) = if j < tokens.length() && tokens[j] == IfTok {
+    let (cond, next) = parse_expr(tokens, j + 1)
+    (Some(cond), next)
+  } else {
+    (None, j)
+  }
+  if k >= tokens.length() || tokens[k] != ArrowTok {
     raise SyntaxError("expected '=>' after match pattern")
   }
-  let (body, next_expr) = parse_expr(tokens, j + 1)
-  ((pattern, body), next_expr)
+  let (body, next_expr) = parse_expr(tokens, k + 1)
+  ((pattern, cond_expr, body), next_expr)
 }
 
 ///|

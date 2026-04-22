@@ -11,7 +11,7 @@ pub enum Expr {
   Variant(String, Expr)
   If(Expr, Expr, Expr)
   Let(MatchPattern, Expr, Expr)
-  Match(Expr, Array[(MatchPattern, Expr)])
+  Match(Expr, Array[(MatchPattern, Expr?, Expr)])
   LetRec(String, Array[MatchPattern], Expr, Expr)
   Lambda(Array[MatchPattern], Expr)
   Call(Expr, Array[Expr])
@@ -238,7 +238,7 @@ fn eval_record_fields(
 ///|
 fn eval_match_cases(
   value : Value,
-  cases : Array[(MatchPattern, Expr)],
+  cases : Array[(MatchPattern, Expr?, Expr)],
   env : Env,
   i : Int,
 ) -> Value raise {
@@ -251,10 +251,23 @@ fn eval_match_cases(
       _ => raise RuntimeError("non-exhaustive match")
     }
   }
-  let (pattern, body) = cases[i]
+  let (pattern, cond_expr, body) = cases[i]
   match try_bind_pattern(pattern, value, env) {
-    Some(bound_env) => eval_with_env(body, bound_env)
+    Some(bound_env) =>
+      if match_guard_passes(cond_expr, bound_env) {
+        eval_with_env(body, bound_env)
+      } else {
+        eval_match_cases(value, cases, env, i + 1)
+      }
     None => eval_match_cases(value, cases, env, i + 1)
+  }
+}
+
+///|
+fn match_guard_passes(cond_expr : Expr?, env : Env) -> Bool raise {
+  match cond_expr {
+    Some(cond) => truthy(eval_with_env(cond, env))
+    None => true
   }
 }
 
@@ -577,11 +590,11 @@ pub fn match_variant(
   value_expr : Expr,
   cases : Array[(String, String, Expr)],
 ) -> Expr {
-  match_cases(
+  match_case_clauses(
     value_expr,
-    cases.map(case => {
+    cases.map((case : (String, String, Expr)) => {
       let (tag, binding, body) = case
-      (PVariant(tag, PBind(binding)), body)
+      (PVariant(tag, PBind(binding)), None, body)
     }),
   )
 }
@@ -591,11 +604,11 @@ pub fn match_list(
   value_expr : Expr,
   cases : Array[(Array[String], Expr)],
 ) -> Expr {
-  match_cases(
+  match_case_clauses(
     value_expr,
-    cases.map(case => {
+    cases.map((case : (Array[String], Expr)) => {
       let (bindings, body) = case
-      (PList(bindings.map(name => PBind(name))), body)
+      (PList(bindings.map(name => PBind(name))), None, body)
     }),
   )
 }
@@ -604,6 +617,20 @@ pub fn match_list(
 pub fn match_cases(
   value_expr : Expr,
   cases : Array[(MatchPattern, Expr)],
+) -> Expr {
+  match_case_clauses(
+    value_expr,
+    cases.map((case : (MatchPattern, Expr)) => {
+      let (pattern, body) = case
+      (pattern, None, body)
+    }),
+  )
+}
+
+///|
+pub fn match_case_clauses(
+  value_expr : Expr,
+  cases : Array[(MatchPattern, Expr?, Expr)],
 ) -> Expr {
   Match(value_expr, cases)
 }
