@@ -347,6 +347,58 @@ test "nested list pattern match" {
 }
 
 ///|
+test "list rest pattern supports fixed prefix and suffix" {
+  let code =
+    #| match [1, 2, 3, 4, 5, 6] {
+    #|   [a, b, ..c, d, e] =>
+    #|     match c {
+    #|       [x, y] => a + b + d + e + x + y,
+    #|       _ => 0
+    #|     },
+    #|   _ => 0
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 21))
+}
+
+///|
+test "list rest pattern allows empty middle slice" {
+  let code =
+    #| match [10, 20, 30, 40] {
+    #|   [a, b, ..c, d, e] =>
+    #|     match c {
+    #|       [] => a + b + d + e,
+    #|       _ => 0
+    #|     },
+    #|   _ => 0
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 100))
+}
+
+///|
+test "list rest pattern works with nested patterns" {
+  let code =
+    #| match [#Left(1), #Right(2), #Right(3), #Left(4)] {
+    #|   [#Left(a), ..mid, #Left(b)] =>
+    #|     match mid {
+    #|       [#Right(x), #Right(y)] => a + x + y + b,
+    #|       _ => 0
+    #|     },
+    #|   _ => 0
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 10))
+}
+
+///|
+test "list pattern rejects multiple rest bindings" {
+  let code =
+    #| match [1, 2, 3] {
+    #|   [..a, ..b] => 0,
+    #|   _ => 1
+    #| }
+  assert_true(@simpl.parse_is_error(code))
+}
+
+///|
 test "nested variant pattern match" {
   let code =
     #| match #Outer(#Inner(41)) {

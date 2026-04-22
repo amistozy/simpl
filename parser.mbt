@@ -41,6 +41,7 @@ priv enum Token {
   BangTok
   ColonEqTok
   ColonTok
+  DotDotTok
   PipeTok
   DotTok
   HashTok
@@ -236,10 +237,15 @@ fn lex_loop(source : String, i : Int, acc : Array[Token]) -> Unit raise {
         acc.push(ColonTok)
         lex_loop(source, i + 1, acc)
       }
-    '.' => {
-      acc.push(DotTok)
-      lex_loop(source, i + 1, acc)
-    }
+    '.' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '.' {
+        acc.push(DotDotTok)
+        lex_loop(source, i + 2, acc)
+      } else {
+        acc.push(DotTok)
+        lex_loop(source, i + 1, acc)
+      }
     '|' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '|' {
@@ -398,6 +404,7 @@ fn token_name(tok : Token) -> String {
     BangTok => "!"
     ColonEqTok => ":="
     ColonTok => ":"
+    DotDotTok => ".."
     PipeTok => "|"
     DotTok => "."
     HashTok => "#"
@@ -1085,6 +1092,19 @@ fn pattern_binding_names(pattern : MatchPattern) -> Array[String] {
     PVariant(_, inner) => pattern_binding_names(inner)
     PList(items) =>
       items.fold(init=[], (acc, item) => acc + pattern_binding_names(item))
+    PListRest(prefix, rest_name, suffix) => {
+      let with_prefix = prefix.fold(init=[], (acc, item) => {
+        acc + pattern_binding_names(item)
+      })
+      let with_rest = if rest_name == "_" {
+        with_prefix
+      } else {
+        with_prefix + [rest_name]
+      }
+      suffix.fold(init=with_rest, (acc, item) => {
+        acc + pattern_binding_names(item)
+      })
+    }
     PRecord(fields) =>
       fields.fold(init=[], (acc, field) => {
         let (_, field_pattern) = field
@@ -1166,10 +1186,16 @@ fn parse_list_pattern(
   if i < tokens.length() && tokens[i] == RBracketTok {
     return (PList([]), i + 1)
   }
-  let items = []
+  let prefix = []
   for j = i, _pos = 0 {
+    if j >= tokens.length() {
+      raise SyntaxError("unexpected end in list pattern")
+    }
+    if tokens[j] == DotDotTok {
+      return parse_list_pattern_rest(tokens, j + 1, prefix)
+    }
     let (pattern, next_pattern) = parse_pattern(tokens, j)
-    items.push(pattern)
+    prefix.push(pattern)
     if next_pattern >= tokens.length() {
       raise SyntaxError("unexpected end in list pattern")
     }
@@ -1177,7 +1203,60 @@ fn parse_list_pattern(
       continue next_pattern + 1, _pos + 1
     }
     if tokens[next_pattern] == RBracketTok {
-      break (PList(items), next_pattern + 1)
+      break (PList(prefix), next_pattern + 1)
+    }
+    raise SyntaxError(
+      "unexpected token in list pattern: " + token_name(tokens[next_pattern]),
+    )
+  }
+}
+
+///|
+fn parse_list_pattern_rest(
+  tokens : Array[Token],
+  i : Int,
+  prefix : Array[MatchPattern],
+) -> (MatchPattern, Int) raise {
+  if i >= tokens.length() {
+    raise SyntaxError("expected binding name after '..' in list pattern")
+  }
+  let rest_name = match tokens[i] {
+    IdentTok(name) => name
+    tok =>
+      raise SyntaxError(
+        "expected binding name after '..', found: " + token_name(tok),
+      )
+  }
+  if i + 1 >= tokens.length() {
+    raise SyntaxError("unexpected end in list pattern")
+  }
+  if tokens[i + 1] == RBracketTok {
+    return (PListRest(prefix, rest_name, []), i + 2)
+  }
+  if tokens[i + 1] != CommaTok {
+    raise SyntaxError(
+      "expected ',' or ']' after list rest binding, found: " +
+      token_name(tokens[i + 1]),
+    )
+  }
+  let suffix = []
+  for j = i + 2, _pos = 0 {
+    if j >= tokens.length() {
+      raise SyntaxError("unexpected end in list pattern")
+    }
+    if tokens[j] == DotDotTok {
+      raise SyntaxError("list pattern can contain at most one '..' binding")
+    }
+    let (pattern, next_pattern) = parse_pattern(tokens, j)
+    suffix.push(pattern)
+    if next_pattern >= tokens.length() {
+      raise SyntaxError("unexpected end in list pattern")
+    }
+    if tokens[next_pattern] == CommaTok {
+      continue next_pattern + 1, _pos + 1
+    }
+    if tokens[next_pattern] == RBracketTok {
+      break (PListRest(prefix, rest_name, suffix), next_pattern + 1)
     }
     raise SyntaxError(
       "unexpected token in list pattern: " + token_name(tokens[next_pattern]),

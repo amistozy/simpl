@@ -108,6 +108,8 @@ pub fn pint(Int) -> MatchPattern
 
 pub fn plist(Array[MatchPattern]) -> MatchPattern
 
+pub fn plist_rest(Array[MatchPattern], String, Array[MatchPattern]) -> MatchPattern
+
 pub fn pnil() -> MatchPattern
 
 pub fn por(Array[MatchPattern]) -> MatchPattern
@@ -193,6 +195,7 @@ pub enum MatchPattern {
   POr(Array[MatchPattern])
   PVariant(String, MatchPattern)
   PList(Array[MatchPattern])
+  PListRest(Array[MatchPattern], String, Array[MatchPattern])
   PRecord(Array[(String, MatchPattern)])
 } derive(@debug.Debug)
 

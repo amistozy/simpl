@@ -33,6 +33,7 @@ pub enum MatchPattern {
   POr(Array[MatchPattern])
   PVariant(String, MatchPattern)
   PList(Array[MatchPattern])
+  PListRest(Array[MatchPattern], String, Array[MatchPattern])
   PRecord(Array[(String, MatchPattern)])
 } derive(Debug)
 
@@ -330,6 +331,12 @@ fn try_bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env? {
           }
         _ => None
       }
+    PListRest(prefix, rest_name, suffix) =>
+      match value {
+        VList(values) =>
+          try_bind_list_rest_pattern(prefix, rest_name, suffix, values, env)
+        _ => None
+      }
     PRecord(fields) =>
       match value {
         VRecord(values) => try_bind_record_match_pattern(fields, values, env, 0)
@@ -374,6 +381,73 @@ fn try_bind_record_match_pattern(
       }
     None => None
   }
+}
+
+///|
+fn try_bind_list_rest_pattern(
+  prefix : Array[MatchPattern],
+  rest_name : String,
+  suffix : Array[MatchPattern],
+  values : Array[Value],
+  env : Env,
+) -> Env? {
+  let prefix_len = prefix.length()
+  let suffix_len = suffix.length()
+  if values.length() < prefix_len + suffix_len {
+    return None
+  }
+  match try_bind_list_pattern(prefix, values, env, 0) {
+    Some(prefix_env) => {
+      let middle_end = values.length() - suffix_len
+      let env_with_rest = if rest_name == "_" {
+        prefix_env
+      } else {
+        prefix_env.add(
+          rest_name,
+          VList(slice_values(values, prefix_len, middle_end)),
+        )
+      }
+      try_bind_list_suffix_pattern(suffix, values, env_with_rest, middle_end, 0)
+    }
+    None => None
+  }
+}
+
+///|
+fn try_bind_list_suffix_pattern(
+  suffix : Array[MatchPattern],
+  values : Array[Value],
+  env : Env,
+  start : Int,
+  i : Int,
+) -> Env? {
+  if i >= suffix.length() {
+    return Some(env)
+  }
+  match try_bind_pattern(suffix[i], values[start + i], env) {
+    Some(next_env) =>
+      try_bind_list_suffix_pattern(suffix, values, next_env, start, i + 1)
+    None => None
+  }
+}
+
+///|
+fn slice_values(values : Array[Value], start : Int, end_ : Int) -> Array[Value] {
+  slice_values_from(values, start, end_, [])
+}
+
+///|
+fn slice_values_from(
+  values : Array[Value],
+  i : Int,
+  end_ : Int,
+  acc : Array[Value],
+) -> Array[Value] {
+  if i >= end_ {
+    return acc
+  }
+  acc.push(values[i])
+  slice_values_from(values, i + 1, end_, acc)
 }
 
 ///|
@@ -691,6 +765,15 @@ pub fn pvariant(tag : String, pattern : MatchPattern) -> MatchPattern {
 ///|
 pub fn plist(items : Array[MatchPattern]) -> MatchPattern {
   PList(items)
+}
+
+///|
+pub fn plist_rest(
+  prefix : Array[MatchPattern],
+  rest_name : String,
+  suffix : Array[MatchPattern],
+) -> MatchPattern {
+  PListRest(prefix, rest_name, suffix)
 }
 
 ///|
