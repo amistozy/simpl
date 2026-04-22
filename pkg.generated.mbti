@@ -148,7 +148,6 @@ pub fn variant(String, Expr) -> Expr
 
 // Errors
 pub suberror EvalError {
-  RuntimeError(String)
   RuntimeErrorAt(String, ((Int, Int, Int), (Int, Int, Int)))
 } derive(@debug.Debug)
 

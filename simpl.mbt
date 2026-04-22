@@ -80,7 +80,6 @@ pub type Env = @hashmap.HashMap[String, Value]
 
 ///|
 pub suberror EvalError {
-  RuntimeError(String)
   RuntimeErrorAt(String, SourceSpan)
 } derive(Debug)
 
@@ -93,7 +92,6 @@ pub fn eval(expr : Expr) -> Value raise {
 ///|
 pub fn format_eval_error(error : EvalError) -> String {
   match error {
-    RuntimeError(message) => message
     RuntimeErrorAt(message, span) => message + " at " + format_source_span(span)
   }
 }
@@ -103,9 +101,15 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
   match expr {
     Located(span, inner) =>
       eval_with_env(inner, env) catch {
-        RuntimeError(message) => raise RuntimeErrorAt(message, span)
         RuntimeErrorAt(message, inner_span) =>
-          raise RuntimeErrorAt(message, inner_span)
+          raise RuntimeErrorAt(
+            message,
+            if inner_span == unknown_source_span() {
+              span
+            } else {
+              inner_span
+            },
+          )
         _ => raise RuntimeErrorAt("unknown runtime error", span)
       }
     IntLit(v) => VInt(v)
@@ -145,7 +149,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     RefGet(ref_expr) =>
       match eval_with_env(ref_expr, env) {
         VRef(cell) => cell.val
-        _ => raise RuntimeError("type error: '!' expects Ref")
+        _ => raise runtime_error("type error: '!' expects Ref")
       }
     RefSet(ref_expr, value_expr) => {
       let ref_value = eval_with_env(ref_expr, env)
@@ -155,7 +159,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
           cell.val = new_value
           new_value
         }
-        _ => raise RuntimeError("type error: ':=' expects Ref on left side")
+        _ => raise runtime_error("type error: ':=' expects Ref on left side")
       }
     }
     Field(target, name) => {
@@ -164,9 +168,9 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
         VRecord(fields) =>
           match fields.get(name) {
             Some(value) => value
-            None => raise RuntimeError("missing field: \{name}")
+            None => raise runtime_error("missing field: \{name}")
           }
-        _ => raise RuntimeError("type error: '.' expects Record")
+        _ => raise runtime_error("type error: '.' expects Record")
       }
     }
     Unary(op, one) => eval_unary(op, eval_with_env(one, env))
@@ -199,7 +203,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
 fn lookup(env : Env, name : String) -> Value raise {
   match env.get(name) {
     Some(value) => value
-    None => raise RuntimeError("undefined variable: \{name}")
+    None => raise runtime_error("undefined variable: \{name}")
   }
 }
 
@@ -216,7 +220,7 @@ fn apply(func_value : Value, args : Array[Value]) -> Value raise {
       )
       eval_with_env(body, call_env)
     }
-    _ => raise RuntimeError("attempt to call a non-function value")
+    _ => raise runtime_error("attempt to call a non-function value")
   }
 }
 
@@ -227,10 +231,10 @@ fn bind_patterns(
   base : Env,
 ) -> Env raise {
   if patterns.length() < args.length() {
-    raise RuntimeError("too many arguments")
+    raise runtime_error("too many arguments")
   }
   if patterns.length() > args.length() {
-    raise RuntimeError("too few arguments")
+    raise runtime_error("too few arguments")
   }
   patterns.foldi(init=base, (i, acc_env, pattern) => {
     bind_pattern(pattern, args[i], acc_env)
@@ -264,10 +268,10 @@ fn eval_match_cases(
   if i >= cases.length() {
     match value {
       VVariant(tag, _) =>
-        raise RuntimeError("non-exhaustive match on variant: " + tag)
-      VList(_) => raise RuntimeError("non-exhaustive match on list")
-      VRecord(_) => raise RuntimeError("non-exhaustive match on record")
-      _ => raise RuntimeError("non-exhaustive match")
+        raise runtime_error("non-exhaustive match on variant: " + tag)
+      VList(_) => raise runtime_error("non-exhaustive match on list")
+      VRecord(_) => raise runtime_error("non-exhaustive match on record")
+      _ => raise runtime_error("non-exhaustive match")
     }
   }
   let (pattern, cond_expr, body) = cases[i]
@@ -294,7 +298,7 @@ fn match_guard_passes(cond_expr : Expr?, env : Env) -> Bool raise {
 fn bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env raise {
   match try_bind_pattern(pattern, value, env) {
     Some(bound_env) => bound_env
-    None => raise RuntimeError("pattern match failure")
+    None => raise runtime_error("pattern match failure")
   }
 }
 
@@ -494,12 +498,22 @@ fn truthy(value : Value) -> Bool {
 }
 
 ///|
+fn unknown_source_span() -> SourceSpan {
+  ((0, 1, 1), (0, 1, 1))
+}
+
+///|
+fn[T] runtime_error(message : String) -> T raise {
+  raise RuntimeErrorAt(message, unknown_source_span())
+}
+
+///|
 fn eval_unary(op : UnOp, value : Value) -> Value raise {
   match op {
     Neg =>
       match value {
         VInt(v) => VInt(-v)
-        _ => raise RuntimeError("type error: unary '-' expects Int")
+        _ => raise runtime_error("type error: unary '-' expects Int")
       }
     Not => VBool(!truthy(value))
   }
@@ -513,45 +527,47 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
         (VInt(a), VInt(b)) => VInt(a + b)
         (VString(a), VString(b)) => VString(a + b)
         _ =>
-          raise RuntimeError("type error: '+' expects Int+Int or String+String")
+          raise runtime_error(
+            "type error: '+' expects Int+Int or String+String",
+          )
       }
     Sub =>
       match (left, right) {
         (VInt(a), VInt(b)) => VInt(a - b)
-        _ => raise RuntimeError("type error: '-' expects Int+Int")
+        _ => raise runtime_error("type error: '-' expects Int+Int")
       }
     Mul =>
       match (left, right) {
         (VInt(a), VInt(b)) => VInt(a * b)
-        _ => raise RuntimeError("type error: '*' expects Int+Int")
+        _ => raise runtime_error("type error: '*' expects Int+Int")
       }
     Div =>
       match (left, right) {
-        (VInt(_), VInt(0)) => raise RuntimeError("division by zero")
+        (VInt(_), VInt(0)) => raise runtime_error("division by zero")
         (VInt(a), VInt(b)) => VInt(a / b)
-        _ => raise RuntimeError("type error: '/' expects Int+Int")
+        _ => raise runtime_error("type error: '/' expects Int+Int")
       }
     Eq => VBool(value_eq(left, right))
     Ne => VBool(!value_eq(left, right))
     Lt =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a < b)
-        _ => raise RuntimeError("type error: '<' expects Int+Int")
+        _ => raise runtime_error("type error: '<' expects Int+Int")
       }
     Le =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a <= b)
-        _ => raise RuntimeError("type error: '<=' expects Int+Int")
+        _ => raise runtime_error("type error: '<=' expects Int+Int")
       }
     Gt =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a > b)
-        _ => raise RuntimeError("type error: '>' expects Int+Int")
+        _ => raise runtime_error("type error: '>' expects Int+Int")
       }
     Ge =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a >= b)
-        _ => raise RuntimeError("type error: '>=' expects Int+Int")
+        _ => raise runtime_error("type error: '>=' expects Int+Int")
       }
     And => if truthy(left) { right } else { left }
     Or => if truthy(left) { left } else { right }
@@ -995,7 +1011,6 @@ pub fn eval_is_error(expr : Expr) -> Bool {
 ///|
 pub fn eval_error_text(source : String) -> String? {
   try eval_source(source) catch {
-    RuntimeError(message) => Some(message)
     RuntimeErrorAt(message, span) =>
       Some(message + " at " + format_source_span(span))
     _ => None
