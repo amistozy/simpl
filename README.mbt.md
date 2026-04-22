@@ -223,18 +223,11 @@ If your changes affect snapshot outputs, update them with:
 moon test --update
 ```
 
-## Current Limits
-
-The implementation is already useful for small language experiments, but it still has some clear boundaries:
-
-- there is no fuller statement/block system yet
-- the CLI entry point is intentionally minimal; the project is centered on the library rather than on an interactive command-line experience
-
 ## Good Next Extensions
 
 - a richer standard library
 - more pattern forms and data structures
-- `while`, block expressions, or a module system
+- `while`, a module system, or additional control-flow forms
 - a friendlier REPL
 - more advanced error recovery and diagnostics
 
