@@ -893,10 +893,12 @@ fn parse_record_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
       IdentTok(field_name) => field_name
       tok => raise SyntaxError("expected field name, found: " + token_name(tok))
     }
-    if j + 1 >= tokens.length() || tokens[j + 1] != ColonTok {
-      raise SyntaxError("expected ':' after field name")
+    let (value_expr, next_expr) = if j + 1 < tokens.length() &&
+      tokens[j + 1] == ColonTok {
+      parse_expr(tokens, j + 2)
+    } else {
+      (Var(name), j + 1)
     }
-    let (value_expr, next_expr) = parse_expr(tokens, j + 2)
     fields.push((name, value_expr))
     if next_expr >= tokens.length() {
       raise SyntaxError("unexpected end in record")

@@ -220,6 +220,13 @@ test "record literal and field access" {
 }
 
 ///|
+test "record literal supports field shorthand" {
+  let code =
+    #| let x = 42 in {x, y: 43}.x
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 test "nested record fields" {
   let code =
     #| {user: {name: "moon", active: true}}.user.name

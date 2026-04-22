@@ -4,8 +4,7 @@
 /// Run with `moon run cmd/main` from the project root.
 fn main raise {
   let code =
-    #| match {x: 10, y: 32} {
-    #|   {x} => x + 1
-    #| }
+    #| let x = 42 in
+    #| {x, y: 43}
   debug(@lib.eval_source(code))
 }
