@@ -15,6 +15,15 @@ test "string concatenation" {
 }
 
 ///|
+test "string literals support common escape sequences" {
+  let code =
+    #| "line1\nline2\t\"quote\"\\slash\rend"
+  assert_true(
+    @simpl.eval_source_is_string(code, "line1\nline2\t\"quote\"\\slash\rend"),
+  )
+}
+
+///|
 test "type error remains runtime error" {
   let expr = @simpl.add(@simpl.int_lit(1), @simpl.bool_lit(true))
   assert_true(@simpl.eval_is_error(expr))
@@ -92,6 +101,22 @@ test "parse error includes source position" {
   assert_eq(
     @simpl.parse_error_text("1 2"),
     Some("unexpected token after expression: int at 1:3-4"),
+  )
+}
+
+///|
+test "invalid string escape reports source position" {
+  assert_eq(
+    @simpl.parse_error_text("\"a\\q\""),
+    Some("invalid escape sequence: \\q at 1:3-5"),
+  )
+}
+
+///|
+test "unterminated string escape reports source position" {
+  assert_eq(
+    @simpl.parse_error_text("\"a\\"),
+    Some("unterminated escape sequence in string literal at 1:3-4"),
   )
 }
 

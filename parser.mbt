@@ -191,8 +191,14 @@ fn lex_loop(
   }
   match c {
     '"' => {
-      let end = scan_string_end(source, i, i + 1, line, column)
-      let content = source[i + 1:end].to_string()
+      let (content, end) = lex_string_content(
+        source,
+        i,
+        line,
+        column,
+        "",
+        i + 1,
+      )
       let span = make_span(source, i, end + 1, line, column)
       acc.push((StrTok(content), span))
       let (_, end_pos) = span
@@ -490,24 +496,73 @@ fn scan_ident(source : String, i : Int) -> Int {
 }
 
 ///|
-fn scan_string_end(
+fn lex_string_content(
   source : String,
   start : Int,
-  i : Int,
   line : Int,
   column : Int,
-) -> Int raise {
+  acc : String,
+  i : Int,
+) -> (String, Int) raise {
   if i >= source.length() {
     raise SyntaxErrorAt(
       "unterminated string literal",
       make_span(source, start, source.length(), line, column),
     )
   }
-  if source.unsafe_get(i).unsafe_to_char() == '"' {
-    i
-  } else {
-    scan_string_end(source, start, i + 1, line, column)
+  let c = source.unsafe_get(i).unsafe_to_char()
+  if c == '"' {
+    return (acc, i)
   }
+  if c == '\\' {
+    return lex_string_escape(source, start, line, column, acc, i)
+  }
+  lex_string_content(
+    source,
+    start,
+    line,
+    column,
+    acc + source[i:i + 1].to_string(),
+    i + 1,
+  )
+}
+
+///|
+fn lex_string_escape(
+  source : String,
+  start : Int,
+  line : Int,
+  column : Int,
+  acc : String,
+  i : Int,
+) -> (String, Int) raise {
+  let escape_pos = advance_position_range(
+    source,
+    start,
+    i,
+    (start, line, column),
+  )
+  let (_, escape_line, escape_column) = escape_pos
+  if i + 1 >= source.length() {
+    raise SyntaxErrorAt(
+      "unterminated escape sequence in string literal",
+      make_span(source, i, source.length(), escape_line, escape_column),
+    )
+  }
+  let escaped = source.unsafe_get(i + 1).unsafe_to_char()
+  let decoded = match escaped {
+    'n' => "\n"
+    'r' => "\r"
+    't' => "\t"
+    '"' => "\""
+    '\\' => "\\"
+    _ =>
+      raise SyntaxErrorAt(
+        "invalid escape sequence: \\" + escaped.to_string(),
+        make_span(source, i, i + 2, escape_line, escape_column),
+      )
+  }
+  lex_string_content(source, start, line, column, acc + decoded, i + 2)
 }
 
 ///|

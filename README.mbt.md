@@ -228,7 +228,6 @@ moon test --update
 
 The implementation is already useful for small language experiments, but it still has some clear boundaries:
 
-- strings do not yet support escape sequences
 - there is no fuller statement/block system yet
 - the CLI entry point is intentionally minimal; the project is centered on the library rather than on an interactive command-line experience
 
