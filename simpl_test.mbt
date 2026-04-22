@@ -88,6 +88,14 @@ test "parse error is reported" {
 }
 
 ///|
+test "parse error includes source position" {
+  assert_eq(
+    @simpl.parse_error_text("1 2"),
+    Some("unexpected token after expression: int at 1:3-4"),
+  )
+}
+
+///|
 test "ref basics and assignment expression value" {
   let code =
     #| let r = ref 1 in

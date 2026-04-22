@@ -44,6 +44,8 @@ pub fn eval_with_env(Expr, @hashmap.HashMap[String, Value]) -> Value raise
 
 pub fn field(Expr, String) -> Expr
 
+pub fn format_parse_error(ParseError) -> String
+
 pub fn ge(Expr, Expr) -> Expr
 
 pub fn gt(Expr, Expr) -> Expr
@@ -96,6 +98,8 @@ pub fn not(Expr) -> Expr
 
 pub fn parse(String) -> Expr raise
 
+pub fn parse_error_text(String) -> String?
+
 pub fn parse_is_error(String) -> Bool
 
 pub fn parse_is_ok(String) -> Bool
@@ -141,11 +145,12 @@ pub fn variant(String, Expr) -> Expr
 // Errors
 pub suberror EvalError {
   RuntimeError(String)
-}
+} derive(@debug.Debug)
 
 pub suberror ParseError {
   SyntaxError(String)
-}
+  SyntaxErrorAt(String, ((Int, Int, Int), (Int, Int, Int)))
+} derive(@debug.Debug)
 
 // Types and methods
 pub enum BinOp {
@@ -219,6 +224,10 @@ pub enum Value {
 
 // Type aliases
 pub type Env = @hashmap.HashMap[String, Value]
+
+pub type SourcePos = (Int, Int, Int)
+
+pub type SourceSpan = ((Int, Int, Int), (Int, Int, Int))
 
 // Traits
 

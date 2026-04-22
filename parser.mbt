@@ -1,7 +1,17 @@
 ///|
+pub type SourcePos = (Int, Int, Int)
+
+///|
+pub type SourceSpan = (SourcePos, SourcePos)
+
+///|
+type SpannedToken = (Token, SourceSpan)
+
+///|
 /// Parser error type
 pub suberror ParseError {
   SyntaxError(String)
+  SyntaxErrorAt(String, SourceSpan)
 } derive(Debug)
 
 ///|
@@ -61,13 +71,14 @@ pub fn parse(source : String) -> Expr raise {
   let tokens = lex(source)
   let (expr, i) = parse_expr(tokens, 0)
   if i >= tokens.length() {
-    raise SyntaxError("unexpected end")
+    raise SyntaxErrorAt("unexpected end", eof_span(tokens))
   }
-  if tokens[i] == EndTok {
+  if token_kind(tokens, i) == EndTok {
     expr
   } else {
-    raise SyntaxError(
-      "unexpected token after expression: " + token_name(tokens[i]),
+    raise SyntaxErrorAt(
+      "unexpected token after expression: " + token_name(token_kind(tokens, i)),
+      token_span_at(tokens, i),
     )
   }
 }
@@ -96,6 +107,26 @@ pub fn eval_source(source : String) -> Value raise {
 }
 
 ///|
+pub fn format_parse_error(error : ParseError) -> String {
+  match error {
+    SyntaxError(message) => message
+    SyntaxErrorAt(message, span) => message + " at " + format_source_span(span)
+  }
+}
+
+///|
+pub fn parse_error_text(source : String) -> String? {
+  try parse(source) catch {
+    SyntaxError(message) => Some(message)
+    SyntaxErrorAt(message, span) =>
+      Some(message + " at " + format_source_span(span))
+    _ => None
+  } noraise {
+    _ => None
+  }
+}
+
+///|
 pub fn eval_source_is_int(source : String, expected : Int) -> Bool {
   try eval_source(source) catch {
     _ => false
@@ -115,175 +146,263 @@ pub fn eval_source_is_error(source : String) -> Bool {
 }
 
 ///|
-fn lex(source : String) -> Array[Token] raise {
+fn lex(source : String) -> Array[SpannedToken] raise {
   let tokens = []
-  lex_loop(source, 0, tokens)
-  tokens.push(EndTok)
+  lex_loop(source, 0, 1, 1, tokens)
+  let eof = (source.length(), 1, 1)
+  let eof_pos = advance_position_range(source, 0, source.length(), eof)
+  tokens.push((EndTok, (eof_pos, eof_pos)))
   tokens
 }
 
 ///|
-fn lex_loop(source : String, i : Int, acc : Array[Token]) -> Unit raise {
+fn lex_loop(
+  source : String,
+  i : Int,
+  line : Int,
+  column : Int,
+  acc : Array[SpannedToken],
+) -> Unit raise {
   if i >= source.length() {
     return
   }
   let c = source.unsafe_get(i).unsafe_to_char()
   if c.is_ascii_whitespace() {
-    return lex_loop(source, i + 1, acc)
+    let next = advance_position(source, i, line, column)
+    let (next_line, next_column) = next
+    return lex_loop(source, i + 1, next_line, next_column, acc)
   }
   if c.is_ascii_digit() {
     let end = scan_digits(source, i)
     let num_text = source[i:end].to_string()
     let value = parse_digits_to_int(num_text, 0, 0)
-    acc.push(IntTok(value))
-    return lex_loop(source, end, acc)
+    let span = make_span(source, i, end, line, column)
+    acc.push((IntTok(value), span))
+    let (_, end_pos) = span
+    let (_, next_line, next_column) = end_pos
+    return lex_loop(source, end, next_line, next_column, acc)
   }
   if is_ident_start(c) {
     let end = scan_ident(source, i)
     let text = source[i:end].to_string()
     let tok = keyword_or_ident(text)
-    acc.push(tok)
-    return lex_loop(source, end, acc)
+    let span = make_span(source, i, end, line, column)
+    acc.push((tok, span))
+    let (_, end_pos) = span
+    let (_, next_line, next_column) = end_pos
+    return lex_loop(source, end, next_line, next_column, acc)
   }
   match c {
     '"' => {
       let end = scan_string_end(source, i + 1)
       let content = source[i + 1:end].to_string()
-      acc.push(StrTok(content))
-      lex_loop(source, end + 1, acc)
+      let span = make_span(source, i, end + 1, line, column)
+      acc.push((StrTok(content), span))
+      let (_, end_pos) = span
+      let (_, next_line, next_column) = end_pos
+      lex_loop(source, end + 1, next_line, next_column, acc)
     }
-    '(' => {
-      acc.push(LParenTok)
-      lex_loop(source, i + 1, acc)
-    }
-    ')' => {
-      acc.push(RParenTok)
-      lex_loop(source, i + 1, acc)
-    }
-    ',' => {
-      acc.push(CommaTok)
-      lex_loop(source, i + 1, acc)
-    }
-    ';' => {
-      acc.push(SemiTok)
-      lex_loop(source, i + 1, acc)
-    }
-    '+' => {
-      acc.push(PlusTok)
-      lex_loop(source, i + 1, acc)
-    }
-    '-' => {
-      acc.push(MinusTok)
-      lex_loop(source, i + 1, acc)
-    }
-    '*' => {
-      acc.push(StarTok)
-      lex_loop(source, i + 1, acc)
-    }
-    '/' => {
-      acc.push(SlashTok)
-      lex_loop(source, i + 1, acc)
-    }
+    '(' => push_single_char_token(source, i, line, column, LParenTok, acc)
+    ')' => push_single_char_token(source, i, line, column, RParenTok, acc)
+    ',' => push_single_char_token(source, i, line, column, CommaTok, acc)
+    ';' => push_single_char_token(source, i, line, column, SemiTok, acc)
+    '+' => push_single_char_token(source, i, line, column, PlusTok, acc)
+    '-' => push_single_char_token(source, i, line, column, MinusTok, acc)
+    '*' => push_single_char_token(source, i, line, column, StarTok, acc)
+    '/' => push_single_char_token(source, i, line, column, SlashTok, acc)
     '>' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '=' {
-        acc.push(GeTok)
-        lex_loop(source, i + 2, acc)
+        push_multi_char_token(source, i, i + 2, line, column, GeTok, acc)
       } else {
-        acc.push(GtTok)
-        lex_loop(source, i + 1, acc)
+        push_single_char_token(source, i, line, column, GtTok, acc)
       }
     '<' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '=' {
-        acc.push(LeTok)
-        lex_loop(source, i + 2, acc)
+        push_multi_char_token(source, i, i + 2, line, column, LeTok, acc)
       } else {
-        acc.push(LtTok)
-        lex_loop(source, i + 1, acc)
+        push_single_char_token(source, i, line, column, LtTok, acc)
       }
     '=' =>
       if i + 1 < source.length() {
         let n = source.unsafe_get(i + 1).unsafe_to_char()
         if n == '=' {
-          acc.push(EqEqTok)
-          lex_loop(source, i + 2, acc)
+          push_multi_char_token(source, i, i + 2, line, column, EqEqTok, acc)
         } else if n == '>' {
-          acc.push(ArrowTok)
-          lex_loop(source, i + 2, acc)
+          push_multi_char_token(source, i, i + 2, line, column, ArrowTok, acc)
         } else {
-          acc.push(AssignTok)
-          lex_loop(source, i + 1, acc)
+          push_single_char_token(source, i, line, column, AssignTok, acc)
         }
       } else {
-        acc.push(AssignTok)
-        lex_loop(source, i + 1, acc)
+        push_single_char_token(source, i, line, column, AssignTok, acc)
       }
     '!' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '=' {
-        acc.push(BangEqTok)
-        lex_loop(source, i + 2, acc)
+        push_multi_char_token(source, i, i + 2, line, column, BangEqTok, acc)
       } else {
-        acc.push(BangTok)
-        lex_loop(source, i + 1, acc)
+        push_single_char_token(source, i, line, column, BangTok, acc)
       }
     ':' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '=' {
-        acc.push(ColonEqTok)
-        lex_loop(source, i + 2, acc)
+        push_multi_char_token(source, i, i + 2, line, column, ColonEqTok, acc)
       } else {
-        acc.push(ColonTok)
-        lex_loop(source, i + 1, acc)
+        push_single_char_token(source, i, line, column, ColonTok, acc)
       }
     '.' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '.' {
-        acc.push(DotDotTok)
-        lex_loop(source, i + 2, acc)
+        push_multi_char_token(source, i, i + 2, line, column, DotDotTok, acc)
       } else {
-        acc.push(DotTok)
-        lex_loop(source, i + 1, acc)
+        push_single_char_token(source, i, line, column, DotTok, acc)
       }
     '|' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '|' {
-        acc.push(OrOrTok)
-        lex_loop(source, i + 2, acc)
+        push_multi_char_token(source, i, i + 2, line, column, OrOrTok, acc)
       } else {
-        acc.push(PipeTok)
-        lex_loop(source, i + 1, acc)
+        push_single_char_token(source, i, line, column, PipeTok, acc)
       }
-    '#' => {
-      acc.push(HashTok)
-      lex_loop(source, i + 1, acc)
-    }
-    '{' => {
-      acc.push(LBraceTok)
-      lex_loop(source, i + 1, acc)
-    }
-    '}' => {
-      acc.push(RBraceTok)
-      lex_loop(source, i + 1, acc)
-    }
-    '[' => {
-      acc.push(LBracketTok)
-      lex_loop(source, i + 1, acc)
-    }
-    ']' => {
-      acc.push(RBracketTok)
-      lex_loop(source, i + 1, acc)
-    }
+    '#' => push_single_char_token(source, i, line, column, HashTok, acc)
+    '{' => push_single_char_token(source, i, line, column, LBraceTok, acc)
+    '}' => push_single_char_token(source, i, line, column, RBraceTok, acc)
+    '[' => push_single_char_token(source, i, line, column, LBracketTok, acc)
+    ']' => push_single_char_token(source, i, line, column, RBracketTok, acc)
     '&' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '&' {
-        acc.push(AndAndTok)
-        lex_loop(source, i + 2, acc)
+        push_multi_char_token(source, i, i + 2, line, column, AndAndTok, acc)
       } else {
-        raise SyntaxError("unexpected token '&'")
+        raise SyntaxErrorAt(
+          "unexpected token '&'",
+          make_span(source, i, i + 1, line, column),
+        )
       }
-    _ => raise SyntaxError("unexpected character: " + c.to_string())
+    _ =>
+      raise SyntaxErrorAt(
+        "unexpected character: " + c.to_string(),
+        make_span(source, i, i + 1, line, column),
+      )
+  }
+}
+
+///|
+fn push_single_char_token(
+  source : String,
+  i : Int,
+  line : Int,
+  column : Int,
+  token : Token,
+  acc : Array[SpannedToken],
+) -> Unit raise {
+  let span = make_span(source, i, i + 1, line, column)
+  acc.push((token, span))
+  let (_, end_pos) = span
+  let (_, next_line, next_column) = end_pos
+  lex_loop(source, i + 1, next_line, next_column, acc)
+}
+
+///|
+fn push_multi_char_token(
+  source : String,
+  start : Int,
+  end_ : Int,
+  line : Int,
+  column : Int,
+  token : Token,
+  acc : Array[SpannedToken],
+) -> Unit raise {
+  let span = make_span(source, start, end_, line, column)
+  acc.push((token, span))
+  let (_, end_pos) = span
+  let (_, next_line, next_column) = end_pos
+  lex_loop(source, end_, next_line, next_column, acc)
+}
+
+///|
+fn advance_position(
+  source : String,
+  i : Int,
+  line : Int,
+  column : Int,
+) -> (Int, Int) {
+  if i >= source.length() {
+    return (line, column)
+  }
+  let c = source.unsafe_get(i).unsafe_to_char()
+  if c == '\n' {
+    (line + 1, 1)
+  } else {
+    (line, column + 1)
+  }
+}
+
+///|
+fn advance_position_range(
+  source : String,
+  i : Int,
+  end_ : Int,
+  start : SourcePos,
+) -> SourcePos {
+  let (offset, line, column) = start
+  if i >= end_ {
+    return (offset + (end_ - i), line, column)
+  }
+  let (next_line, next_column) = advance_position(source, i, line, column)
+  advance_position_range(
+    source,
+    i + 1,
+    end_,
+    (offset + 1, next_line, next_column),
+  )
+}
+
+///|
+fn make_span(
+  source : String,
+  start_offset : Int,
+  end_offset : Int,
+  line : Int,
+  column : Int,
+) -> SourceSpan {
+  let start = (start_offset, line, column)
+  let end_ = advance_position_range(source, start_offset, end_offset, start)
+  (start, end_)
+}
+
+///|
+fn token_kind(tokens : Array[SpannedToken], i : Int) -> Token {
+  let (tok, _) = tokens[i]
+  tok
+}
+
+///|
+fn token_span_at(tokens : Array[SpannedToken], i : Int) -> SourceSpan {
+  if i < tokens.length() {
+    let (_, span) = tokens[i]
+    span
+  } else {
+    eof_span(tokens)
+  }
+}
+
+///|
+fn eof_span(tokens : Array[SpannedToken]) -> SourceSpan {
+  let (_, span) = tokens[tokens.length() - 1]
+  span
+}
+
+///|
+fn format_source_span(span : SourceSpan) -> String {
+  let (start, end_) = span
+  let (_, start_line, start_column) = start
+  let (_, end_line, end_column) = end_
+  if start_line == end_line {
+    "\{start_line}:\{start_column}-\{end_column}"
+  } else {
+    "\{start_line}:\{start_column}-\{end_line}:\{end_column}"
   }
 }
 
@@ -421,14 +540,14 @@ fn token_name(tok : Token) -> String {
 }
 
 ///|
-fn parse_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   parse_seq_expr(tokens, i)
 }
 
 ///|
-fn parse_seq_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_seq_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   let (left, j) = parse_assign_expr(tokens, i)
-  if j < tokens.length() && tokens[j] == SemiTok {
+  if j < tokens.length() && token_kind(tokens, j) == SemiTok {
     let (right, k) = parse_seq_expr(tokens, j + 1)
     (Let(PBind("_"), left, right), k)
   } else {
@@ -437,9 +556,12 @@ fn parse_seq_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 }
 
 ///|
-fn parse_assign_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_assign_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Expr, Int) raise {
   let (left, j) = parse_let_expr(tokens, i)
-  if j < tokens.length() && tokens[j] == ColonEqTok {
+  if j < tokens.length() && token_kind(tokens, j) == ColonEqTok {
     let (right, k) = parse_assign_expr(tokens, j + 1)
     (RefSet(left, right), k)
   } else {
@@ -448,12 +570,12 @@ fn parse_assign_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 }
 
 ///|
-fn parse_let_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_let_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("unexpected end")
   }
-  if tokens[i] == LetTok {
-    if i + 1 < tokens.length() && tokens[i + 1] == RecTok {
+  if token_kind(tokens, i) == LetTok {
+    if i + 1 < tokens.length() && token_kind(tokens, i + 1) == RecTok {
       parse_let_rec_expr(tokens, i + 2)
     } else {
       parse_plain_let_expr(tokens, i + 1)
@@ -464,30 +586,33 @@ fn parse_let_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 }
 
 ///|
-fn parse_plain_let_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_plain_let_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Expr, Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("expected pattern after 'let'")
   }
-  match tokens[i] {
+  match token_kind(tokens, i) {
     IdentTok(name) =>
-      if i + 1 < tokens.length() && tokens[i + 1] == LParenTok {
+      if i + 1 < tokens.length() && token_kind(tokens, i + 1) == LParenTok {
         let (params, j) = parse_params(tokens, i + 2)
-        if j >= tokens.length() || tokens[j] != AssignTok {
+        if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
           raise SyntaxError("expected '=' after let function params")
         }
         let (func_body, k) = parse_expr(tokens, j + 1)
-        if k >= tokens.length() || tokens[k] != InTok {
+        if k >= tokens.length() || token_kind(tokens, k) != InTok {
           raise SyntaxError("expected 'in' after let function binding")
         }
         let (body, m) = parse_expr(tokens, k + 1)
         (Let(PBind(name), Lambda(params, func_body), body), m)
       } else {
         let (pattern, j) = parse_pattern(tokens, i)
-        if j >= tokens.length() || tokens[j] != AssignTok {
+        if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
           raise SyntaxError("expected '=' after let pattern")
         }
         let (value_expr, k) = parse_expr(tokens, j + 1)
-        if k >= tokens.length() || tokens[k] != InTok {
+        if k >= tokens.length() || token_kind(tokens, k) != InTok {
           raise SyntaxError("expected 'in' after let binding")
         }
         let (body, m) = parse_expr(tokens, k + 1)
@@ -495,11 +620,11 @@ fn parse_plain_let_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
       }
     _ => {
       let (pattern, j) = parse_pattern(tokens, i)
-      if j >= tokens.length() || tokens[j] != AssignTok {
+      if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
         raise SyntaxError("expected '=' after let pattern")
       }
       let (value_expr, k) = parse_expr(tokens, j + 1)
-      if k >= tokens.length() || tokens[k] != InTok {
+      if k >= tokens.length() || token_kind(tokens, k) != InTok {
         raise SyntaxError("expected 'in' after let binding")
       }
       let (body, m) = parse_expr(tokens, k + 1)
@@ -509,21 +634,24 @@ fn parse_plain_let_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 }
 
 ///|
-fn parse_let_rec_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_let_rec_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Expr, Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("expected function name after 'let rec'")
   }
-  match tokens[i] {
+  match token_kind(tokens, i) {
     IdentTok(name) => {
-      if i + 1 >= tokens.length() || tokens[i + 1] != LParenTok {
+      if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
         raise SyntaxError("expected '(...)' after let rec function name")
       }
       let (params, j) = parse_params(tokens, i + 2)
-      if j >= tokens.length() || tokens[j] != AssignTok {
+      if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
         raise SyntaxError("expected '=' after let rec params")
       }
       let (func_body, k) = parse_expr(tokens, j + 1)
-      if k >= tokens.length() || tokens[k] != InTok {
+      if k >= tokens.length() || token_kind(tokens, k) != InTok {
         raise SyntaxError("expected 'in' after let rec binding")
       }
       let (body, m) = parse_expr(tokens, k + 1)
@@ -534,14 +662,14 @@ fn parse_let_rec_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 }
 
 ///|
-fn parse_if_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
-  if i < tokens.length() && tokens[i] == IfTok {
+fn parse_if_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+  if i < tokens.length() && token_kind(tokens, i) == IfTok {
     let (cond, j) = parse_expr(tokens, i + 1)
-    if j >= tokens.length() || tokens[j] != ThenTok {
+    if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
       raise SyntaxError("expected 'then' in if expression")
     }
     let (then_expr, k) = parse_expr(tokens, j + 1)
-    if k >= tokens.length() || tokens[k] != ElseTok {
+    if k >= tokens.length() || token_kind(tokens, k) != ElseTok {
       raise SyntaxError("expected 'else' in if expression")
     }
     let (else_expr, m) = parse_expr(tokens, k + 1)
@@ -552,10 +680,10 @@ fn parse_if_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 }
 
 ///|
-fn parse_match_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
-  if i < tokens.length() && tokens[i] == MatchTok {
+fn parse_match_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+  if i < tokens.length() && token_kind(tokens, i) == MatchTok {
     let (value_expr, j) = parse_expr(tokens, i + 1)
-    if j >= tokens.length() || tokens[j] != LBraceTok {
+    if j >= tokens.length() || token_kind(tokens, j) != LBraceTok {
       raise SyntaxError("expected '{' after match expression")
     }
     let (cases, k) = parse_match_cases(tokens, j + 1)
@@ -566,13 +694,16 @@ fn parse_match_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 }
 
 ///|
-fn parse_lambda_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
-  if i < tokens.length() && tokens[i] == FnTok {
-    if i + 1 >= tokens.length() || tokens[i + 1] != LParenTok {
+fn parse_lambda_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Expr, Int) raise {
+  if i < tokens.length() && token_kind(tokens, i) == FnTok {
+    if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
       raise SyntaxError("expected '(' after 'fn'")
     }
     let (params, j) = parse_params(tokens, i + 2)
-    if j >= tokens.length() || tokens[j] != ArrowTok {
+    if j >= tokens.length() || token_kind(tokens, j) != ArrowTok {
       raise SyntaxError("expected '=>' after lambda params")
     }
     let (body, k) = parse_expr(tokens, j + 1)
@@ -584,13 +715,13 @@ fn parse_lambda_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 
 ///|
 fn parse_params(
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Array[MatchPattern], Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("unexpected end in params")
   }
-  if tokens[i] == RParenTok {
+  if token_kind(tokens, i) == RParenTok {
     ([], i + 1)
   } else {
     parse_params_nonempty(tokens, i)
@@ -599,7 +730,7 @@ fn parse_params(
 
 ///|
 fn parse_params_nonempty(
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Array[MatchPattern], Int) raise {
   let params = []
@@ -609,18 +740,20 @@ fn parse_params_nonempty(
     if next >= tokens.length() {
       raise SyntaxError("unexpected end in params")
     }
-    if tokens[next] == CommaTok {
+    if token_kind(tokens, next) == CommaTok {
       continue next + 1, _pos + 1
     }
-    if tokens[next] == RParenTok {
+    if token_kind(tokens, next) == RParenTok {
       break (params, next + 1)
     }
-    raise SyntaxError("unexpected token in params: " + token_name(tokens[next]))
+    raise SyntaxError(
+      "unexpected token in params: " + token_name(token_kind(tokens, next)),
+    )
   }
 }
 
 ///|
-fn parse_or_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_or_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   let (left, j) = parse_and_expr(tokens, i)
   parse_or_tail(left, tokens, j)
 }
@@ -628,10 +761,11 @@ fn parse_or_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 ///|
 fn parse_or_tail(
   left : Expr,
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Expr, Int) raise {
-  if i < tokens.length() && (tokens[i] == OrOrTok || tokens[i] == OrWordTok) {
+  if i < tokens.length() &&
+    (token_kind(tokens, i) == OrOrTok || token_kind(tokens, i) == OrWordTok) {
     let (right, j) = parse_and_expr(tokens, i + 1)
     parse_or_tail(Binary(Or, left, right), tokens, j)
   } else {
@@ -640,7 +774,7 @@ fn parse_or_tail(
 }
 
 ///|
-fn parse_and_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_and_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   let (left, j) = parse_eq_expr(tokens, i)
   parse_and_tail(left, tokens, j)
 }
@@ -648,10 +782,11 @@ fn parse_and_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 ///|
 fn parse_and_tail(
   left : Expr,
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Expr, Int) raise {
-  if i < tokens.length() && (tokens[i] == AndAndTok || tokens[i] == AndWordTok) {
+  if i < tokens.length() &&
+    (token_kind(tokens, i) == AndAndTok || token_kind(tokens, i) == AndWordTok) {
     let (right, j) = parse_eq_expr(tokens, i + 1)
     parse_and_tail(Binary(And, left, right), tokens, j)
   } else {
@@ -660,7 +795,7 @@ fn parse_and_tail(
 }
 
 ///|
-fn parse_eq_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_eq_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   let (left, j) = parse_cmp_expr(tokens, i)
   parse_eq_tail(left, tokens, j)
 }
@@ -668,13 +803,13 @@ fn parse_eq_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 ///|
 fn parse_eq_tail(
   left : Expr,
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Expr, Int) raise {
-  if i < tokens.length() && tokens[i] == EqEqTok {
+  if i < tokens.length() && token_kind(tokens, i) == EqEqTok {
     let (right, j) = parse_cmp_expr(tokens, i + 1)
     parse_eq_tail(Binary(Eq, left, right), tokens, j)
-  } else if i < tokens.length() && tokens[i] == BangEqTok {
+  } else if i < tokens.length() && token_kind(tokens, i) == BangEqTok {
     let (right, j) = parse_cmp_expr(tokens, i + 1)
     parse_eq_tail(Binary(Ne, left, right), tokens, j)
   } else {
@@ -683,7 +818,7 @@ fn parse_eq_tail(
 }
 
 ///|
-fn parse_cmp_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_cmp_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   let (left, j) = parse_add_expr(tokens, i)
   parse_cmp_tail(left, tokens, j)
 }
@@ -691,19 +826,19 @@ fn parse_cmp_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 ///|
 fn parse_cmp_tail(
   left : Expr,
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Expr, Int) raise {
-  if i < tokens.length() && tokens[i] == LtTok {
+  if i < tokens.length() && token_kind(tokens, i) == LtTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
     parse_cmp_tail(Binary(Lt, left, right), tokens, j)
-  } else if i < tokens.length() && tokens[i] == LeTok {
+  } else if i < tokens.length() && token_kind(tokens, i) == LeTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
     parse_cmp_tail(Binary(Le, left, right), tokens, j)
-  } else if i < tokens.length() && tokens[i] == GtTok {
+  } else if i < tokens.length() && token_kind(tokens, i) == GtTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
     parse_cmp_tail(Binary(Gt, left, right), tokens, j)
-  } else if i < tokens.length() && tokens[i] == GeTok {
+  } else if i < tokens.length() && token_kind(tokens, i) == GeTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
     parse_cmp_tail(Binary(Ge, left, right), tokens, j)
   } else {
@@ -712,7 +847,7 @@ fn parse_cmp_tail(
 }
 
 ///|
-fn parse_add_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_add_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   let (left, j) = parse_mul_expr(tokens, i)
   parse_add_tail(left, tokens, j)
 }
@@ -720,13 +855,13 @@ fn parse_add_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 ///|
 fn parse_add_tail(
   left : Expr,
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Expr, Int) raise {
-  if i < tokens.length() && tokens[i] == PlusTok {
+  if i < tokens.length() && token_kind(tokens, i) == PlusTok {
     let (right, j) = parse_mul_expr(tokens, i + 1)
     parse_add_tail(Binary(Add, left, right), tokens, j)
-  } else if i < tokens.length() && tokens[i] == MinusTok {
+  } else if i < tokens.length() && token_kind(tokens, i) == MinusTok {
     let (right, j) = parse_mul_expr(tokens, i + 1)
     parse_add_tail(Binary(Sub, left, right), tokens, j)
   } else {
@@ -735,7 +870,7 @@ fn parse_add_tail(
 }
 
 ///|
-fn parse_mul_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_mul_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   let (left, j) = parse_unary_expr(tokens, i)
   parse_mul_tail(left, tokens, j)
 }
@@ -743,13 +878,13 @@ fn parse_mul_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 ///|
 fn parse_mul_tail(
   left : Expr,
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Expr, Int) raise {
-  if i < tokens.length() && tokens[i] == StarTok {
+  if i < tokens.length() && token_kind(tokens, i) == StarTok {
     let (right, j) = parse_unary_expr(tokens, i + 1)
     parse_mul_tail(Binary(Mul, left, right), tokens, j)
-  } else if i < tokens.length() && tokens[i] == SlashTok {
+  } else if i < tokens.length() && token_kind(tokens, i) == SlashTok {
     let (right, j) = parse_unary_expr(tokens, i + 1)
     parse_mul_tail(Binary(Div, left, right), tokens, j)
   } else {
@@ -758,17 +893,17 @@ fn parse_mul_tail(
 }
 
 ///|
-fn parse_unary_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
-  if i < tokens.length() && tokens[i] == RefTok {
+fn parse_unary_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+  if i < tokens.length() && token_kind(tokens, i) == RefTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (RefNew(expr), j)
-  } else if i < tokens.length() && tokens[i] == BangTok {
+  } else if i < tokens.length() && token_kind(tokens, i) == BangTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (RefGet(expr), j)
-  } else if i < tokens.length() && tokens[i] == MinusTok {
+  } else if i < tokens.length() && token_kind(tokens, i) == MinusTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (Unary(Neg, expr), j)
-  } else if i < tokens.length() && tokens[i] == NotTok {
+  } else if i < tokens.length() && token_kind(tokens, i) == NotTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (Unary(Not, expr), j)
   } else {
@@ -777,7 +912,10 @@ fn parse_unary_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 }
 
 ///|
-fn parse_postfix_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_postfix_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Expr, Int) raise {
   let (expr, j) = parse_primary_expr(tokens, i)
   parse_postfix_tail(expr, tokens, j)
 }
@@ -785,17 +923,17 @@ fn parse_postfix_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 ///|
 fn parse_postfix_tail(
   expr : Expr,
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Expr, Int) raise {
-  if i < tokens.length() && tokens[i] == LParenTok {
+  if i < tokens.length() && token_kind(tokens, i) == LParenTok {
     let (args, j) = parse_args(tokens, i + 1)
     parse_postfix_tail(Call(expr, args), tokens, j)
-  } else if i < tokens.length() && tokens[i] == DotTok {
+  } else if i < tokens.length() && token_kind(tokens, i) == DotTok {
     if i + 1 >= tokens.length() {
       raise SyntaxError("expected field name after '.'")
     }
-    match tokens[i + 1] {
+    match token_kind(tokens, i + 1) {
       IdentTok(name) => parse_postfix_tail(Field(expr, name), tokens, i + 2)
       tok => raise SyntaxError("expected field name, found: " + token_name(tok))
     }
@@ -805,11 +943,14 @@ fn parse_postfix_tail(
 }
 
 ///|
-fn parse_args(tokens : Array[Token], i : Int) -> (Array[Expr], Int) raise {
+fn parse_args(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Array[Expr], Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("unexpected end in args")
   }
-  if tokens[i] == RParenTok {
+  if token_kind(tokens, i) == RParenTok {
     ([], i + 1)
   } else {
     parse_args_nonempty(tokens, i)
@@ -818,7 +959,7 @@ fn parse_args(tokens : Array[Token], i : Int) -> (Array[Expr], Int) raise {
 
 ///|
 fn parse_args_nonempty(
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Array[Expr], Int) raise {
   let args = []
@@ -828,24 +969,27 @@ fn parse_args_nonempty(
     if next_expr >= tokens.length() {
       raise SyntaxError("unexpected end in args")
     }
-    if tokens[next_expr] == CommaTok {
+    if token_kind(tokens, next_expr) == CommaTok {
       continue next_expr + 1, _pos + 1
     }
-    if tokens[next_expr] == RParenTok {
+    if token_kind(tokens, next_expr) == RParenTok {
       break (args, next_expr + 1)
     }
     raise SyntaxError(
-      "unexpected token in args: " + token_name(tokens[next_expr]),
+      "unexpected token in args: " + token_name(token_kind(tokens, next_expr)),
     )
   }
 }
 
 ///|
-fn parse_primary_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_primary_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Expr, Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("unexpected end")
   }
-  match tokens[i] {
+  match token_kind(tokens, i) {
     IntTok(v) => (IntLit(v), i + 1)
     StrTok(v) => (StringLit(v), i + 1)
     TrueTok => (BoolLit(true), i + 1)
@@ -857,10 +1001,12 @@ fn parse_primary_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     LBracketTok => parse_list_literal(tokens, i + 1)
     LParenTok => {
       let (expr, j) = parse_expr(tokens, i + 1)
-      if j < tokens.length() && tokens[j] == RParenTok {
+      if j < tokens.length() && token_kind(tokens, j) == RParenTok {
         (expr, j + 1)
       } else if j < tokens.length() {
-        raise SyntaxError("expected ')', found: " + token_name(tokens[j]))
+        raise SyntaxError(
+          "expected ')', found: " + token_name(token_kind(tokens, j)),
+        )
       } else {
         raise SyntaxError("expected ')' but found end")
       }
@@ -870,17 +1016,20 @@ fn parse_primary_expr(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 }
 
 ///|
-fn parse_variant_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
+fn parse_variant_literal(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Expr, Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("expected variant name after '#'")
   }
-  match tokens[i] {
+  match token_kind(tokens, i) {
     IdentTok(tag) => {
-      if i + 1 >= tokens.length() || tokens[i + 1] != LParenTok {
+      if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
         raise SyntaxError("expected '(' after variant tag")
       }
       let (value_expr, j) = parse_expr(tokens, i + 2)
-      if j >= tokens.length() || tokens[j] != RParenTok {
+      if j >= tokens.length() || token_kind(tokens, j) != RParenTok {
         raise SyntaxError("expected ')' after variant payload")
       }
       (Variant(tag, value_expr), j + 1)
@@ -890,8 +1039,11 @@ fn parse_variant_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
 }
 
 ///|
-fn parse_record_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
-  if i < tokens.length() && tokens[i] == RBraceTok {
+fn parse_record_literal(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Expr, Int) raise {
+  if i < tokens.length() && token_kind(tokens, i) == RBraceTok {
     return (Record([]), i + 1)
   }
   let fields = []
@@ -899,12 +1051,12 @@ fn parse_record_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     if j >= tokens.length() {
       raise SyntaxError("unexpected end in record")
     }
-    let name = match tokens[j] {
+    let name = match token_kind(tokens, j) {
       IdentTok(field_name) => field_name
       tok => raise SyntaxError("expected field name, found: " + token_name(tok))
     }
     let (value_expr, next_expr) = if j + 1 < tokens.length() &&
-      tokens[j + 1] == ColonTok {
+      token_kind(tokens, j + 1) == ColonTok {
       parse_expr(tokens, j + 2)
     } else {
       (Var(name), j + 1)
@@ -913,21 +1065,24 @@ fn parse_record_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     if next_expr >= tokens.length() {
       raise SyntaxError("unexpected end in record")
     }
-    if tokens[next_expr] == CommaTok {
+    if token_kind(tokens, next_expr) == CommaTok {
       continue next_expr + 1, _pos + 1
     }
-    if tokens[next_expr] == RBraceTok {
+    if token_kind(tokens, next_expr) == RBraceTok {
       break (Record(fields), next_expr + 1)
     }
     raise SyntaxError(
-      "unexpected token in record: " + token_name(tokens[next_expr]),
+      "unexpected token in record: " + token_name(token_kind(tokens, next_expr)),
     )
   }
 }
 
 ///|
-fn parse_list_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
-  if i < tokens.length() && tokens[i] == RBracketTok {
+fn parse_list_literal(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Expr, Int) raise {
+  if i < tokens.length() && token_kind(tokens, i) == RBracketTok {
     return (List([]), i + 1)
   }
   let items = []
@@ -937,24 +1092,24 @@ fn parse_list_literal(tokens : Array[Token], i : Int) -> (Expr, Int) raise {
     if next_expr >= tokens.length() {
       raise SyntaxError("unexpected end in list")
     }
-    if tokens[next_expr] == CommaTok {
+    if token_kind(tokens, next_expr) == CommaTok {
       continue next_expr + 1, _pos + 1
     }
-    if tokens[next_expr] == RBracketTok {
+    if token_kind(tokens, next_expr) == RBracketTok {
       break (List(items), next_expr + 1)
     }
     raise SyntaxError(
-      "unexpected token in list: " + token_name(tokens[next_expr]),
+      "unexpected token in list: " + token_name(token_kind(tokens, next_expr)),
     )
   }
 }
 
 ///|
 fn parse_match_cases(
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Array[(MatchPattern, Expr?, Expr)], Int) raise {
-  if i < tokens.length() && tokens[i] == RBraceTok {
+  if i < tokens.length() && token_kind(tokens, i) == RBraceTok {
     return ([], i + 1)
   }
   let (case, j) = parse_match_case(tokens, i)
@@ -964,34 +1119,36 @@ fn parse_match_cases(
 
 ///|
 fn parse_match_cases_tail(
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (Array[(MatchPattern, Expr?, Expr)], Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("unexpected end in match")
   }
-  if tokens[i] == CommaTok {
+  if token_kind(tokens, i) == CommaTok {
     parse_match_cases(tokens, i + 1)
-  } else if tokens[i] == RBraceTok {
+  } else if token_kind(tokens, i) == RBraceTok {
     ([], i + 1)
   } else {
-    raise SyntaxError("unexpected token in match: " + token_name(tokens[i]))
+    raise SyntaxError(
+      "unexpected token in match: " + token_name(token_kind(tokens, i)),
+    )
   }
 }
 
 ///|
 fn parse_match_case(
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> ((MatchPattern, Expr?, Expr), Int) raise {
   let (pattern, j) = parse_pattern(tokens, i)
-  let (cond_expr, k) = if j < tokens.length() && tokens[j] == IfTok {
+  let (cond_expr, k) = if j < tokens.length() && token_kind(tokens, j) == IfTok {
     let (cond, next) = parse_expr(tokens, j + 1)
     (Some(cond), next)
   } else {
     (None, j)
   }
-  if k >= tokens.length() || tokens[k] != ArrowTok {
+  if k >= tokens.length() || token_kind(tokens, k) != ArrowTok {
     raise SyntaxError("expected '=>' after match pattern")
   }
   let (body, next_expr) = parse_expr(tokens, k + 1)
@@ -999,7 +1156,10 @@ fn parse_match_case(
 }
 
 ///|
-fn parse_pattern(tokens : Array[Token], i : Int) -> (MatchPattern, Int) raise {
+fn parse_pattern(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (MatchPattern, Int) raise {
   let (pattern, j) = parse_pattern_atom(tokens, i)
   parse_pattern_or_tail(pattern, tokens, j)
 }
@@ -1007,10 +1167,10 @@ fn parse_pattern(tokens : Array[Token], i : Int) -> (MatchPattern, Int) raise {
 ///|
 fn parse_pattern_or_tail(
   left : MatchPattern,
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (MatchPattern, Int) raise {
-  if i < tokens.length() && tokens[i] == PipeTok {
+  if i < tokens.length() && token_kind(tokens, i) == PipeTok {
     let (right, j) = parse_pattern_atom(tokens, i + 1)
     let combined = match left {
       POr(patterns) => POr(patterns + [right])
@@ -1025,13 +1185,13 @@ fn parse_pattern_or_tail(
 
 ///|
 fn parse_pattern_atom(
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (MatchPattern, Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("unexpected end in pattern")
   }
-  match tokens[i] {
+  match token_kind(tokens, i) {
     IdentTok(name) => (PBind(name), i + 1)
     IntTok(value) => (PInt(value), i + 1)
     StrTok(value) => (PString(value), i + 1)
@@ -1158,21 +1318,21 @@ fn array_contains_string_from(
 
 ///|
 fn parse_variant_pattern(
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (MatchPattern, Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("expected variant name after '#'")
   }
-  let tag = match tokens[i] {
+  let tag = match token_kind(tokens, i) {
     IdentTok(name) => name
     tok => raise SyntaxError("expected variant name, found: " + token_name(tok))
   }
-  if i + 1 >= tokens.length() || tokens[i + 1] != LParenTok {
+  if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
     raise SyntaxError("expected '(' after variant name")
   }
   let (inner, j) = parse_pattern(tokens, i + 2)
-  if j >= tokens.length() || tokens[j] != RParenTok {
+  if j >= tokens.length() || token_kind(tokens, j) != RParenTok {
     raise SyntaxError("expected ')' after variant pattern")
   }
   (PVariant(tag, inner), j + 1)
@@ -1180,10 +1340,10 @@ fn parse_variant_pattern(
 
 ///|
 fn parse_list_pattern(
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (MatchPattern, Int) raise {
-  if i < tokens.length() && tokens[i] == RBracketTok {
+  if i < tokens.length() && token_kind(tokens, i) == RBracketTok {
     return (PList([]), i + 1)
   }
   let prefix = []
@@ -1191,7 +1351,7 @@ fn parse_list_pattern(
     if j >= tokens.length() {
       raise SyntaxError("unexpected end in list pattern")
     }
-    if tokens[j] == DotDotTok {
+    if token_kind(tokens, j) == DotDotTok {
       return parse_list_pattern_rest(tokens, j + 1, prefix)
     }
     let (pattern, next_pattern) = parse_pattern(tokens, j)
@@ -1199,21 +1359,22 @@ fn parse_list_pattern(
     if next_pattern >= tokens.length() {
       raise SyntaxError("unexpected end in list pattern")
     }
-    if tokens[next_pattern] == CommaTok {
+    if token_kind(tokens, next_pattern) == CommaTok {
       continue next_pattern + 1, _pos + 1
     }
-    if tokens[next_pattern] == RBracketTok {
+    if token_kind(tokens, next_pattern) == RBracketTok {
       break (PList(prefix), next_pattern + 1)
     }
     raise SyntaxError(
-      "unexpected token in list pattern: " + token_name(tokens[next_pattern]),
+      "unexpected token in list pattern: " +
+      token_name(token_kind(tokens, next_pattern)),
     )
   }
 }
 
 ///|
 fn parse_list_pattern_rest(
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
   prefix : Array[MatchPattern],
 ) -> (MatchPattern, Int) raise {
@@ -1222,7 +1383,7 @@ fn parse_list_pattern_rest(
       "expected binding name, ',' or ']' after '..' in list pattern",
     )
   }
-  let (rest_name, next_i) = match tokens[i] {
+  let (rest_name, next_i) = match token_kind(tokens, i) {
     IdentTok(name) => (name, i + 1)
     CommaTok => ("_", i)
     RBracketTok => ("_", i)
@@ -1235,13 +1396,13 @@ fn parse_list_pattern_rest(
   if next_i >= tokens.length() {
     raise SyntaxError("unexpected end in list pattern")
   }
-  if tokens[next_i] == RBracketTok {
+  if token_kind(tokens, next_i) == RBracketTok {
     return (PListRest(prefix, rest_name, []), next_i + 1)
   }
-  if tokens[next_i] != CommaTok {
+  if token_kind(tokens, next_i) != CommaTok {
     raise SyntaxError(
       "expected ',' or ']' after list rest binding, found: " +
-      token_name(tokens[next_i]),
+      token_name(token_kind(tokens, next_i)),
     )
   }
   let suffix = []
@@ -1249,7 +1410,7 @@ fn parse_list_pattern_rest(
     if j >= tokens.length() {
       raise SyntaxError("unexpected end in list pattern")
     }
-    if tokens[j] == DotDotTok {
+    if token_kind(tokens, j) == DotDotTok {
       raise SyntaxError("list pattern can contain at most one '..' binding")
     }
     let (pattern, next_pattern) = parse_pattern(tokens, j)
@@ -1257,24 +1418,25 @@ fn parse_list_pattern_rest(
     if next_pattern >= tokens.length() {
       raise SyntaxError("unexpected end in list pattern")
     }
-    if tokens[next_pattern] == CommaTok {
+    if token_kind(tokens, next_pattern) == CommaTok {
       continue next_pattern + 1, _pos + 1
     }
-    if tokens[next_pattern] == RBracketTok {
+    if token_kind(tokens, next_pattern) == RBracketTok {
       break (PListRest(prefix, rest_name, suffix), next_pattern + 1)
     }
     raise SyntaxError(
-      "unexpected token in list pattern: " + token_name(tokens[next_pattern]),
+      "unexpected token in list pattern: " +
+      token_name(token_kind(tokens, next_pattern)),
     )
   }
 }
 
 ///|
 fn parse_match_record_pattern(
-  tokens : Array[Token],
+  tokens : Array[SpannedToken],
   i : Int,
 ) -> (MatchPattern, Int) raise {
-  if i < tokens.length() && tokens[i] == RBraceTok {
+  if i < tokens.length() && token_kind(tokens, i) == RBraceTok {
     return (PRecord([]), i + 1)
   }
   let fields = []
@@ -1282,12 +1444,12 @@ fn parse_match_record_pattern(
     if j >= tokens.length() {
       raise SyntaxError("unexpected end in record pattern")
     }
-    let field_name = match tokens[j] {
+    let field_name = match token_kind(tokens, j) {
       IdentTok(name) => name
       tok => raise SyntaxError("expected field name, found: " + token_name(tok))
     }
     let (field_pattern, next) = if j + 1 < tokens.length() &&
-      tokens[j + 1] == ColonTok {
+      token_kind(tokens, j + 1) == ColonTok {
       let (pattern, k) = parse_pattern(tokens, j + 2)
       (pattern, k)
     } else {
@@ -1297,14 +1459,15 @@ fn parse_match_record_pattern(
     if next >= tokens.length() {
       raise SyntaxError("unexpected end in record pattern")
     }
-    if tokens[next] == CommaTok {
+    if token_kind(tokens, next) == CommaTok {
       continue next + 1, _pos + 1
     }
-    if tokens[next] == RBraceTok {
+    if token_kind(tokens, next) == RBraceTok {
       break (PRecord(fields), next + 1)
     }
     raise SyntaxError(
-      "unexpected token in record pattern: " + token_name(tokens[next]),
+      "unexpected token in record pattern: " +
+      token_name(token_kind(tokens, next)),
     )
   }
 }
