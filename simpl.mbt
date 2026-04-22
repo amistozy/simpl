@@ -169,7 +169,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
         VRecord(fields) =>
           match fields.get(name) {
             Some(value) => value
-            None => raise runtime_error("missing field: \{name}")
+            None => raise missing_field_error(name, target_value)
           }
         value => raise type_error_unary("operator '.'", "Record", value)
       }
@@ -204,7 +204,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
 fn lookup(env : Env, name : String) -> Value raise {
   match env.get(name) {
     Some(value) => value
-    None => raise runtime_error("undefined variable: \{name}")
+    None => raise undefined_variable_error(name)
   }
 }
 
@@ -221,7 +221,7 @@ fn apply(func_value : Value, args : Array[Value]) -> Value raise {
       )
       eval_with_env(body, call_env)
     }
-    _ => raise runtime_error("attempt to call a non-function value")
+    _ => raise call_non_function_error(func_value)
   }
 }
 
@@ -232,10 +232,10 @@ fn bind_patterns(
   base : Env,
 ) -> Env raise {
   if patterns.length() < args.length() {
-    raise runtime_error("too many arguments")
+    raise arity_error(patterns.length(), args.length())
   }
   if patterns.length() > args.length() {
-    raise runtime_error("too few arguments")
+    raise arity_error(patterns.length(), args.length())
   }
   patterns.foldi(init=base, (i, acc_env, pattern) => {
     bind_pattern(pattern, args[i], acc_env)
@@ -637,6 +637,38 @@ fn unknown_source_span() -> SourceSpan {
 ///|
 fn[T] runtime_error(message : String) -> T raise {
   raise RuntimeErrorAt(message, unknown_source_span())
+}
+
+///|
+fn[T] undefined_variable_error(name : String) -> T raise {
+  raise runtime_error("undefined variable: name '" + name + "' is not bound")
+}
+
+///|
+fn[T] missing_field_error(name : String, target : Value) -> T raise {
+  raise runtime_error(
+    "missing field: record has no field '" +
+    name +
+    "' in " +
+    typed_value_summary(target),
+  )
+}
+
+///|
+fn[T] call_non_function_error(actual : Value) -> T raise {
+  raise runtime_error(
+    "call error: expected Function, got " + typed_value_summary(actual),
+  )
+}
+
+///|
+fn[T] arity_error(expected : Int, actual : Int) -> T raise {
+  raise runtime_error(
+    "arity error: expected " +
+    expected.to_string() +
+    " arguments, got " +
+    actual.to_string(),
+  )
 }
 
 ///|

@@ -136,6 +136,38 @@ test "field access type error reports expected and actual value" {
 }
 
 ///|
+test "undefined variable reports missing binding name" {
+  assert_eq(
+    @simpl.eval_error_text("x"),
+    Some("undefined variable: name 'x' is not bound at 1:1-2"),
+  )
+}
+
+///|
+test "missing field reports field name and record summary" {
+  assert_eq(
+    @simpl.eval_error_text("{x: 1}.y"),
+    Some("missing field: record has no field 'y' in Record(1 fields) at 1:1-9"),
+  )
+}
+
+///|
+test "calling non-function reports actual value" {
+  assert_eq(
+    @simpl.eval_error_text("1(2)"),
+    Some("call error: expected Function, got Int(1) at 1:1-5"),
+  )
+}
+
+///|
+test "arity error reports expected and actual argument counts" {
+  assert_eq(
+    @simpl.eval_error_text("let f(x) = x in f(1, 2)"),
+    Some("arity error: expected 1 arguments, got 2 at 1:17-24"),
+  )
+}
+
+///|
 test "pattern match failure reports expected pattern and actual value" {
   assert_eq(
     @simpl.eval_error_text("let [x, y] = [1] in x"),
