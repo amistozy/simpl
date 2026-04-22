@@ -54,11 +54,17 @@ pub fn int_lit(Int) -> Expr
 
 pub fn lambda(Array[String], Expr) -> Expr
 
+pub fn lambda_patterns(Array[MatchPattern], Expr) -> Expr
+
 pub fn le(Expr, Expr) -> Expr
 
 pub fn let_in(String, Expr, Expr) -> Expr
 
+pub fn let_pattern_in(MatchPattern, Expr, Expr) -> Expr
+
 pub fn let_rec_in(String, Array[String], Expr, Expr) -> Expr
+
+pub fn let_rec_patterns_in(String, Array[MatchPattern], Expr, Expr) -> Expr
 
 pub fn let_record_in(Array[(String, String)], Expr, Expr) -> Expr
 
@@ -161,11 +167,10 @@ pub enum Expr {
   Record(Array[(String, Expr)])
   Variant(String, Expr)
   If(Expr, Expr, Expr)
-  Let(String, Expr, Expr)
-  LetRecord(Array[(String, String)], Expr, Expr)
+  Let(MatchPattern, Expr, Expr)
   Match(Expr, Array[(MatchPattern, Expr)])
-  LetRec(String, Array[String], Expr, Expr)
-  Lambda(Array[String], Expr)
+  LetRec(String, Array[MatchPattern], Expr, Expr)
+  Lambda(Array[MatchPattern], Expr)
   Call(Expr, Array[Expr])
   RefNew(Expr)
   RefGet(Expr)
@@ -200,8 +205,8 @@ pub enum Value {
   VRecord(@hashmap.HashMap[String, Value])
   VVariant(String, Value)
   VRef(@ref.Ref[Value])
-  VClosure(Array[String], Expr, @hashmap.HashMap[String, Value])
-  VRecClosure(String, Array[String], Expr, @hashmap.HashMap[String, Value])
+  VClosure(Array[MatchPattern], Expr, @hashmap.HashMap[String, Value])
+  VRecClosure(String, Array[MatchPattern], Expr, @hashmap.HashMap[String, Value])
 } derive(@debug.Debug)
 
 // Type aliases

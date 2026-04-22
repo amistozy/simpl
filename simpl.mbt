@@ -10,11 +10,10 @@ pub enum Expr {
   Record(Array[(String, Expr)])
   Variant(String, Expr)
   If(Expr, Expr, Expr)
-  Let(String, Expr, Expr)
-  LetRecord(Array[(String, String)], Expr, Expr)
+  Let(MatchPattern, Expr, Expr)
   Match(Expr, Array[(MatchPattern, Expr)])
-  LetRec(String, Array[String], Expr, Expr)
-  Lambda(Array[String], Expr)
+  LetRec(String, Array[MatchPattern], Expr, Expr)
+  Lambda(Array[MatchPattern], Expr)
   Call(Expr, Array[Expr])
   RefNew(Expr)
   RefGet(Expr)
@@ -69,8 +68,8 @@ pub enum Value {
   VRecord(@hashmap.HashMap[String, Value])
   VVariant(String, Value)
   VRef(@ref.Ref[Value])
-  VClosure(Array[String], Expr, Env)
-  VRecClosure(String, Array[String], Expr, Env)
+  VClosure(Array[MatchPattern], Expr, Env)
+  VRecClosure(String, Array[MatchPattern], Expr, Env)
 } derive(Debug)
 
 ///|
@@ -104,20 +103,10 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       } else {
         eval_with_env(else_branch, env)
       }
-    Let(name, value_expr, body) => {
+    Let(pattern, value_expr, body) => {
       let v = eval_with_env(value_expr, env)
-      eval_with_env(body, env.add(name, v))
-    }
-    LetRecord(bindings, value_expr, body) => {
-      let v = eval_with_env(value_expr, env)
-      match v {
-        VRecord(fields) => {
-          let bound_env = bind_record_pattern(bindings, fields, env)
-          eval_with_env(body, bound_env)
-        }
-        _ =>
-          raise RuntimeError("type error: record destructuring expects Record")
-      }
+      let bound_env = bind_pattern(pattern, v, env)
+      eval_with_env(body, bound_env)
     }
     Match(value_expr, cases) => {
       let value = eval_with_env(value_expr, env)
@@ -199,11 +188,11 @@ fn lookup(env : Env, name : String) -> Value raise {
 fn apply(func_value : Value, args : Array[Value]) -> Value raise {
   match func_value {
     VClosure(params, body, closure_env) => {
-      let call_env = bind_params(params, args, closure_env)
+      let call_env = bind_patterns(params, args, closure_env)
       eval_with_env(body, call_env)
     }
     VRecClosure(name, params, body, closure_env) => {
-      let call_env = bind_params(params, args, closure_env).add(
+      let call_env = bind_patterns(params, args, closure_env).add(
         name, func_value,
       )
       eval_with_env(body, call_env)
@@ -213,18 +202,20 @@ fn apply(func_value : Value, args : Array[Value]) -> Value raise {
 }
 
 ///|
-fn bind_params(
-  params : Array[String],
+fn bind_patterns(
+  patterns : Array[MatchPattern],
   args : Array[Value],
   base : Env,
 ) -> Env raise {
-  if params.length() < args.length() {
+  if patterns.length() < args.length() {
     raise RuntimeError("too many arguments")
   }
-  if params.length() > args.length() {
+  if patterns.length() > args.length() {
     raise RuntimeError("too few arguments")
   }
-  params.foldi(init=base, (i, acc_env, name) => acc_env.add(name, args[i]))
+  patterns.foldi(init=base, (i, acc_env, pattern) => {
+    bind_pattern(pattern, args[i], acc_env)
+  })
 }
 
 ///|
@@ -268,19 +259,11 @@ fn eval_match_cases(
 }
 
 ///|
-fn bind_record_pattern(
-  bindings : Array[(String, String)],
-  fields : @hashmap.HashMap[String, Value],
-  env : Env,
-) -> Env raise {
-  bindings.fold(init=env, (acc, binding) => {
-    let (field_name, local_name) = binding
-    match fields.get(field_name) {
-      Some(value) => acc.add(local_name, value)
-      None =>
-        raise RuntimeError("missing field in destructuring: " + field_name)
-    }
-  })
+fn bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env raise {
+  match try_bind_pattern(pattern, value, env) {
+    Some(bound_env) => bound_env
+    None => raise RuntimeError("pattern match failure")
+  }
 }
 
 ///|
@@ -559,7 +542,16 @@ pub fn if_then_else(
 
 ///|
 pub fn let_in(name : String, value_expr : Expr, body : Expr) -> Expr {
-  Let(name, value_expr, body)
+  Let(PBind(name), value_expr, body)
+}
+
+///|
+pub fn let_pattern_in(
+  pattern : MatchPattern,
+  value_expr : Expr,
+  body : Expr,
+) -> Expr {
+  Let(pattern, value_expr, body)
 }
 
 ///|
@@ -568,7 +560,16 @@ pub fn let_record_in(
   value_expr : Expr,
   body : Expr,
 ) -> Expr {
-  LetRecord(bindings, value_expr, body)
+  let_pattern_in(
+    PRecord(
+      bindings.map(binding => {
+        let (field_name, local_name) = binding
+        (field_name, PBind(local_name))
+      }),
+    ),
+    value_expr,
+    body,
+  )
 }
 
 ///|
@@ -654,12 +655,27 @@ pub fn let_rec_in(
   func_body : Expr,
   body : Expr,
 ) -> Expr {
-  LetRec(name, params, func_body, body)
+  LetRec(name, params.map(name => PBind(name)), func_body, body)
 }
 
 ///|
 pub fn lambda(params : Array[String], body : Expr) -> Expr {
+  Lambda(params.map(name => PBind(name)), body)
+}
+
+///|
+pub fn lambda_patterns(params : Array[MatchPattern], body : Expr) -> Expr {
   Lambda(params, body)
+}
+
+///|
+pub fn let_rec_patterns_in(
+  name : String,
+  params : Array[MatchPattern],
+  func_body : Expr,
+  body : Expr,
+) -> Expr {
+  LetRec(name, params, func_body, body)
 }
 
 ///|

@@ -3,5 +3,9 @@
 /// Keep main focused; move logic into the library package.
 /// Run with `moon run cmd/main` from the project root.
 fn main raise {
-  debug(@lib.eval_source("1 && 2"))
+  let code =
+    #| match {x: 10, y: 32} {
+    #|   {x} => x + 1
+    #| }
+  debug(@lib.eval_source(code))
 }

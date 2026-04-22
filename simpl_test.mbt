@@ -251,6 +251,14 @@ test "record destructuring supports renaming" {
 }
 
 ///|
+test "let supports general patterns" {
+  let code =
+    #| let #Pair([x, y]) = #Pair([10, 32]) in
+    #| x + y
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 test "variant literal and match" {
   let code =
     #| match #Left(41) {
@@ -346,6 +354,31 @@ test "variant carrying list pattern match" {
     #| match #Wrap([10, 32]) {
     #|   #Wrap([x, y]) => x + y
     #| }
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "lambda parameters support patterns" {
+  let code =
+    #| (fn(#Pair(x), {y}) => x + y)(#Pair(10), {y: 32})
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "let function sugar supports parameter patterns" {
+  let code =
+    #| let add_pair(#Pair(x), [y, z]) = x + y + z in
+    #| add_pair(#Pair(10), [20, 12])
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "let rec supports parameter patterns" {
+  let code =
+    #| let rec sum_pair(#Pair(x), acc) =
+    #|   if x == 0 then acc else sum_pair(#Pair(x - 1), acc + 1)
+    #| in
+    #| sum_pair(#Pair(42), 0)
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 

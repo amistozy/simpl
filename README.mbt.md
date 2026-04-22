@@ -22,6 +22,7 @@ A small interpreter-style language implemented in MoonBit.
   - `fn(...) => ...`
   - `match e { #Left(x) => ..., #Right(y) => ..., [x, #Right(z)] => ... }`
   - patterns support bindings, `_`, literals, records, lists, and nested variants
+  - `let` bindings and function parameters reuse the same pattern syntax
   - references: `ref e`, `!e`, `e1 := e2`
   - records: `{a: 1, b: 2}`, `e.a`, `let {a, b} = e in ...`
   - lists: `[1, 2, 3]`
@@ -73,6 +74,7 @@ let value = @simpl.eval_source(
   - `list(items) -> Expr`
   - `variant(tag, value) -> Expr`
   - `let_record_in(bindings, value_expr, body) -> Expr`
+  - `let_pattern_in(pattern, value_expr, body) -> Expr`
   - `match_cases(value_expr, cases) -> Expr`
   - `match_variant(value_expr, cases) -> Expr`
   - `match_list(value_expr, cases) -> Expr`
@@ -84,6 +86,8 @@ let value = @simpl.eval_source(
   - `pvariant(tag, pattern) -> MatchPattern`
   - `plist(items) -> MatchPattern`
   - `precord(fields) -> MatchPattern`
+  - `lambda_patterns(params, body) -> Expr`
+  - `let_rec_patterns_in(name, params, func_body, body) -> Expr`
 - Test helpers:
   - `eval_is_int / eval_is_bool / eval_is_string / eval_is_error`
   - `parse_is_ok / parse_is_error`

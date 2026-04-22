@@ -14,7 +14,7 @@ test "eval_with_env reads env chain" {
 
 ///|
 test "inner let shadows outer binding" {
-  let expr = Let("x", IntLit(1), Let("x", IntLit(2), Var("x")))
+  let expr = Let(PBind("x"), IntLit(1), Let(PBind("x"), IntLit(2), Var("x")))
   assert_true(eval_is_int(expr, 2))
 }
 
