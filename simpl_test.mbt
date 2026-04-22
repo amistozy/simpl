@@ -375,6 +375,26 @@ test "list rest pattern allows empty middle slice" {
 }
 
 ///|
+test "list rest pattern can ignore the middle with bare dotdot" {
+  let code =
+    #| match [1, 2, 3, 4, 5] {
+    #|   [a, .., z] => a + z,
+    #|   _ => 0
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 6))
+}
+
+///|
+test "list rest pattern can ignore middle before fixed suffix" {
+  let code =
+    #| match [10, 20, 30, 40, 50] {
+    #|   [a, .., y, z] => a + y + z,
+    #|   _ => 0
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 100))
+}
+
+///|
 test "list rest pattern works with nested patterns" {
   let code =
     #| match [#Left(1), #Right(2), #Right(3), #Left(4)] {

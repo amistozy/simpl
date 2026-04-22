@@ -1218,29 +1218,34 @@ fn parse_list_pattern_rest(
   prefix : Array[MatchPattern],
 ) -> (MatchPattern, Int) raise {
   if i >= tokens.length() {
-    raise SyntaxError("expected binding name after '..' in list pattern")
+    raise SyntaxError(
+      "expected binding name, ',' or ']' after '..' in list pattern",
+    )
   }
-  let rest_name = match tokens[i] {
-    IdentTok(name) => name
+  let (rest_name, next_i) = match tokens[i] {
+    IdentTok(name) => (name, i + 1)
+    CommaTok => ("_", i)
+    RBracketTok => ("_", i)
     tok =>
       raise SyntaxError(
-        "expected binding name after '..', found: " + token_name(tok),
+        "expected binding name, ',' or ']' after '..', found: " +
+        token_name(tok),
       )
   }
-  if i + 1 >= tokens.length() {
+  if next_i >= tokens.length() {
     raise SyntaxError("unexpected end in list pattern")
   }
-  if tokens[i + 1] == RBracketTok {
-    return (PListRest(prefix, rest_name, []), i + 2)
+  if tokens[next_i] == RBracketTok {
+    return (PListRest(prefix, rest_name, []), next_i + 1)
   }
-  if tokens[i + 1] != CommaTok {
+  if tokens[next_i] != CommaTok {
     raise SyntaxError(
       "expected ',' or ']' after list rest binding, found: " +
-      token_name(tokens[i + 1]),
+      token_name(tokens[next_i]),
     )
   }
   let suffix = []
-  for j = i + 2, _pos = 0 {
+  for j = next_i + 1, _pos = 0 {
     if j >= tokens.length() {
       raise SyntaxError("unexpected end in list pattern")
     }

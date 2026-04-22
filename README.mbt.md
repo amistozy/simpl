@@ -22,7 +22,7 @@ A small interpreter-style language implemented in MoonBit.
   - `fn(...) => ...`
   - `match e { #Left(x) => ..., #Right(y) => ..., [x, #Right(z)] => ... }`
   - `match` cases may include guards: `#Some(x) if x > 0 => ...`
-  - patterns support bindings, `_`, literals, records, lists, `..rest` list slices, nested variants, and `|`
+  - patterns support bindings, `_`, literals, records, lists, `..rest` and bare `..` list slices, nested variants, and `|`
   - `let` bindings and function parameters reuse the same pattern syntax
   - references: `ref e`, `!e`, `e1 := e2`
   - records: `{a: 1, b: 2}`, `e.a`, `let {a, b} = e in ...`
