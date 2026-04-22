@@ -40,6 +40,7 @@ The current implementation already covers a strong set of core features for lang
 - literals and variables
 - `let pattern = value in body`
 - `let rec f(...) = ... in ...`
+- `do expr in body`
 - `if cond then a else b`
 - `fn(...) => expr`
 - `match expr with | ...`
@@ -50,7 +51,6 @@ The current implementation already covers a strong set of core features for lang
 - record literals and field access, such as `{x: 1}` and `p.x`
 - list literals such as `[1, 2, 3]`
 - variant literals such as `#Left(1)`
-- sequencing with `e1; e2`
 
 ### Patterns
 
@@ -129,8 +129,8 @@ let value = @simpl.eval_source(
 let value = @simpl.eval_source(
   (
     #| let r = ref 1 in
-    #| let x = (r := 3) in
-    #| !r + x
+    #| do r := 3 in
+    #| !r + 3
   ),
 )
 // => VInt(6)

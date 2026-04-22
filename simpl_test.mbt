@@ -215,8 +215,8 @@ test "man or boy with refs (mutual recursion through cells)" {
     #| let q_ref = ref nil in
     #| let p(n) = if n == 0 then 1 else (!q_ref)(n - 1) in
     #| let q(n) = if n == 0 then 0 else (!p_ref)(n - 1) in
-    #| p_ref := p;
-    #| q_ref := q;
+    #| do p_ref := p in
+    #| do q_ref := q in
     #| (!p_ref)(10)
   assert_true(@simpl.eval_source_is_int(code, 1))
 }
@@ -230,7 +230,7 @@ test "man or boy (Knuth) translated from let rec version" {
     #|   else
     #|     let m = ref k in
     #|     let rec b() =
-    #|       m := !m - 1;
+    #|       do m := !m - 1 in
     #|       a(!m, b, x1, x2, x3, x4)
     #|     in
     #|     b()
@@ -269,18 +269,23 @@ test "let function sugar equals lambda binding" {
 }
 
 ///|
-test "sequence sugar ';' equals let _ = ... in ..." {
+test "do sugar equals let _ = ... in ..." {
   let code =
     #| let r = ref 0 in
-    #| r := 1; r := !r + 41; !r
+    #| do r := 1 in
+    #| do r := !r + 41 in
+    #| !r
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
-test "sequence sugar is right associative" {
+test "do sugar nests like let _ bindings" {
   let code =
     #| let r = ref 0 in
-    #| r := 1; r := !r + 1; r := !r + 1; !r
+    #| do r := 1 in
+    #| do r := !r + 1 in
+    #| do r := !r + 1 in
+    #| !r
   assert_true(@simpl.eval_source_is_int(code, 3))
 }
 
@@ -288,7 +293,8 @@ test "sequence sugar is right associative" {
 test "and short-circuits right-hand side" {
   let code =
     #| let r = ref 0 in
-    #| false and (r := 1 == 1); !r
+    #| do false and (r := 1 == 1) in
+    #| !r
   assert_true(@simpl.eval_source_is_int(code, 0))
 }
 
@@ -296,7 +302,8 @@ test "and short-circuits right-hand side" {
 test "or short-circuits right-hand side" {
   let code =
     #| let r = ref 0 in
-    #| true or (r := 1 == 1); !r
+    #| do true or (r := 1 == 1) in
+    #| !r
   assert_true(@simpl.eval_source_is_int(code, 0))
 }
 

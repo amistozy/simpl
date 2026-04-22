@@ -4,7 +4,9 @@
 /// Run with `moon run cmd/main` from the project root.
 fn main {
   let code =
-    #| a
+    #| let r = ref 0 in 
+    #| do r := 1 in 
+    #| !r
 
   let result = try? @lib.eval_source(code)
   debug(result)

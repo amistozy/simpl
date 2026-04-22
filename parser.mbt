@@ -32,6 +32,7 @@ priv enum Token {
   RefTok
   MatchTok
   WithTok
+  DoTok
   AndWordTok
   OrWordTok
   PlusTok
@@ -56,7 +57,6 @@ priv enum Token {
   PipeTok
   DotTok
   HashTok
-  SemiTok
   LBraceTok
   RBraceTok
   LBracketTok
@@ -210,7 +210,6 @@ fn lex_loop(
     '(' => push_single_char_token(source, i, line, column, LParenTok, acc)
     ')' => push_single_char_token(source, i, line, column, RParenTok, acc)
     ',' => push_single_char_token(source, i, line, column, CommaTok, acc)
-    ';' => push_single_char_token(source, i, line, column, SemiTok, acc)
     '+' => push_single_char_token(source, i, line, column, PlusTok, acc)
     '-' =>
       if i + 1 < source.length() &&
@@ -609,6 +608,7 @@ fn keyword_or_ident(text : String) -> Token {
     "ref" => RefTok
     "match" => MatchTok
     "with" => WithTok
+    "do" => DoTok
     "and" => AndWordTok
     "or" => OrWordTok
     _ => IdentTok(text)
@@ -635,6 +635,7 @@ fn token_name(tok : Token) -> String {
     RefTok => "ref"
     MatchTok => "match"
     WithTok => "with"
+    DoTok => "do"
     AndWordTok => "and"
     OrWordTok => "or"
     PlusTok => "+"
@@ -659,7 +660,6 @@ fn token_name(tok : Token) -> String {
     PipeTok => "|"
     DotTok => "."
     HashTok => "#"
-    SemiTok => ";"
     LBraceTok => "{"
     RBraceTok => "}"
     LBracketTok => "["
@@ -673,18 +673,7 @@ fn token_name(tok : Token) -> String {
 
 ///|
 fn parse_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
-  parse_seq_expr(tokens, i)
-}
-
-///|
-fn parse_seq_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
-  let (left, j) = parse_assign_expr(tokens, i)
-  if j < tokens.length() && token_kind(tokens, j) == SemiTok {
-    let (right, k) = parse_seq_expr(tokens, j + 1)
-    (located_expr(tokens, i, k, Let(PBind("_"), left, right)), k)
-  } else {
-    (left, j)
-  }
+  parse_assign_expr(tokens, i)
 }
 
 ///|
@@ -712,6 +701,8 @@ fn parse_let_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
     } else {
       parse_plain_let_expr(tokens, i + 1)
     }
+  } else if token_kind(tokens, i) == DoTok {
+    parse_do_expr(tokens, i + 1)
   } else {
     parse_if_expr(tokens, i)
   }
@@ -803,6 +794,19 @@ fn parse_let_rec_expr(
     }
     _ => syntax_error_at(tokens, i, "expected function name after 'let rec'")
   }
+}
+
+///|
+fn parse_do_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected expression after 'do'")
+  }
+  let (value_expr, j) = parse_expr(tokens, i)
+  if j >= tokens.length() || token_kind(tokens, j) != InTok {
+    syntax_error_at(tokens, j, "expected 'in' after do expression")
+  }
+  let (body, k) = parse_expr(tokens, j + 1)
+  (located_expr(tokens, i, k, Let(PBind("_"), value_expr, body)), k)
 }
 
 ///|
