@@ -105,6 +105,11 @@ test "ref basics and assignment expression value" {
 }
 
 ///|
+test "runtime error includes source position" {
+  assert_eq(@simpl.eval_error_text("1 / 0"), Some("division by zero at 1:1-6"))
+}
+
+///|
 test "man or boy with refs (mutual recursion through cells)" {
   let code =
     #| let p_ref = ref nil in

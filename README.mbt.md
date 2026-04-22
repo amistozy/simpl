@@ -67,6 +67,8 @@ let value = @simpl.eval_source(
 - Evaluation:
   - `eval(expr) -> Value raise`
   - `eval_with_env(expr, env) -> Value raise`
+  - `format_eval_error(error) -> String`
+  - `eval_error_text(source) -> String?`
 - Parsing:
   - `parse(source) -> Expr raise`
   - `format_parse_error(error) -> String`

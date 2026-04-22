@@ -1,6 +1,7 @@
 ///|
 /// Dynamic typed AST definitions
 pub enum Expr {
+  Located(SourceSpan, Expr)
   IntLit(Int)
   BoolLit(Bool)
   StringLit(String)
@@ -80,6 +81,7 @@ pub type Env = @hashmap.HashMap[String, Value]
 ///|
 pub suberror EvalError {
   RuntimeError(String)
+  RuntimeErrorAt(String, SourceSpan)
 } derive(Debug)
 
 ///|
@@ -89,8 +91,23 @@ pub fn eval(expr : Expr) -> Value raise {
 }
 
 ///|
+pub fn format_eval_error(error : EvalError) -> String {
+  match error {
+    RuntimeError(message) => message
+    RuntimeErrorAt(message, span) => message + " at " + format_source_span(span)
+  }
+}
+
+///|
 pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
   match expr {
+    Located(span, inner) =>
+      eval_with_env(inner, env) catch {
+        RuntimeError(message) => raise RuntimeErrorAt(message, span)
+        RuntimeErrorAt(message, inner_span) =>
+          raise RuntimeErrorAt(message, inner_span)
+        _ => raise RuntimeErrorAt("unknown runtime error", span)
+      }
     IntLit(v) => VInt(v)
     BoolLit(v) => VBool(v)
     StringLit(v) => VString(v)
@@ -972,5 +989,17 @@ pub fn eval_is_error(expr : Expr) -> Bool {
     _ => true
   } noraise {
     _ => false
+  }
+}
+
+///|
+pub fn eval_error_text(source : String) -> String? {
+  try eval_source(source) catch {
+    RuntimeError(message) => Some(message)
+    RuntimeErrorAt(message, span) =>
+      Some(message + " at " + format_source_span(span))
+    _ => None
+  } noraise {
+    _ => None
   }
 }

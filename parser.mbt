@@ -407,6 +407,49 @@ fn format_source_span(span : SourceSpan) -> String {
 }
 
 ///|
+fn expr_span(
+  tokens : Array[SpannedToken],
+  start_i : Int,
+  end_i : Int,
+) -> SourceSpan {
+  let start_span = token_span_at(tokens, start_i)
+  let end_span = token_span_at(tokens, end_i - 1)
+  let (start_pos, _) = start_span
+  let (_, end_pos) = end_span
+  (start_pos, end_pos)
+}
+
+///|
+fn located_expr(
+  tokens : Array[SpannedToken],
+  start_i : Int,
+  end_i : Int,
+  expr : Expr,
+) -> Expr {
+  Located(expr_span(tokens, start_i, end_i), expr)
+}
+
+///|
+fn located_expr_from_left(
+  left : Expr,
+  tokens : Array[SpannedToken],
+  end_i : Int,
+  expr : Expr,
+) -> Expr {
+  let (start_pos, _) = expr_known_span(left)
+  let (_, end_pos) = token_span_at(tokens, end_i - 1)
+  Located((start_pos, end_pos), expr)
+}
+
+///|
+fn expr_known_span(expr : Expr) -> SourceSpan {
+  match expr {
+    Located(span, _) => span
+    _ => ((0, 1, 1), (0, 1, 1))
+  }
+}
+
+///|
 fn scan_digits(source : String, i : Int) -> Int {
   if i >= source.length() {
     return i
@@ -549,7 +592,7 @@ fn parse_seq_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   let (left, j) = parse_assign_expr(tokens, i)
   if j < tokens.length() && token_kind(tokens, j) == SemiTok {
     let (right, k) = parse_seq_expr(tokens, j + 1)
-    (Let(PBind("_"), left, right), k)
+    (located_expr(tokens, i, k, Let(PBind("_"), left, right)), k)
   } else {
     (left, j)
   }
@@ -563,7 +606,7 @@ fn parse_assign_expr(
   let (left, j) = parse_let_expr(tokens, i)
   if j < tokens.length() && token_kind(tokens, j) == ColonEqTok {
     let (right, k) = parse_assign_expr(tokens, j + 1)
-    (RefSet(left, right), k)
+    (located_expr(tokens, i, k, RefSet(left, right)), k)
   } else {
     (left, j)
   }
@@ -605,7 +648,15 @@ fn parse_plain_let_expr(
           raise SyntaxError("expected 'in' after let function binding")
         }
         let (body, m) = parse_expr(tokens, k + 1)
-        (Let(PBind(name), Lambda(params, func_body), body), m)
+        (
+          located_expr(
+            tokens,
+            i,
+            m,
+            Let(PBind(name), Lambda(params, func_body), body),
+          ),
+          m,
+        )
       } else {
         let (pattern, j) = parse_pattern(tokens, i)
         if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
@@ -616,7 +667,7 @@ fn parse_plain_let_expr(
           raise SyntaxError("expected 'in' after let binding")
         }
         let (body, m) = parse_expr(tokens, k + 1)
-        (Let(pattern, value_expr, body), m)
+        (located_expr(tokens, i, m, Let(pattern, value_expr, body)), m)
       }
     _ => {
       let (pattern, j) = parse_pattern(tokens, i)
@@ -628,7 +679,7 @@ fn parse_plain_let_expr(
         raise SyntaxError("expected 'in' after let binding")
       }
       let (body, m) = parse_expr(tokens, k + 1)
-      (Let(pattern, value_expr, body), m)
+      (located_expr(tokens, i, m, Let(pattern, value_expr, body)), m)
     }
   }
 }
@@ -655,7 +706,7 @@ fn parse_let_rec_expr(
         raise SyntaxError("expected 'in' after let rec binding")
       }
       let (body, m) = parse_expr(tokens, k + 1)
-      (LetRec(name, params, func_body, body), m)
+      (located_expr(tokens, i, m, LetRec(name, params, func_body, body)), m)
     }
     _ => raise SyntaxError("expected function name after 'let rec'")
   }
@@ -673,7 +724,7 @@ fn parse_if_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
       raise SyntaxError("expected 'else' in if expression")
     }
     let (else_expr, m) = parse_expr(tokens, k + 1)
-    (If(cond, then_expr, else_expr), m)
+    (located_expr(tokens, i, m, If(cond, then_expr, else_expr)), m)
   } else {
     parse_match_expr(tokens, i)
   }
@@ -687,7 +738,7 @@ fn parse_match_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise 
       raise SyntaxError("expected '{' after match expression")
     }
     let (cases, k) = parse_match_cases(tokens, j + 1)
-    (Match(value_expr, cases), k)
+    (located_expr(tokens, i, k, Match(value_expr, cases)), k)
   } else {
     parse_lambda_expr(tokens, i)
   }
@@ -707,7 +758,7 @@ fn parse_lambda_expr(
       raise SyntaxError("expected '=>' after lambda params")
     }
     let (body, k) = parse_expr(tokens, j + 1)
-    (Lambda(params, body), k)
+    (located_expr(tokens, i, k, Lambda(params, body)), k)
   } else {
     parse_or_expr(tokens, i)
   }
@@ -767,7 +818,11 @@ fn parse_or_tail(
   if i < tokens.length() &&
     (token_kind(tokens, i) == OrOrTok || token_kind(tokens, i) == OrWordTok) {
     let (right, j) = parse_and_expr(tokens, i + 1)
-    parse_or_tail(Binary(Or, left, right), tokens, j)
+    parse_or_tail(
+      located_expr_from_left(left, tokens, j, Binary(Or, left, right)),
+      tokens,
+      j,
+    )
   } else {
     (left, i)
   }
@@ -788,7 +843,11 @@ fn parse_and_tail(
   if i < tokens.length() &&
     (token_kind(tokens, i) == AndAndTok || token_kind(tokens, i) == AndWordTok) {
     let (right, j) = parse_eq_expr(tokens, i + 1)
-    parse_and_tail(Binary(And, left, right), tokens, j)
+    parse_and_tail(
+      located_expr_from_left(left, tokens, j, Binary(And, left, right)),
+      tokens,
+      j,
+    )
   } else {
     (left, i)
   }
@@ -808,10 +867,18 @@ fn parse_eq_tail(
 ) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == EqEqTok {
     let (right, j) = parse_cmp_expr(tokens, i + 1)
-    parse_eq_tail(Binary(Eq, left, right), tokens, j)
+    parse_eq_tail(
+      located_expr_from_left(left, tokens, j, Binary(Eq, left, right)),
+      tokens,
+      j,
+    )
   } else if i < tokens.length() && token_kind(tokens, i) == BangEqTok {
     let (right, j) = parse_cmp_expr(tokens, i + 1)
-    parse_eq_tail(Binary(Ne, left, right), tokens, j)
+    parse_eq_tail(
+      located_expr_from_left(left, tokens, j, Binary(Ne, left, right)),
+      tokens,
+      j,
+    )
   } else {
     (left, i)
   }
@@ -831,16 +898,32 @@ fn parse_cmp_tail(
 ) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == LtTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
-    parse_cmp_tail(Binary(Lt, left, right), tokens, j)
+    parse_cmp_tail(
+      located_expr_from_left(left, tokens, j, Binary(Lt, left, right)),
+      tokens,
+      j,
+    )
   } else if i < tokens.length() && token_kind(tokens, i) == LeTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
-    parse_cmp_tail(Binary(Le, left, right), tokens, j)
+    parse_cmp_tail(
+      located_expr_from_left(left, tokens, j, Binary(Le, left, right)),
+      tokens,
+      j,
+    )
   } else if i < tokens.length() && token_kind(tokens, i) == GtTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
-    parse_cmp_tail(Binary(Gt, left, right), tokens, j)
+    parse_cmp_tail(
+      located_expr_from_left(left, tokens, j, Binary(Gt, left, right)),
+      tokens,
+      j,
+    )
   } else if i < tokens.length() && token_kind(tokens, i) == GeTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
-    parse_cmp_tail(Binary(Ge, left, right), tokens, j)
+    parse_cmp_tail(
+      located_expr_from_left(left, tokens, j, Binary(Ge, left, right)),
+      tokens,
+      j,
+    )
   } else {
     (left, i)
   }
@@ -860,10 +943,18 @@ fn parse_add_tail(
 ) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == PlusTok {
     let (right, j) = parse_mul_expr(tokens, i + 1)
-    parse_add_tail(Binary(Add, left, right), tokens, j)
+    parse_add_tail(
+      located_expr_from_left(left, tokens, j, Binary(Add, left, right)),
+      tokens,
+      j,
+    )
   } else if i < tokens.length() && token_kind(tokens, i) == MinusTok {
     let (right, j) = parse_mul_expr(tokens, i + 1)
-    parse_add_tail(Binary(Sub, left, right), tokens, j)
+    parse_add_tail(
+      located_expr_from_left(left, tokens, j, Binary(Sub, left, right)),
+      tokens,
+      j,
+    )
   } else {
     (left, i)
   }
@@ -883,10 +974,18 @@ fn parse_mul_tail(
 ) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == StarTok {
     let (right, j) = parse_unary_expr(tokens, i + 1)
-    parse_mul_tail(Binary(Mul, left, right), tokens, j)
+    parse_mul_tail(
+      located_expr_from_left(left, tokens, j, Binary(Mul, left, right)),
+      tokens,
+      j,
+    )
   } else if i < tokens.length() && token_kind(tokens, i) == SlashTok {
     let (right, j) = parse_unary_expr(tokens, i + 1)
-    parse_mul_tail(Binary(Div, left, right), tokens, j)
+    parse_mul_tail(
+      located_expr_from_left(left, tokens, j, Binary(Div, left, right)),
+      tokens,
+      j,
+    )
   } else {
     (left, i)
   }
@@ -896,16 +995,16 @@ fn parse_mul_tail(
 fn parse_unary_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == RefTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
-    (RefNew(expr), j)
+    (located_expr(tokens, i, j, RefNew(expr)), j)
   } else if i < tokens.length() && token_kind(tokens, i) == BangTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
-    (RefGet(expr), j)
+    (located_expr(tokens, i, j, RefGet(expr)), j)
   } else if i < tokens.length() && token_kind(tokens, i) == MinusTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
-    (Unary(Neg, expr), j)
+    (located_expr(tokens, i, j, Unary(Neg, expr)), j)
   } else if i < tokens.length() && token_kind(tokens, i) == NotTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
-    (Unary(Not, expr), j)
+    (located_expr(tokens, i, j, Unary(Not, expr)), j)
   } else {
     parse_postfix_expr(tokens, i)
   }
@@ -928,13 +1027,22 @@ fn parse_postfix_tail(
 ) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == LParenTok {
     let (args, j) = parse_args(tokens, i + 1)
-    parse_postfix_tail(Call(expr, args), tokens, j)
+    parse_postfix_tail(
+      located_expr_from_left(expr, tokens, j, Call(expr, args)),
+      tokens,
+      j,
+    )
   } else if i < tokens.length() && token_kind(tokens, i) == DotTok {
     if i + 1 >= tokens.length() {
       raise SyntaxError("expected field name after '.'")
     }
     match token_kind(tokens, i + 1) {
-      IdentTok(name) => parse_postfix_tail(Field(expr, name), tokens, i + 2)
+      IdentTok(name) =>
+        parse_postfix_tail(
+          located_expr_from_left(expr, tokens, i + 2, Field(expr, name)),
+          tokens,
+          i + 2,
+        )
       tok => raise SyntaxError("expected field name, found: " + token_name(tok))
     }
   } else {
@@ -990,19 +1098,19 @@ fn parse_primary_expr(
     raise SyntaxError("unexpected end")
   }
   match token_kind(tokens, i) {
-    IntTok(v) => (IntLit(v), i + 1)
-    StrTok(v) => (StringLit(v), i + 1)
-    TrueTok => (BoolLit(true), i + 1)
-    FalseTok => (BoolLit(false), i + 1)
-    NilTok => (NilLit, i + 1)
-    IdentTok(name) => (Var(name), i + 1)
+    IntTok(v) => (located_expr(tokens, i, i + 1, IntLit(v)), i + 1)
+    StrTok(v) => (located_expr(tokens, i, i + 1, StringLit(v)), i + 1)
+    TrueTok => (located_expr(tokens, i, i + 1, BoolLit(true)), i + 1)
+    FalseTok => (located_expr(tokens, i, i + 1, BoolLit(false)), i + 1)
+    NilTok => (located_expr(tokens, i, i + 1, NilLit), i + 1)
+    IdentTok(name) => (located_expr(tokens, i, i + 1, Var(name)), i + 1)
     HashTok => parse_variant_literal(tokens, i + 1)
     LBraceTok => parse_record_literal(tokens, i + 1)
     LBracketTok => parse_list_literal(tokens, i + 1)
     LParenTok => {
       let (expr, j) = parse_expr(tokens, i + 1)
       if j < tokens.length() && token_kind(tokens, j) == RParenTok {
-        (expr, j + 1)
+        (located_expr(tokens, i, j + 1, expr), j + 1)
       } else if j < tokens.length() {
         raise SyntaxError(
           "expected ')', found: " + token_name(token_kind(tokens, j)),
@@ -1032,7 +1140,7 @@ fn parse_variant_literal(
       if j >= tokens.length() || token_kind(tokens, j) != RParenTok {
         raise SyntaxError("expected ')' after variant payload")
       }
-      (Variant(tag, value_expr), j + 1)
+      (located_expr(tokens, i - 1, j + 1, Variant(tag, value_expr)), j + 1)
     }
     tok => raise SyntaxError("expected variant name, found: " + token_name(tok))
   }
@@ -1044,7 +1152,7 @@ fn parse_record_literal(
   i : Int,
 ) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == RBraceTok {
-    return (Record([]), i + 1)
+    return (located_expr(tokens, i - 1, i + 1, Record([])), i + 1)
   }
   let fields = []
   for j = i, _pos = 0 {
@@ -1069,7 +1177,10 @@ fn parse_record_literal(
       continue next_expr + 1, _pos + 1
     }
     if token_kind(tokens, next_expr) == RBraceTok {
-      break (Record(fields), next_expr + 1)
+      break (
+        located_expr(tokens, i - 1, next_expr + 1, Record(fields)),
+        next_expr + 1,
+      )
     }
     raise SyntaxError(
       "unexpected token in record: " + token_name(token_kind(tokens, next_expr)),
@@ -1083,7 +1194,7 @@ fn parse_list_literal(
   i : Int,
 ) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == RBracketTok {
-    return (List([]), i + 1)
+    return (located_expr(tokens, i - 1, i + 1, List([])), i + 1)
   }
   let items = []
   for j = i, _pos = 0 {
@@ -1096,7 +1207,10 @@ fn parse_list_literal(
       continue next_expr + 1, _pos + 1
     }
     if token_kind(tokens, next_expr) == RBracketTok {
-      break (List(items), next_expr + 1)
+      break (
+        located_expr(tokens, i - 1, next_expr + 1, List(items)),
+        next_expr + 1,
+      )
     }
     raise SyntaxError(
       "unexpected token in list: " + token_name(token_kind(tokens, next_expr)),
