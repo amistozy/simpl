@@ -27,8 +27,13 @@ pub enum Expr {
 ///|
 pub enum MatchPattern {
   PBind(String)
+  PInt(Int)
+  PBool(Bool)
+  PString(String)
+  PNil
   PVariant(String, MatchPattern)
   PList(Array[MatchPattern])
+  PRecord(Array[(String, MatchPattern)])
 } derive(Debug)
 
 ///|
@@ -251,7 +256,8 @@ fn eval_match_cases(
       VVariant(tag, _) =>
         raise RuntimeError("non-exhaustive match on variant: " + tag)
       VList(_) => raise RuntimeError("non-exhaustive match on list")
-      _ => raise RuntimeError("type error: match expects variant or list value")
+      VRecord(_) => raise RuntimeError("non-exhaustive match on record")
+      _ => raise RuntimeError("non-exhaustive match")
     }
   }
   let (pattern, body) = cases[i]
@@ -286,6 +292,26 @@ fn try_bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env? {
       } else {
         Some(env.add(name, value))
       }
+    PInt(expected) =>
+      match value {
+        VInt(actual) if actual == expected => Some(env)
+        _ => None
+      }
+    PBool(expected) =>
+      match value {
+        VBool(actual) if actual == expected => Some(env)
+        _ => None
+      }
+    PString(expected) =>
+      match value {
+        VString(actual) if actual == expected => Some(env)
+        _ => None
+      }
+    PNil =>
+      match value {
+        VNil => Some(env)
+        _ => None
+      }
     PVariant(tag, inner) =>
       match value {
         VVariant(value_tag, payload) =>
@@ -306,6 +332,11 @@ fn try_bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env? {
           }
         _ => None
       }
+    PRecord(fields) =>
+      match value {
+        VRecord(values) => try_bind_record_match_pattern(fields, values, env, 0)
+        _ => None
+      }
   }
 }
 
@@ -321,6 +352,28 @@ fn try_bind_list_pattern(
   }
   match try_bind_pattern(patterns[i], values[i], env) {
     Some(next_env) => try_bind_list_pattern(patterns, values, next_env, i + 1)
+    None => None
+  }
+}
+
+///|
+fn try_bind_record_match_pattern(
+  patterns : Array[(String, MatchPattern)],
+  values : @hashmap.HashMap[String, Value],
+  env : Env,
+  i : Int,
+) -> Env? {
+  if i >= patterns.length() {
+    return Some(env)
+  }
+  let (field_name, pattern) = patterns[i]
+  match values.get(field_name) {
+    Some(value) =>
+      match try_bind_pattern(pattern, value, env) {
+        Some(next_env) =>
+          try_bind_record_match_pattern(patterns, values, next_env, i + 1)
+        None => None
+      }
     None => None
   }
 }
@@ -560,6 +613,26 @@ pub fn pbind(name : String) -> MatchPattern {
 }
 
 ///|
+pub fn pint(value : Int) -> MatchPattern {
+  PInt(value)
+}
+
+///|
+pub fn pbool(value : Bool) -> MatchPattern {
+  PBool(value)
+}
+
+///|
+pub fn pstring(value : String) -> MatchPattern {
+  PString(value)
+}
+
+///|
+pub fn pnil() -> MatchPattern {
+  PNil
+}
+
+///|
 pub fn pvariant(tag : String, pattern : MatchPattern) -> MatchPattern {
   PVariant(tag, pattern)
 }
@@ -567,6 +640,11 @@ pub fn pvariant(tag : String, pattern : MatchPattern) -> MatchPattern {
 ///|
 pub fn plist(items : Array[MatchPattern]) -> MatchPattern {
   PList(items)
+}
+
+///|
+pub fn precord(fields : Array[(String, MatchPattern)]) -> MatchPattern {
+  PRecord(fields)
 }
 
 ///|

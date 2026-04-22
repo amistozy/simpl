@@ -348,3 +348,50 @@ test "variant carrying list pattern match" {
     #| }
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
+
+///|
+test "literal patterns match primitive values" {
+  let int_code =
+    #| match 42 {
+    #|   0 => 0,
+    #|   42 => 1
+    #| }
+  let string_code =
+    #| match "moon" {
+    #|   "sun" => 0,
+    #|   "moon" => 1
+    #| }
+  let bool_code =
+    #| match false {
+    #|   true => 1,
+    #|   false => 42
+    #| }
+  let nil_code =
+    #| match nil {
+    #|   nil => 42,
+    #|   _ => 0
+    #| }
+  assert_true(@simpl.eval_source_is_int(int_code, 1))
+  assert_true(@simpl.eval_source_is_int(string_code, 1))
+  assert_true(@simpl.eval_source_is_int(bool_code, 42))
+  assert_true(@simpl.eval_source_is_int(nil_code, 42))
+}
+
+///|
+test "record patterns match and can nest other patterns" {
+  let code =
+    #| match {left: #Some(10), right: [1, 32], flag: true} {
+    #|   {left: #Some(x), right: [1, y], flag: true} => x + y,
+    #|   _ => 0
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "record patterns support shorthand field binding" {
+  let code =
+    #| match {x: 10, y: 32} {
+    #|   {x, y} => x + y
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}

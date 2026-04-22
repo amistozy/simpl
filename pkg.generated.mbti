@@ -94,7 +94,17 @@ pub fn parse_is_ok(String) -> Bool
 
 pub fn pbind(String) -> MatchPattern
 
+pub fn pbool(Bool) -> MatchPattern
+
+pub fn pint(Int) -> MatchPattern
+
 pub fn plist(Array[MatchPattern]) -> MatchPattern
+
+pub fn pnil() -> MatchPattern
+
+pub fn precord(Array[(String, MatchPattern)]) -> MatchPattern
+
+pub fn pstring(String) -> MatchPattern
 
 pub fn pvariant(String, MatchPattern) -> MatchPattern
 
@@ -167,8 +177,13 @@ pub enum Expr {
 
 pub enum MatchPattern {
   PBind(String)
+  PInt(Int)
+  PBool(Bool)
+  PString(String)
+  PNil
   PVariant(String, MatchPattern)
   PList(Array[MatchPattern])
+  PRecord(Array[(String, MatchPattern)])
 } derive(@debug.Debug)
 
 pub enum UnOp {

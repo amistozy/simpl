@@ -990,8 +990,14 @@ fn parse_pattern(tokens : Array[Token], i : Int) -> (MatchPattern, Int) raise {
   }
   match tokens[i] {
     IdentTok(name) => (PBind(name), i + 1)
+    IntTok(value) => (PInt(value), i + 1)
+    StrTok(value) => (PString(value), i + 1)
+    TrueTok => (PBool(true), i + 1)
+    FalseTok => (PBool(false), i + 1)
+    NilTok => (PNil, i + 1)
     HashTok => parse_variant_pattern(tokens, i + 1)
     LBracketTok => parse_list_pattern(tokens, i + 1)
+    LBraceTok => parse_match_record_pattern(tokens, i + 1)
     tok => raise SyntaxError("unexpected token in pattern: " + token_name(tok))
   }
 }
@@ -1041,6 +1047,46 @@ fn parse_list_pattern(
     }
     raise SyntaxError(
       "unexpected token in list pattern: " + token_name(tokens[next_pattern]),
+    )
+  }
+}
+
+///|
+fn parse_match_record_pattern(
+  tokens : Array[Token],
+  i : Int,
+) -> (MatchPattern, Int) raise {
+  if i < tokens.length() && tokens[i] == RBraceTok {
+    return (PRecord([]), i + 1)
+  }
+  let fields = []
+  for j = i, _pos = 0 {
+    if j >= tokens.length() {
+      raise SyntaxError("unexpected end in record pattern")
+    }
+    let field_name = match tokens[j] {
+      IdentTok(name) => name
+      tok => raise SyntaxError("expected field name, found: " + token_name(tok))
+    }
+    let (field_pattern, next) = if j + 1 < tokens.length() &&
+      tokens[j + 1] == ColonTok {
+      let (pattern, k) = parse_pattern(tokens, j + 2)
+      (pattern, k)
+    } else {
+      (PBind(field_name), j + 1)
+    }
+    fields.push((field_name, field_pattern))
+    if next >= tokens.length() {
+      raise SyntaxError("unexpected end in record pattern")
+    }
+    if tokens[next] == CommaTok {
+      continue next + 1, _pos + 1
+    }
+    if tokens[next] == RBraceTok {
+      break (PRecord(fields), next + 1)
+    }
+    raise SyntaxError(
+      "unexpected token in record pattern: " + token_name(tokens[next]),
     )
   }
 }
