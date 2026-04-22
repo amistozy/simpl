@@ -110,6 +110,32 @@ test "runtime error includes source position" {
 }
 
 ///|
+test "unary type error reports expected and actual value" {
+  assert_eq(
+    @simpl.eval_error_text("-true"),
+    Some("type error: unary '-' expected Int, got Bool(true) at 1:1-6"),
+  )
+}
+
+///|
+test "binary type error reports expected and actual values" {
+  assert_eq(
+    @simpl.eval_error_text("1 + true"),
+    Some(
+      "type error: operator '+' expected (Int, Int) or (String, String), got (Int(1), Bool(true)) at 1:1-9",
+    ),
+  )
+}
+
+///|
+test "field access type error reports expected and actual value" {
+  assert_eq(
+    @simpl.eval_error_text("1.x"),
+    Some("type error: operator '.' expected Record, got Int(1) at 1:1-4"),
+  )
+}
+
+///|
 test "pattern match failure reports expected pattern and actual value" {
   assert_eq(
     @simpl.eval_error_text("let [x, y] = [1] in x"),

@@ -149,7 +149,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     RefGet(ref_expr) =>
       match eval_with_env(ref_expr, env) {
         VRef(cell) => cell.val
-        _ => raise runtime_error("type error: '!' expects Ref")
+        value => raise type_error_unary("operator '!'", "Ref", value)
       }
     RefSet(ref_expr, value_expr) => {
       let ref_value = eval_with_env(ref_expr, env)
@@ -159,7 +159,8 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
           cell.val = new_value
           new_value
         }
-        _ => raise runtime_error("type error: ':=' expects Ref on left side")
+        value =>
+          raise type_error_unary("operator ':='", "Ref on left side", value)
       }
     }
     Field(target, name) => {
@@ -170,7 +171,7 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
             Some(value) => value
             None => raise runtime_error("missing field: \{name}")
           }
-        _ => raise runtime_error("type error: '.' expects Record")
+        value => raise type_error_unary("operator '.'", "Record", value)
       }
     }
     Unary(op, one) => eval_unary(op, eval_with_env(one, env))
@@ -599,6 +600,23 @@ fn value_summary(value : Value) -> String {
 }
 
 ///|
+fn typed_value_summary(value : Value) -> String {
+  match value {
+    VInt(v) => "Int(" + v.to_string() + ")"
+    VBool(v) => "Bool(" + v.to_string() + ")"
+    VString(v) => "String(\"" + v + "\")"
+    VNil => "Nil"
+    VList(items) => "List([" + join_value_list(items, 0) + "])"
+    VRecord(fields) => "Record(" + fields.length().to_string() + " fields)"
+    VVariant(tag, payload) =>
+      "Variant(" + "#" + tag + "(" + value_summary(payload) + ")" + ")"
+    VRef(_) => "Ref"
+    VClosure(_, _, _) => "Function"
+    VRecClosure(_, _, _, _) => "Function"
+  }
+}
+
+///|
 fn join_value_list(values : Array[Value], i : Int) -> String {
   if i >= values.length() {
     return ""
@@ -622,12 +640,48 @@ fn[T] runtime_error(message : String) -> T raise {
 }
 
 ///|
+fn[T] type_error_unary(
+  operator : String,
+  expected : String,
+  actual : Value,
+) -> T raise {
+  raise runtime_error(
+    "type error: " +
+    operator +
+    " expected " +
+    expected +
+    ", got " +
+    typed_value_summary(actual),
+  )
+}
+
+///|
+fn[T] type_error_binary(
+  operator : String,
+  expected : String,
+  left : Value,
+  right : Value,
+) -> T raise {
+  raise runtime_error(
+    "type error: " +
+    operator +
+    " expected " +
+    expected +
+    ", got (" +
+    typed_value_summary(left) +
+    ", " +
+    typed_value_summary(right) +
+    ")",
+  )
+}
+
+///|
 fn eval_unary(op : UnOp, value : Value) -> Value raise {
   match op {
     Neg =>
       match value {
         VInt(v) => VInt(-v)
-        _ => raise runtime_error("type error: unary '-' expects Int")
+        _ => raise type_error_unary("unary '-'", "Int", value)
       }
     Not => VBool(!truthy(value))
   }
@@ -641,47 +695,47 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
         (VInt(a), VInt(b)) => VInt(a + b)
         (VString(a), VString(b)) => VString(a + b)
         _ =>
-          raise runtime_error(
-            "type error: '+' expects Int+Int or String+String",
+          raise type_error_binary(
+            "operator '+'", "(Int, Int) or (String, String)", left, right,
           )
       }
     Sub =>
       match (left, right) {
         (VInt(a), VInt(b)) => VInt(a - b)
-        _ => raise runtime_error("type error: '-' expects Int+Int")
+        _ => raise type_error_binary("operator '-'", "(Int, Int)", left, right)
       }
     Mul =>
       match (left, right) {
         (VInt(a), VInt(b)) => VInt(a * b)
-        _ => raise runtime_error("type error: '*' expects Int+Int")
+        _ => raise type_error_binary("operator '*'", "(Int, Int)", left, right)
       }
     Div =>
       match (left, right) {
         (VInt(_), VInt(0)) => raise runtime_error("division by zero")
         (VInt(a), VInt(b)) => VInt(a / b)
-        _ => raise runtime_error("type error: '/' expects Int+Int")
+        _ => raise type_error_binary("operator '/'", "(Int, Int)", left, right)
       }
     Eq => VBool(value_eq(left, right))
     Ne => VBool(!value_eq(left, right))
     Lt =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a < b)
-        _ => raise runtime_error("type error: '<' expects Int+Int")
+        _ => raise type_error_binary("operator '<'", "(Int, Int)", left, right)
       }
     Le =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a <= b)
-        _ => raise runtime_error("type error: '<=' expects Int+Int")
+        _ => raise type_error_binary("operator '<='", "(Int, Int)", left, right)
       }
     Gt =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a > b)
-        _ => raise runtime_error("type error: '>' expects Int+Int")
+        _ => raise type_error_binary("operator '>'", "(Int, Int)", left, right)
       }
     Ge =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a >= b)
-        _ => raise runtime_error("type error: '>=' expects Int+Int")
+        _ => raise type_error_binary("operator '>='", "(Int, Int)", left, right)
       }
     And => if truthy(left) { right } else { left }
     Or => if truthy(left) { left } else { right }
