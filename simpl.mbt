@@ -30,6 +30,7 @@ pub enum MatchPattern {
   PBool(Bool)
   PString(String)
   PNil
+  POr(Array[MatchPattern])
   PVariant(String, MatchPattern)
   PList(Array[MatchPattern])
   PRecord(Array[(String, MatchPattern)])
@@ -308,6 +309,7 @@ fn try_bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env? {
         VNil => Some(env)
         _ => None
       }
+    POr(patterns) => try_bind_or_pattern(patterns, value, env, 0)
     PVariant(tag, inner) =>
       match value {
         VVariant(value_tag, payload) =>
@@ -371,6 +373,22 @@ fn try_bind_record_match_pattern(
         None => None
       }
     None => None
+  }
+}
+
+///|
+fn try_bind_or_pattern(
+  patterns : Array[MatchPattern],
+  value : Value,
+  env : Env,
+  i : Int,
+) -> Env? {
+  if i >= patterns.length() {
+    return None
+  }
+  match try_bind_pattern(patterns[i], value, env) {
+    Some(bound_env) => Some(bound_env)
+    None => try_bind_or_pattern(patterns, value, env, i + 1)
   }
 }
 
@@ -658,6 +676,11 @@ pub fn pstring(value : String) -> MatchPattern {
 ///|
 pub fn pnil() -> MatchPattern {
   PNil
+}
+
+///|
+pub fn por(patterns : Array[MatchPattern]) -> MatchPattern {
+  POr(patterns)
 }
 
 ///|

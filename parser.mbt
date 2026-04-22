@@ -41,6 +41,7 @@ priv enum Token {
   BangTok
   ColonEqTok
   ColonTok
+  PipeTok
   DotTok
   HashTok
   SemiTok
@@ -239,6 +240,15 @@ fn lex_loop(source : String, i : Int, acc : Array[Token]) -> Unit raise {
       acc.push(DotTok)
       lex_loop(source, i + 1, acc)
     }
+    '|' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '|' {
+        acc.push(OrOrTok)
+        lex_loop(source, i + 2, acc)
+      } else {
+        acc.push(PipeTok)
+        lex_loop(source, i + 1, acc)
+      }
     '#' => {
       acc.push(HashTok)
       lex_loop(source, i + 1, acc)
@@ -266,14 +276,6 @@ fn lex_loop(source : String, i : Int, acc : Array[Token]) -> Unit raise {
         lex_loop(source, i + 2, acc)
       } else {
         raise SyntaxError("unexpected token '&'")
-      }
-    '|' =>
-      if i + 1 < source.length() &&
-        source.unsafe_get(i + 1).unsafe_to_char() == '|' {
-        acc.push(OrOrTok)
-        lex_loop(source, i + 2, acc)
-      } else {
-        raise SyntaxError("unexpected token '|'")
       }
     _ => raise SyntaxError("unexpected character: " + c.to_string())
   }
@@ -396,6 +398,7 @@ fn token_name(tok : Token) -> String {
     BangTok => "!"
     ColonEqTok => ":="
     ColonTok => ":"
+    PipeTok => "|"
     DotTok => "."
     HashTok => "#"
     SemiTok => ";"
@@ -990,6 +993,34 @@ fn parse_match_case(
 
 ///|
 fn parse_pattern(tokens : Array[Token], i : Int) -> (MatchPattern, Int) raise {
+  let (pattern, j) = parse_pattern_atom(tokens, i)
+  parse_pattern_or_tail(pattern, tokens, j)
+}
+
+///|
+fn parse_pattern_or_tail(
+  left : MatchPattern,
+  tokens : Array[Token],
+  i : Int,
+) -> (MatchPattern, Int) raise {
+  if i < tokens.length() && tokens[i] == PipeTok {
+    let (right, j) = parse_pattern_atom(tokens, i + 1)
+    let combined = match left {
+      POr(patterns) => POr(patterns + [right])
+      _ => POr([left, right])
+    }
+    ensure_or_pattern_bindings(combined)
+    parse_pattern_or_tail(combined, tokens, j)
+  } else {
+    (left, i)
+  }
+}
+
+///|
+fn parse_pattern_atom(
+  tokens : Array[Token],
+  i : Int,
+) -> (MatchPattern, Int) raise {
   if i >= tokens.length() {
     raise SyntaxError("unexpected end in pattern")
   }
@@ -1005,6 +1036,104 @@ fn parse_pattern(tokens : Array[Token], i : Int) -> (MatchPattern, Int) raise {
     LBraceTok => parse_match_record_pattern(tokens, i + 1)
     tok => raise SyntaxError("unexpected token in pattern: " + token_name(tok))
   }
+}
+
+///|
+fn ensure_or_pattern_bindings(pattern : MatchPattern) -> Unit raise {
+  match pattern {
+    POr(patterns) =>
+      if patterns.length() > 0 {
+        let expected = pattern_binding_names(patterns[0])
+        ensure_or_pattern_bindings_all(patterns, expected, 1)
+      }
+    _ => ()
+  }
+}
+
+///|
+fn ensure_or_pattern_bindings_all(
+  patterns : Array[MatchPattern],
+  expected : Array[String],
+  i : Int,
+) -> Unit raise {
+  if i >= patterns.length() {
+    return
+  }
+  let actual = pattern_binding_names(patterns[i])
+  if !same_binding_names(expected, actual) {
+    raise SyntaxError(
+      "all alternatives in an or-pattern must bind the same names",
+    )
+  }
+  ensure_or_pattern_bindings_all(patterns, expected, i + 1)
+}
+
+///|
+fn pattern_binding_names(pattern : MatchPattern) -> Array[String] {
+  match pattern {
+    PBind(name) => if name == "_" { [] } else { [name] }
+    PInt(_) => []
+    PBool(_) => []
+    PString(_) => []
+    PNil => []
+    POr(patterns) =>
+      if patterns.length() == 0 {
+        []
+      } else {
+        pattern_binding_names(patterns[0])
+      }
+    PVariant(_, inner) => pattern_binding_names(inner)
+    PList(items) =>
+      items.fold(init=[], (acc, item) => acc + pattern_binding_names(item))
+    PRecord(fields) =>
+      fields.fold(init=[], (acc, field) => {
+        let (_, field_pattern) = field
+        acc + pattern_binding_names(field_pattern)
+      })
+  }
+}
+
+///|
+fn same_binding_names(left : Array[String], right : Array[String]) -> Bool {
+  if left.length() != right.length() {
+    return false
+  }
+  same_binding_names_from(left, right, 0)
+}
+
+///|
+fn same_binding_names_from(
+  left : Array[String],
+  right : Array[String],
+  i : Int,
+) -> Bool {
+  if i >= left.length() {
+    return true
+  }
+  if !array_contains_string(right, left[i]) {
+    return false
+  }
+  same_binding_names_from(left, right, i + 1)
+}
+
+///|
+fn array_contains_string(items : Array[String], target : String) -> Bool {
+  array_contains_string_from(items, target, 0)
+}
+
+///|
+fn array_contains_string_from(
+  items : Array[String],
+  target : String,
+  i : Int,
+) -> Bool {
+  if i >= items.length() {
+    return false
+  }
+  if items[i] == target {
+    return true
+  }
+  array_contains_string_from(items, target, i + 1)
 }
 
 ///|

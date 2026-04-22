@@ -396,6 +396,37 @@ test "guard failure falls through to later cases" {
 }
 
 ///|
+test "or patterns match any alternative" {
+  let code =
+    #| match #Right(42) {
+    #|   #Left(x) | #Right(x) => x,
+    #|   _ => 0
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "or patterns work with guards" {
+  let code =
+    #| match [20, 22] {
+    #|   [x, 0] | [0, x] => x,
+    #|   [x, y] | [y, x] if x + y == 42 => y,
+    #|   _ => 0
+    #| }
+  assert_true(@simpl.eval_source_is_int(code, 22))
+}
+
+///|
+test "or patterns require the same bindings on each branch" {
+  let code =
+    #| match #Left(42) {
+    #|   #Left(x) | #Right(y) => x,
+    #|   _ => 0
+    #| }
+  assert_true(@simpl.parse_is_error(code))
+}
+
+///|
 test "lambda parameters support patterns" {
   let code =
     #| (fn(#Pair(x), {y}) => x + y)(#Pair(10), {y: 32})
