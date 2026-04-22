@@ -80,7 +80,7 @@ pub type Env = @hashmap.HashMap[String, Value]
 ///|
 pub suberror EvalError {
   RuntimeError(String)
-}
+} derive(Debug)
 
 ///|
 /// Public API

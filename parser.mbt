@@ -2,7 +2,7 @@
 /// Parser error type
 pub suberror ParseError {
   SyntaxError(String)
-}
+} derive(Debug)
 
 ///|
 priv enum Token {
