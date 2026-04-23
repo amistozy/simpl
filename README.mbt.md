@@ -117,7 +117,6 @@ let value = @simpl.eval_source(
     #| match #Left(41) with
     #| | #Left(x) -> x + 1
     #| | #Right(y) -> y
-    #| end
   ),
 )
 // => VInt(42)
