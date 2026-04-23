@@ -468,6 +468,7 @@ test "list rest pattern supports fixed prefix and suffix" {
     #|     match c with
     #|     | [x, y] -> a + b + d + e + x + y
     #|     | _ -> 0
+    #|     end
     #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 21))
 }
@@ -480,6 +481,7 @@ test "list rest pattern allows empty middle slice" {
     #|     match c with
     #|     | [] -> a + b + d + e
     #|     | _ -> 0
+    #|     end
     #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 100))
 }
@@ -510,6 +512,7 @@ test "list rest pattern works with nested patterns" {
     #|     match mid with
     #|     | [#Right(x), #Right(y)] -> a + x + y + b
     #|     | _ -> 0
+    #|     end
     #| | _ -> 0
   assert_true(@simpl.eval_source_is_int(code, 10))
 }
@@ -593,6 +596,19 @@ test "or patterns require the same bindings on each branch" {
     #| | #Left(x) | #Right(y) -> x
     #| | _ -> 0
   assert_true(@simpl.parse_is_error(code))
+}
+
+///|
+test "match end disambiguates nested match cases" {
+  let code =
+    #| match 41 with
+    #| | 42 ->
+    #|   match 41 with
+    #|   | 42 -> 0
+    #|   | _ -> 1
+    #|   end
+    #| | _ -> 2
+  assert_true(@simpl.eval_source_is_int(code, 2))
 }
 
 ///|

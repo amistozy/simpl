@@ -43,7 +43,7 @@ The current implementation already covers a strong set of core features for lang
 - `do expr in body`
 - `if cond then a else b`
 - `fn(...) => expr`
-- `match expr with | ...`
+- `match expr with | ...` with optional `end` for nested matches
 - function calls such as `f(x, y)`
 - unary operators: `-x`, `not x`
 - binary operators: `+ - * / == != < <= > >= and or && ||`
@@ -117,6 +117,7 @@ let value = @simpl.eval_source(
     #| match #Left(41) with
     #| | #Left(x) -> x + 1
     #| | #Right(y) -> y
+    #| end
   ),
 )
 // => VInt(42)

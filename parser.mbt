@@ -33,6 +33,7 @@ priv enum Token {
   MatchTok
   WithTok
   DoTok
+  EndKeywordTok
   AndWordTok
   OrWordTok
   PlusTok
@@ -609,6 +610,7 @@ fn keyword_or_ident(text : String) -> Token {
     "match" => MatchTok
     "with" => WithTok
     "do" => DoTok
+    "end" => EndKeywordTok
     "and" => AndWordTok
     "or" => OrWordTok
     _ => IdentTok(text)
@@ -636,6 +638,7 @@ fn token_name(tok : Token) -> String {
     MatchTok => "match"
     WithTok => "with"
     DoTok => "do"
+    EndKeywordTok => "end"
     AndWordTok => "and"
     OrWordTok => "or"
     PlusTok => "+"
@@ -1367,6 +1370,8 @@ fn parse_match_cases_tail(
   }
   if token_kind(tokens, i) == PipeTok {
     parse_match_cases(tokens, i)
+  } else if token_kind(tokens, i) == EndKeywordTok {
+    ([], i + 1)
   } else {
     ([], i)
   }
