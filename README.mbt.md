@@ -139,7 +139,8 @@ let value = @simpl.eval_source(
 ```
 
 Bindings introduced by `is` flow through left-to-right `and`/`or` expressions
-and into the true branch of `if`.
+and into the true branch of `if`. In a successful `match` guard, they also flow
+into that case body.
 
 ### References and Assignment
 

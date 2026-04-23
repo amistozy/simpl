@@ -334,21 +334,23 @@ fn eval_match_cases(
   }
   let (pattern, cond_expr, body) = cases[i]
   match try_bind_pattern(pattern, value, env) {
-    Some(bound_env) =>
-      if match_guard_passes(cond_expr, bound_env) {
-        eval_with_env(body, bound_env)
+    Some(bound_env) => {
+      let (passes, guard_env) = eval_match_guard(cond_expr, bound_env)
+      if passes {
+        eval_with_env(body, guard_env)
       } else {
         eval_match_cases(value, cases, env, i + 1)
       }
+    }
     None => eval_match_cases(value, cases, env, i + 1)
   }
 }
 
 ///|
-fn match_guard_passes(cond_expr : Expr?, env : Env) -> Bool raise {
+fn eval_match_guard(cond_expr : Expr?, env : Env) -> (Bool, Env) raise {
   match cond_expr {
-    Some(cond) => truthy(eval_with_env(cond, env))
-    None => true
+    Some(cond) => eval_condition_bindings(cond, env)
+    None => (true, env)
   }
 }
 

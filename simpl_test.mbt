@@ -562,6 +562,16 @@ test "match guards can use bindings from nested patterns" {
 }
 
 ///|
+test "match guard is bindings flow into case body" {
+  let code =
+    #| let f(x) = #Some(x + 1) in
+    #| match [1, 2] with
+    #| | [x, ..] if f(x) is #Some(y) -> y
+    #| | _ -> 0
+  assert_true(@simpl.eval_source_is_int(code, 2))
+}
+
+///|
 test "guard failure falls through to later cases" {
   let code =
     #| match [20, 22] with
