@@ -174,6 +174,7 @@ Common entry points:
 
 - `parse(source)` parses source into a `SurfaceExpr`
 - `desugar(expr)` lowers `SurfaceExpr` into core `Expr`
+- `desugar_pattern(pattern)` lowers surface patterns into core match patterns
 - `eval(expr)` evaluates an AST
 - `eval_source(source)` parses and evaluates source
 - `parse_error_text(source)` returns formatted parse error text

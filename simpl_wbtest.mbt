@@ -51,7 +51,51 @@ test "desugar lowers do to ignored let" {
 ///|
 test "parser preserves let function sugar before desugar" {
   match parse("let add(x) = x + 1 in add(41)") {
-    SLocated(_, SLetFun("add", [PBind("x")], _, _)) => assert_true(true)
+    SLocated(_, SLetFun("add", [SPBind("x")], _, _)) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser preserves record pattern shorthand before desugar" {
+  match parse("let {x, y: z} = {x: 1, y: 2} in x + z") {
+    SLocated(
+      _,
+      SLet(
+        SPRecord([SPRecordShorthand("x"), SPRecordField("y", SPBind("z"))]),
+        _,
+        _
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar lowers record pattern shorthand to field binding" {
+  match
+    desugar_pattern(
+      SPRecord([SPRecordShorthand("x"), SPRecordField("y", SPBind("z"))]),
+    ) {
+    PRecord([("x", PBind("x")), ("y", PBind("z"))]) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser preserves record shorthand before desugar" {
+  match parse("{x, y: 1}") {
+    SLocated(_, SRecord([SRecordShorthand("x"), SRecordField("y", _)])) =>
+      assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar lowers record shorthand to field variable" {
+  match
+    desugar(SRecord([SRecordShorthand("x"), SRecordField("y", SIntLit(1))])) {
+    Record([("x", Var("x")), ("y", IntLit(1))]) => assert_true(true)
     _ => assert_true(false)
   }
 }

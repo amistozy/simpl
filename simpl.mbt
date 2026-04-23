@@ -8,16 +8,16 @@ pub enum SurfaceExpr {
   SNilLit
   SList(Array[SurfaceExpr])
   SVar(String)
-  SRecord(Array[(String, SurfaceExpr)])
+  SRecord(Array[SurfaceRecordField])
   SVariant(String, SurfaceExpr)
   SIf(SurfaceExpr, SurfaceExpr, SurfaceExpr)
-  SLet(MatchPattern, SurfaceExpr, SurfaceExpr)
+  SLet(SurfacePattern, SurfaceExpr, SurfaceExpr)
   SDo(SurfaceExpr, SurfaceExpr)
-  SLetFun(String, Array[MatchPattern], SurfaceExpr, SurfaceExpr)
-  SIs(SurfaceExpr, MatchPattern)
-  SMatch(SurfaceExpr, Array[(MatchPattern, SurfaceExpr?, SurfaceExpr)])
-  SLetRec(String, Array[MatchPattern], SurfaceExpr, SurfaceExpr)
-  SLambda(Array[MatchPattern], SurfaceExpr)
+  SLetFun(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
+  SIs(SurfaceExpr, SurfacePattern)
+  SMatch(SurfaceExpr, Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)])
+  SLetRec(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
+  SLambda(Array[SurfacePattern], SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceExpr])
   SRefNew(SurfaceExpr)
   SRefGet(SurfaceExpr)
@@ -25,6 +25,32 @@ pub enum SurfaceExpr {
   SField(SurfaceExpr, String)
   SUnary(UnOp, SurfaceExpr)
   SBinary(BinOp, SurfaceExpr, SurfaceExpr)
+} derive(Debug)
+
+///|
+pub enum SurfaceRecordField {
+  SRecordField(String, SurfaceExpr)
+  SRecordShorthand(String)
+} derive(Debug)
+
+///|
+pub enum SurfacePattern {
+  SPBind(String)
+  SPInt(Int)
+  SPBool(Bool)
+  SPString(String)
+  SPNil
+  SPOr(Array[SurfacePattern])
+  SPVariant(String, SurfacePattern)
+  SPList(Array[SurfacePattern])
+  SPListRest(Array[SurfacePattern], String, Array[SurfacePattern])
+  SPRecord(Array[SurfaceRecordPatternField])
+} derive(Debug)
+
+///|
+pub enum SurfaceRecordPatternField {
+  SPRecordField(String, SurfacePattern)
+  SPRecordShorthand(String)
 } derive(Debug)
 
 ///|
@@ -129,22 +155,21 @@ pub fn desugar(expr : SurfaceExpr) -> Expr {
     SNilLit => NilLit
     SVar(name) => Var(name)
     SList(items) => List(items.map(item => desugar(item)))
-    SRecord(fields) =>
-      Record(
-        fields.map(field => {
-          let (name, value_expr) = field
-          (name, desugar(value_expr))
-        }),
-      )
+    SRecord(fields) => Record(fields.map(field => desugar_record_field(field)))
     SVariant(tag, value_expr) => Variant(tag, desugar(value_expr))
     SIf(cond, then_branch, else_branch) =>
       If(desugar(cond), desugar(then_branch), desugar(else_branch))
     SLet(pattern, value_expr, body) =>
-      Let(pattern, desugar(value_expr), desugar(body))
+      Let(desugar_pattern(pattern), desugar(value_expr), desugar(body))
     SDo(value_expr, body) => Let(PBind("_"), desugar(value_expr), desugar(body))
     SLetFun(name, params, func_body, body) =>
-      Let(PBind(name), Lambda(params, desugar(func_body)), desugar(body))
-    SIs(value_expr, pattern) => Is(desugar(value_expr), pattern)
+      Let(
+        PBind(name),
+        Lambda(params.map(param => desugar_pattern(param)), desugar(func_body)),
+        desugar(body),
+      )
+    SIs(value_expr, pattern) =>
+      Is(desugar(value_expr), desugar_pattern(pattern))
     SMatch(value_expr, cases) =>
       Match(
         desugar(value_expr),
@@ -154,12 +179,18 @@ pub fn desugar(expr : SurfaceExpr) -> Expr {
             Some(cond) => Some(desugar(cond))
             None => None
           }
-          (pattern, next_cond, desugar(body))
+          (desugar_pattern(pattern), next_cond, desugar(body))
         }),
       )
     SLetRec(name, params, func_body, body) =>
-      LetRec(name, params, desugar(func_body), desugar(body))
-    SLambda(params, body) => Lambda(params, desugar(body))
+      LetRec(
+        name,
+        params.map(param => desugar_pattern(param)),
+        desugar(func_body),
+        desugar(body),
+      )
+    SLambda(params, body) =>
+      Lambda(params.map(param => desugar_pattern(param)), desugar(body))
     SCall(func_expr, arg_exprs) =>
       Call(desugar(func_expr), arg_exprs.map(arg => desugar(arg)))
     SRefNew(inner) => RefNew(desugar(inner))
@@ -169,6 +200,46 @@ pub fn desugar(expr : SurfaceExpr) -> Expr {
     SField(target, name) => Field(desugar(target), name)
     SUnary(op, one) => Unary(op, desugar(one))
     SBinary(op, left, right) => Binary(op, desugar(left), desugar(right))
+  }
+}
+
+///|
+fn desugar_record_field(field : SurfaceRecordField) -> (String, Expr) {
+  match field {
+    SRecordField(name, value_expr) => (name, desugar(value_expr))
+    SRecordShorthand(name) => (name, Var(name))
+  }
+}
+
+///|
+pub fn desugar_pattern(pattern : SurfacePattern) -> MatchPattern {
+  match pattern {
+    SPBind(name) => PBind(name)
+    SPInt(value) => PInt(value)
+    SPBool(value) => PBool(value)
+    SPString(value) => PString(value)
+    SPNil => PNil
+    SPOr(patterns) => POr(patterns.map(item => desugar_pattern(item)))
+    SPVariant(tag, inner) => PVariant(tag, desugar_pattern(inner))
+    SPList(items) => PList(items.map(item => desugar_pattern(item)))
+    SPListRest(prefix, rest_name, suffix) =>
+      PListRest(
+        prefix.map(item => desugar_pattern(item)),
+        rest_name,
+        suffix.map(item => desugar_pattern(item)),
+      )
+    SPRecord(fields) =>
+      PRecord(fields.map(field => desugar_record_pattern_field(field)))
+  }
+}
+
+///|
+fn desugar_record_pattern_field(
+  field : SurfaceRecordPatternField,
+) -> (String, MatchPattern) {
+  match field {
+    SPRecordField(name, pattern) => (name, desugar_pattern(pattern))
+    SPRecordShorthand(name) => (name, PBind(name))
   }
 }
 

@@ -18,6 +18,8 @@ pub fn call(Expr, Array[Expr]) -> Expr
 
 pub fn desugar(SurfaceExpr) -> Expr
 
+pub fn desugar_pattern(SurfacePattern) -> MatchPattern
+
 pub fn div(Expr, Expr) -> Expr
 
 pub fn do_in(Expr, Expr) -> Expr
@@ -225,16 +227,16 @@ pub enum SurfaceExpr {
   SNilLit
   SList(Array[SurfaceExpr])
   SVar(String)
-  SRecord(Array[(String, SurfaceExpr)])
+  SRecord(Array[SurfaceRecordField])
   SVariant(String, SurfaceExpr)
   SIf(SurfaceExpr, SurfaceExpr, SurfaceExpr)
-  SLet(MatchPattern, SurfaceExpr, SurfaceExpr)
+  SLet(SurfacePattern, SurfaceExpr, SurfaceExpr)
   SDo(SurfaceExpr, SurfaceExpr)
-  SLetFun(String, Array[MatchPattern], SurfaceExpr, SurfaceExpr)
-  SIs(SurfaceExpr, MatchPattern)
-  SMatch(SurfaceExpr, Array[(MatchPattern, SurfaceExpr?, SurfaceExpr)])
-  SLetRec(String, Array[MatchPattern], SurfaceExpr, SurfaceExpr)
-  SLambda(Array[MatchPattern], SurfaceExpr)
+  SLetFun(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
+  SIs(SurfaceExpr, SurfacePattern)
+  SMatch(SurfaceExpr, Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)])
+  SLetRec(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
+  SLambda(Array[SurfacePattern], SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceExpr])
   SRefNew(SurfaceExpr)
   SRefGet(SurfaceExpr)
@@ -242,6 +244,29 @@ pub enum SurfaceExpr {
   SField(SurfaceExpr, String)
   SUnary(UnOp, SurfaceExpr)
   SBinary(BinOp, SurfaceExpr, SurfaceExpr)
+} derive(@debug.Debug)
+
+pub enum SurfacePattern {
+  SPBind(String)
+  SPInt(Int)
+  SPBool(Bool)
+  SPString(String)
+  SPNil
+  SPOr(Array[SurfacePattern])
+  SPVariant(String, SurfacePattern)
+  SPList(Array[SurfacePattern])
+  SPListRest(Array[SurfacePattern], String, Array[SurfacePattern])
+  SPRecord(Array[SurfaceRecordPatternField])
+} derive(@debug.Debug)
+
+pub enum SurfaceRecordField {
+  SRecordField(String, SurfaceExpr)
+  SRecordShorthand(String)
+} derive(@debug.Debug)
+
+pub enum SurfaceRecordPatternField {
+  SPRecordField(String, SurfacePattern)
+  SPRecordShorthand(String)
 } derive(@debug.Debug)
 
 pub enum UnOp {

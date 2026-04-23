@@ -4,10 +4,8 @@
 /// Run with `moon run cmd/main` from the project root.
 fn main {
   let code =
-    #| let f(x) = #Some(x + 1) in
-    #| match [1, 2] with
-    #| | [x, ..] if f(x) is #Some(y) -> y
-    #| | _ -> 0
+    #| match {x: 1, y: 2} with
+    #| | {x: y} -> y
 
   let result = try? @lib.eval_source(code)
   debug(result)

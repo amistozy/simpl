@@ -878,7 +878,7 @@ fn parse_lambda_expr(
 fn parse_params(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[MatchPattern], Int) raise {
+) -> (Array[SurfacePattern], Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end in params")
   }
@@ -893,7 +893,7 @@ fn parse_params(
 fn parse_params_nonempty(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[MatchPattern], Int) raise {
+) -> (Array[SurfacePattern], Int) raise {
   let params = []
   for j = i, _pos = 0 {
     let (pattern, next) = parse_pattern(tokens, j)
@@ -1342,13 +1342,14 @@ fn parse_record_literal(
           "expected field name, found: " + token_name(tok),
         )
     }
-    let (value_expr, next_expr) = if j + 1 < tokens.length() &&
+    let (field, next_expr) = if j + 1 < tokens.length() &&
       token_kind(tokens, j + 1) == ColonTok {
-      parse_expr(tokens, j + 2)
+      let (value_expr, next_expr) = parse_expr(tokens, j + 2)
+      (SRecordField(name, value_expr), next_expr)
     } else {
-      (SVar(name), j + 1)
+      (SRecordShorthand(name), j + 1)
     }
-    fields.push((name, value_expr))
+    fields.push(field)
     if next_expr >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in record")
     }
@@ -1405,7 +1406,7 @@ fn parse_list_literal(
 fn parse_match_cases(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[(MatchPattern, SurfaceExpr?, SurfaceExpr)], Int) raise {
+) -> (Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)], Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end in match")
   }
@@ -1422,7 +1423,7 @@ fn parse_match_cases(
 fn parse_match_cases_tail(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[(MatchPattern, SurfaceExpr?, SurfaceExpr)], Int) raise {
+) -> (Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)], Int) raise {
   if i >= tokens.length() {
     return ([], i)
   }
@@ -1439,7 +1440,7 @@ fn parse_match_cases_tail(
 fn parse_match_case(
   tokens : Array[SpannedToken],
   i : Int,
-) -> ((MatchPattern, SurfaceExpr?, SurfaceExpr), Int) raise {
+) -> ((SurfacePattern, SurfaceExpr?, SurfaceExpr), Int) raise {
   let (pattern, j) = parse_pattern(tokens, i)
   let (cond_expr, k) = if j < tokens.length() && token_kind(tokens, j) == IfTok {
     let (cond, next) = parse_expr(tokens, j + 1)
@@ -1458,22 +1459,22 @@ fn parse_match_case(
 fn parse_pattern(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (MatchPattern, Int) raise {
+) -> (SurfacePattern, Int) raise {
   let (pattern, j) = parse_pattern_atom(tokens, i)
   parse_pattern_or_tail(pattern, tokens, j)
 }
 
 ///|
 fn parse_pattern_or_tail(
-  left : MatchPattern,
+  left : SurfacePattern,
   tokens : Array[SpannedToken],
   i : Int,
-) -> (MatchPattern, Int) raise {
+) -> (SurfacePattern, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == PipeTok {
     let (right, j) = parse_pattern_atom(tokens, i + 1)
     let combined = match left {
-      POr(patterns) => POr(patterns + [right])
-      _ => POr([left, right])
+      SPOr(patterns) => SPOr(patterns + [right])
+      _ => SPOr([left, right])
     }
     ensure_or_pattern_bindings(combined, tokens, i)
     parse_pattern_or_tail(combined, tokens, j)
@@ -1486,17 +1487,17 @@ fn parse_pattern_or_tail(
 fn parse_pattern_atom(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (MatchPattern, Int) raise {
+) -> (SurfacePattern, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end in pattern")
   }
   match token_kind(tokens, i) {
-    IdentTok(name) => (PBind(name), i + 1)
-    IntTok(value) => (PInt(value), i + 1)
-    StrTok(value) => (PString(value), i + 1)
-    TrueTok => (PBool(true), i + 1)
-    FalseTok => (PBool(false), i + 1)
-    NilTok => (PNil, i + 1)
+    IdentTok(name) => (SPBind(name), i + 1)
+    IntTok(value) => (SPInt(value), i + 1)
+    StrTok(value) => (SPString(value), i + 1)
+    TrueTok => (SPBool(true), i + 1)
+    FalseTok => (SPBool(false), i + 1)
+    NilTok => (SPNil, i + 1)
     HashTok => parse_variant_pattern(tokens, i + 1)
     LBracketTok => parse_list_pattern(tokens, i + 1)
     LBraceTok => parse_match_record_pattern(tokens, i + 1)
@@ -1511,12 +1512,12 @@ fn parse_pattern_atom(
 
 ///|
 fn ensure_or_pattern_bindings(
-  pattern : MatchPattern,
+  pattern : SurfacePattern,
   tokens : Array[SpannedToken],
   error_i : Int,
 ) -> Unit raise {
   match pattern {
-    POr(patterns) =>
+    SPOr(patterns) =>
       if patterns.length() > 0 {
         let expected = pattern_binding_names(patterns[0])
         ensure_or_pattern_bindings_all(patterns, expected, 1, tokens, error_i)
@@ -1527,7 +1528,7 @@ fn ensure_or_pattern_bindings(
 
 ///|
 fn ensure_or_pattern_bindings_all(
-  patterns : Array[MatchPattern],
+  patterns : Array[SurfacePattern],
   expected : Array[String],
   i : Int,
   tokens : Array[SpannedToken],
@@ -1546,23 +1547,23 @@ fn ensure_or_pattern_bindings_all(
 }
 
 ///|
-fn pattern_binding_names(pattern : MatchPattern) -> Array[String] {
+fn pattern_binding_names(pattern : SurfacePattern) -> Array[String] {
   match pattern {
-    PBind(name) => if name == "_" { [] } else { [name] }
-    PInt(_) => []
-    PBool(_) => []
-    PString(_) => []
-    PNil => []
-    POr(patterns) =>
+    SPBind(name) => if name == "_" { [] } else { [name] }
+    SPInt(_) => []
+    SPBool(_) => []
+    SPString(_) => []
+    SPNil => []
+    SPOr(patterns) =>
       if patterns.length() == 0 {
         []
       } else {
         pattern_binding_names(patterns[0])
       }
-    PVariant(_, inner) => pattern_binding_names(inner)
-    PList(items) =>
+    SPVariant(_, inner) => pattern_binding_names(inner)
+    SPList(items) =>
       items.fold(init=[], (acc, item) => acc + pattern_binding_names(item))
-    PListRest(prefix, rest_name, suffix) => {
+    SPListRest(prefix, rest_name, suffix) => {
       let with_prefix = prefix.fold(init=[], (acc, item) => {
         acc + pattern_binding_names(item)
       })
@@ -1575,10 +1576,18 @@ fn pattern_binding_names(pattern : MatchPattern) -> Array[String] {
         acc + pattern_binding_names(item)
       })
     }
-    PRecord(fields) =>
+    SPRecord(fields) =>
       fields.fold(init=[], (acc, field) => {
-        let (_, field_pattern) = field
-        acc + pattern_binding_names(field_pattern)
+        match field {
+          SPRecordField(_, field_pattern) =>
+            acc + pattern_binding_names(field_pattern)
+          SPRecordShorthand(name) =>
+            if name == "_" {
+              acc
+            } else {
+              acc + [name]
+            }
+        }
       })
   }
 }
@@ -1630,7 +1639,7 @@ fn array_contains_string_from(
 fn parse_variant_pattern(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (MatchPattern, Int) raise {
+) -> (SurfacePattern, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "expected variant name after '#'")
   }
@@ -1650,16 +1659,16 @@ fn parse_variant_pattern(
   if j >= tokens.length() || token_kind(tokens, j) != RParenTok {
     syntax_error_at(tokens, j, "expected ')' after variant pattern")
   }
-  (PVariant(tag, inner), j + 1)
+  (SPVariant(tag, inner), j + 1)
 }
 
 ///|
 fn parse_list_pattern(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (MatchPattern, Int) raise {
+) -> (SurfacePattern, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == RBracketTok {
-    return (PList([]), i + 1)
+    return (SPList([]), i + 1)
   }
   let prefix = []
   for j = i, _pos = 0 {
@@ -1678,7 +1687,7 @@ fn parse_list_pattern(
       continue next_pattern + 1, _pos + 1
     }
     if token_kind(tokens, next_pattern) == RBracketTok {
-      break (PList(prefix), next_pattern + 1)
+      break (SPList(prefix), next_pattern + 1)
     }
     syntax_error_at(
       tokens,
@@ -1693,8 +1702,8 @@ fn parse_list_pattern(
 fn parse_list_pattern_rest(
   tokens : Array[SpannedToken],
   i : Int,
-  prefix : Array[MatchPattern],
-) -> (MatchPattern, Int) raise {
+  prefix : Array[SurfacePattern],
+) -> (SurfacePattern, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(
       tokens, "expected binding name, ',' or ']' after '..' in list pattern",
@@ -1716,7 +1725,7 @@ fn parse_list_pattern_rest(
     syntax_error_eof(tokens, "unexpected end in list pattern")
   }
   if token_kind(tokens, next_i) == RBracketTok {
-    return (PListRest(prefix, rest_name, []), next_i + 1)
+    return (SPListRest(prefix, rest_name, []), next_i + 1)
   }
   if token_kind(tokens, next_i) != CommaTok {
     syntax_error_at(
@@ -1745,7 +1754,7 @@ fn parse_list_pattern_rest(
       continue next_pattern + 1, _pos + 1
     }
     if token_kind(tokens, next_pattern) == RBracketTok {
-      break (PListRest(prefix, rest_name, suffix), next_pattern + 1)
+      break (SPListRest(prefix, rest_name, suffix), next_pattern + 1)
     }
     syntax_error_at(
       tokens,
@@ -1760,9 +1769,9 @@ fn parse_list_pattern_rest(
 fn parse_match_record_pattern(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (MatchPattern, Int) raise {
+) -> (SurfacePattern, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == RBraceTok {
-    return (PRecord([]), i + 1)
+    return (SPRecord([]), i + 1)
   }
   let fields = []
   for j = i, _pos = 0 {
@@ -1778,14 +1787,14 @@ fn parse_match_record_pattern(
           "expected field name, found: " + token_name(tok),
         )
     }
-    let (field_pattern, next) = if j + 1 < tokens.length() &&
+    let (field, next) = if j + 1 < tokens.length() &&
       token_kind(tokens, j + 1) == ColonTok {
       let (pattern, k) = parse_pattern(tokens, j + 2)
-      (pattern, k)
+      (SPRecordField(field_name, pattern), k)
     } else {
-      (PBind(field_name), j + 1)
+      (SPRecordShorthand(field_name), j + 1)
     }
-    fields.push((field_name, field_pattern))
+    fields.push(field)
     if next >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in record pattern")
     }
@@ -1793,7 +1802,7 @@ fn parse_match_record_pattern(
       continue next + 1, _pos + 1
     }
     if token_kind(tokens, next) == RBraceTok {
-      break (PRecord(fields), next + 1)
+      break (SPRecord(fields), next + 1)
     }
     syntax_error_at(
       tokens,
