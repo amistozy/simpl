@@ -674,6 +674,14 @@ test "is expression bindings flow into then branch" {
 }
 
 ///|
+test "is expression bindings flow through top-level and" {
+  let code =
+    #| let xs = [1, 2, 3] in
+    #| xs is [x, ..] and x > 0
+  assert_true(@simpl.eval_source_is_bool(code, true))
+}
+
+///|
 test "is expression supports composite and or patterns" {
   let list_code =
     #| [#Left(1), #Right(2)] is [#Left(_), #Right(2)]

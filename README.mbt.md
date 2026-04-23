@@ -138,8 +138,8 @@ let value = @simpl.eval_source(
 // => VInt(3)
 ```
 
-Bindings introduced by `is` flow into the true branch of `if`, and through
-left-to-right `and` conditions.
+Bindings introduced by `is` flow through left-to-right `and`/`or` expressions
+and into the true branch of `if`.
 
 ### References and Assignment
 

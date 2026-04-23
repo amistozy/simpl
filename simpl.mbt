@@ -186,19 +186,21 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     Binary(op, left, right) =>
       match op {
         And => {
-          let left_value = eval_with_env(left, env)
+          let (left_value, left_env) = eval_with_env_and_bindings(left, env)
           if truthy(left_value) {
-            eval_with_env(right, env)
+            let (right_value, _) = eval_with_env_and_bindings(right, left_env)
+            right_value
           } else {
             left_value
           }
         }
         Or => {
-          let left_value = eval_with_env(left, env)
+          let (left_value, left_env) = eval_with_env_and_bindings(left, env)
           if truthy(left_value) {
             left_value
           } else {
-            eval_with_env(right, env)
+            let (right_value, _) = eval_with_env_and_bindings(right, left_env)
+            right_value
           }
         }
         _ =>
@@ -208,10 +210,10 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
 }
 
 ///|
-fn eval_condition_bindings(cond : Expr, env : Env) -> (Bool, Env) raise {
-  match cond {
+fn eval_with_env_and_bindings(expr : Expr, env : Env) -> (Value, Env) raise {
+  match expr {
     Located(span, inner) =>
-      eval_condition_bindings(inner, env) catch {
+      eval_with_env_and_bindings(inner, env) catch {
         RuntimeErrorAt(message, inner_span) =>
           raise RuntimeErrorAt(
             message,
@@ -225,26 +227,36 @@ fn eval_condition_bindings(cond : Expr, env : Env) -> (Bool, Env) raise {
       }
     Is(value_expr, pattern) =>
       match try_bind_pattern(pattern, eval_with_env(value_expr, env), env) {
-        Some(bound_env) => (true, bound_env)
-        None => (false, env)
+        Some(bound_env) => (VBool(true), bound_env)
+        None => (VBool(false), env)
       }
     Binary(And, left, right) => {
-      let (left_passes, left_env) = eval_condition_bindings(left, env)
-      if left_passes {
-        eval_condition_bindings(right, left_env)
+      let (left_value, left_env) = eval_with_env_and_bindings(left, env)
+      if truthy(left_value) {
+        eval_with_env_and_bindings(right, left_env)
       } else {
-        (false, env)
+        (left_value, env)
       }
     }
     Binary(Or, left, right) => {
-      let (left_passes, left_env) = eval_condition_bindings(left, env)
-      if left_passes {
-        (true, left_env)
+      let (left_value, left_env) = eval_with_env_and_bindings(left, env)
+      if truthy(left_value) {
+        (left_value, left_env)
       } else {
-        eval_condition_bindings(right, env)
+        eval_with_env_and_bindings(right, left_env)
       }
     }
-    _ => (truthy(eval_with_env(cond, env)), env)
+    _ => (eval_with_env(expr, env), env)
+  }
+}
+
+///|
+fn eval_condition_bindings(cond : Expr, env : Env) -> (Bool, Env) raise {
+  let (value, next_env) = eval_with_env_and_bindings(cond, env)
+  if truthy(value) {
+    (true, next_env)
+  } else {
+    (false, env)
   }
 }
 
