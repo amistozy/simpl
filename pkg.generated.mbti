@@ -16,7 +16,11 @@ pub fn bool_lit(Bool) -> Expr
 
 pub fn call(Expr, Array[Expr]) -> Expr
 
+pub fn desugar(SurfaceExpr) -> Expr
+
 pub fn div(Expr, Expr) -> Expr
+
+pub fn do_in(Expr, Expr) -> Expr
 
 pub fn eq(Expr, Expr) -> Expr
 
@@ -66,6 +70,8 @@ pub fn lambda_patterns(Array[MatchPattern], Expr) -> Expr
 
 pub fn le(Expr, Expr) -> Expr
 
+pub fn let_fun_in(String, Array[MatchPattern], Expr, Expr) -> Expr
+
 pub fn let_in(String, Expr, Expr) -> Expr
 
 pub fn let_pattern_in(MatchPattern, Expr, Expr) -> Expr
@@ -102,7 +108,7 @@ pub fn nil_lit() -> Expr
 
 pub fn not(Expr) -> Expr
 
-pub fn parse(String) -> Expr raise
+pub fn parse(String) -> SurfaceExpr raise
 
 pub fn parse_error_text(String) -> String?
 
@@ -209,6 +215,33 @@ pub enum MatchPattern {
   PList(Array[MatchPattern])
   PListRest(Array[MatchPattern], String, Array[MatchPattern])
   PRecord(Array[(String, MatchPattern)])
+} derive(@debug.Debug)
+
+pub enum SurfaceExpr {
+  SLocated(((Int, Int, Int), (Int, Int, Int)), SurfaceExpr)
+  SIntLit(Int)
+  SBoolLit(Bool)
+  SStringLit(String)
+  SNilLit
+  SList(Array[SurfaceExpr])
+  SVar(String)
+  SRecord(Array[(String, SurfaceExpr)])
+  SVariant(String, SurfaceExpr)
+  SIf(SurfaceExpr, SurfaceExpr, SurfaceExpr)
+  SLet(MatchPattern, SurfaceExpr, SurfaceExpr)
+  SDo(SurfaceExpr, SurfaceExpr)
+  SLetFun(String, Array[MatchPattern], SurfaceExpr, SurfaceExpr)
+  SIs(SurfaceExpr, MatchPattern)
+  SMatch(SurfaceExpr, Array[(MatchPattern, SurfaceExpr?, SurfaceExpr)])
+  SLetRec(String, Array[MatchPattern], SurfaceExpr, SurfaceExpr)
+  SLambda(Array[MatchPattern], SurfaceExpr)
+  SCall(SurfaceExpr, Array[SurfaceExpr])
+  SRefNew(SurfaceExpr)
+  SRefGet(SurfaceExpr)
+  SRefSet(SurfaceExpr, SurfaceExpr)
+  SField(SurfaceExpr, String)
+  SUnary(UnOp, SurfaceExpr)
+  SBinary(BinOp, SurfaceExpr, SurfaceExpr)
 } derive(@debug.Debug)
 
 pub enum UnOp {

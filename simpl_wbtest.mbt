@@ -30,3 +30,36 @@ test "record equality" {
   let right = Record([("a", IntLit(1)), ("b", BoolLit(true))])
   assert_true(eval_is_bool(Binary(Eq, left, right), true))
 }
+
+///|
+test "parser preserves do sugar before desugar" {
+  match parse("do 1 in 2") {
+    SLocated(_, SDo(SLocated(_, SIntLit(1)), SLocated(_, SIntLit(2)))) =>
+      assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar lowers do to ignored let" {
+  match desugar(SDo(SIntLit(1), SIntLit(2))) {
+    Let(PBind("_"), IntLit(1), IntLit(2)) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser preserves let function sugar before desugar" {
+  match parse("let add(x) = x + 1 in add(41)") {
+    SLocated(_, SLetFun("add", [PBind("x")], _, _)) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugared surface ast evaluates as core ast" {
+  let expr = SDo(SRefSet(SVar("r"), SIntLit(42)), SRefGet(SVar("r")))
+  assert_true(
+    eval_is_int(Let(PBind("r"), RefNew(IntLit(0)), desugar(expr)), 42),
+  )
+}

@@ -14,6 +14,7 @@ The current implementation already covers a strong set of core features for lang
 ## Highlights
 
 - Separate parser and evaluator layers
+- Explicit desugar layer between surface syntax and core evaluation
 - Lexical scoping and closures
 - Recursive functions via `let rec`
 - Shared pattern syntax for `match`, `let`, and function parameters
@@ -171,7 +172,8 @@ let result = @simpl.eval_source(
 
 Common entry points:
 
-- `parse(source)` parses source into an `Expr`
+- `parse(source)` parses source into a `SurfaceExpr`
+- `desugar(expr)` lowers `SurfaceExpr` into core `Expr`
 - `eval(expr)` evaluates an AST
 - `eval_source(source)` parses and evaluates source
 - `parse_error_text(source)` returns formatted parse error text

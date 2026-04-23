@@ -1,5 +1,34 @@
 ///|
-/// Dynamic typed AST definitions
+/// Surface syntax AST definitions
+pub enum SurfaceExpr {
+  SLocated(SourceSpan, SurfaceExpr)
+  SIntLit(Int)
+  SBoolLit(Bool)
+  SStringLit(String)
+  SNilLit
+  SList(Array[SurfaceExpr])
+  SVar(String)
+  SRecord(Array[(String, SurfaceExpr)])
+  SVariant(String, SurfaceExpr)
+  SIf(SurfaceExpr, SurfaceExpr, SurfaceExpr)
+  SLet(MatchPattern, SurfaceExpr, SurfaceExpr)
+  SDo(SurfaceExpr, SurfaceExpr)
+  SLetFun(String, Array[MatchPattern], SurfaceExpr, SurfaceExpr)
+  SIs(SurfaceExpr, MatchPattern)
+  SMatch(SurfaceExpr, Array[(MatchPattern, SurfaceExpr?, SurfaceExpr)])
+  SLetRec(String, Array[MatchPattern], SurfaceExpr, SurfaceExpr)
+  SLambda(Array[MatchPattern], SurfaceExpr)
+  SCall(SurfaceExpr, Array[SurfaceExpr])
+  SRefNew(SurfaceExpr)
+  SRefGet(SurfaceExpr)
+  SRefSet(SurfaceExpr, SurfaceExpr)
+  SField(SurfaceExpr, String)
+  SUnary(UnOp, SurfaceExpr)
+  SBinary(BinOp, SurfaceExpr, SurfaceExpr)
+} derive(Debug)
+
+///|
+/// Core AST definitions
 pub enum Expr {
   Located(SourceSpan, Expr)
   IntLit(Int)
@@ -88,6 +117,59 @@ pub suberror EvalError {
 /// Public API
 pub fn eval(expr : Expr) -> Value raise {
   eval_with_env(expr, @hashmap.new())
+}
+
+///|
+pub fn desugar(expr : SurfaceExpr) -> Expr {
+  match expr {
+    SLocated(span, inner) => Located(span, desugar(inner))
+    SIntLit(v) => IntLit(v)
+    SBoolLit(v) => BoolLit(v)
+    SStringLit(v) => StringLit(v)
+    SNilLit => NilLit
+    SVar(name) => Var(name)
+    SList(items) => List(items.map(item => desugar(item)))
+    SRecord(fields) =>
+      Record(
+        fields.map(field => {
+          let (name, value_expr) = field
+          (name, desugar(value_expr))
+        }),
+      )
+    SVariant(tag, value_expr) => Variant(tag, desugar(value_expr))
+    SIf(cond, then_branch, else_branch) =>
+      If(desugar(cond), desugar(then_branch), desugar(else_branch))
+    SLet(pattern, value_expr, body) =>
+      Let(pattern, desugar(value_expr), desugar(body))
+    SDo(value_expr, body) => Let(PBind("_"), desugar(value_expr), desugar(body))
+    SLetFun(name, params, func_body, body) =>
+      Let(PBind(name), Lambda(params, desugar(func_body)), desugar(body))
+    SIs(value_expr, pattern) => Is(desugar(value_expr), pattern)
+    SMatch(value_expr, cases) =>
+      Match(
+        desugar(value_expr),
+        cases.map(case => {
+          let (pattern, cond_expr, body) = case
+          let next_cond = match cond_expr {
+            Some(cond) => Some(desugar(cond))
+            None => None
+          }
+          (pattern, next_cond, desugar(body))
+        }),
+      )
+    SLetRec(name, params, func_body, body) =>
+      LetRec(name, params, desugar(func_body), desugar(body))
+    SLambda(params, body) => Lambda(params, desugar(body))
+    SCall(func_expr, arg_exprs) =>
+      Call(desugar(func_expr), arg_exprs.map(arg => desugar(arg)))
+    SRefNew(inner) => RefNew(desugar(inner))
+    SRefGet(inner) => RefGet(desugar(inner))
+    SRefSet(ref_expr, value_expr) =>
+      RefSet(desugar(ref_expr), desugar(value_expr))
+    SField(target, name) => Field(desugar(target), name)
+    SUnary(op, one) => Unary(op, desugar(one))
+    SBinary(op, left, right) => Binary(op, desugar(left), desugar(right))
+  }
 }
 
 ///|
@@ -953,6 +1035,21 @@ pub fn let_pattern_in(
   body : Expr,
 ) -> Expr {
   Let(pattern, value_expr, body)
+}
+
+///|
+pub fn do_in(value_expr : Expr, body : Expr) -> Expr {
+  Let(PBind("_"), value_expr, body)
+}
+
+///|
+pub fn let_fun_in(
+  name : String,
+  params : Array[MatchPattern],
+  func_body : Expr,
+  body : Expr,
+) -> Expr {
+  Let(PBind(name), Lambda(params, func_body), body)
 }
 
 ///|

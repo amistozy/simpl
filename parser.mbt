@@ -70,7 +70,7 @@ priv enum Token {
 } derive(Eq)
 
 ///|
-pub fn parse(source : String) -> Expr raise {
+pub fn parse(source : String) -> SurfaceExpr raise {
   let tokens = lex(source)
   let (expr, i) = parse_expr(tokens, 0)
   if i >= tokens.length() {
@@ -106,7 +106,7 @@ pub fn parse_is_error(source : String) -> Bool {
 
 ///|
 pub fn eval_source(source : String) -> Value raise {
-  eval(parse(source))
+  eval(desugar(parse(source)))
 }
 
 ///|
@@ -436,27 +436,27 @@ fn located_expr(
   tokens : Array[SpannedToken],
   start_i : Int,
   end_i : Int,
-  expr : Expr,
-) -> Expr {
-  Located(expr_span(tokens, start_i, end_i), expr)
+  expr : SurfaceExpr,
+) -> SurfaceExpr {
+  SLocated(expr_span(tokens, start_i, end_i), expr)
 }
 
 ///|
 fn located_expr_from_left(
-  left : Expr,
+  left : SurfaceExpr,
   tokens : Array[SpannedToken],
   end_i : Int,
-  expr : Expr,
-) -> Expr {
+  expr : SurfaceExpr,
+) -> SurfaceExpr {
   let (start_pos, _) = expr_known_span(left)
   let (_, end_pos) = token_span_at(tokens, end_i - 1)
-  Located((start_pos, end_pos), expr)
+  SLocated((start_pos, end_pos), expr)
 }
 
 ///|
-fn expr_known_span(expr : Expr) -> SourceSpan {
+fn expr_known_span(expr : SurfaceExpr) -> SourceSpan {
   match expr {
-    Located(span, _) => span
+    SLocated(span, _) => span
     _ => ((0, 1, 1), (0, 1, 1))
   }
 }
@@ -678,7 +678,10 @@ fn token_name(tok : Token) -> String {
 }
 
 ///|
-fn parse_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   parse_assign_expr(tokens, i)
 }
 
@@ -686,18 +689,21 @@ fn parse_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
 fn parse_assign_expr(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   let (left, j) = parse_let_expr(tokens, i)
   if j < tokens.length() && token_kind(tokens, j) == ColonEqTok {
     let (right, k) = parse_assign_expr(tokens, j + 1)
-    (located_expr(tokens, i, k, RefSet(left, right)), k)
+    (located_expr(tokens, i, k, SRefSet(left, right)), k)
   } else {
     (left, j)
   }
 }
 
 ///|
-fn parse_let_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_let_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end")
   }
@@ -718,7 +724,7 @@ fn parse_let_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
 fn parse_plain_let_expr(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "expected pattern after 'let'")
   }
@@ -734,15 +740,7 @@ fn parse_plain_let_expr(
           syntax_error_at(tokens, k, "expected 'in' after let function binding")
         }
         let (body, m) = parse_expr(tokens, k + 1)
-        (
-          located_expr(
-            tokens,
-            i,
-            m,
-            Let(PBind(name), Lambda(params, func_body), body),
-          ),
-          m,
-        )
+        (located_expr(tokens, i, m, SLetFun(name, params, func_body, body)), m)
       } else {
         let (pattern, j) = parse_pattern(tokens, i)
         if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
@@ -753,7 +751,7 @@ fn parse_plain_let_expr(
           syntax_error_at(tokens, k, "expected 'in' after let binding")
         }
         let (body, m) = parse_expr(tokens, k + 1)
-        (located_expr(tokens, i, m, Let(pattern, value_expr, body)), m)
+        (located_expr(tokens, i, m, SLet(pattern, value_expr, body)), m)
       }
     _ => {
       let (pattern, j) = parse_pattern(tokens, i)
@@ -765,7 +763,7 @@ fn parse_plain_let_expr(
         syntax_error_at(tokens, k, "expected 'in' after let binding")
       }
       let (body, m) = parse_expr(tokens, k + 1)
-      (located_expr(tokens, i, m, Let(pattern, value_expr, body)), m)
+      (located_expr(tokens, i, m, SLet(pattern, value_expr, body)), m)
     }
   }
 }
@@ -774,7 +772,7 @@ fn parse_plain_let_expr(
 fn parse_let_rec_expr(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "expected function name after 'let rec'")
   }
@@ -796,14 +794,17 @@ fn parse_let_rec_expr(
         syntax_error_at(tokens, k, "expected 'in' after let rec binding")
       }
       let (body, m) = parse_expr(tokens, k + 1)
-      (located_expr(tokens, i, m, LetRec(name, params, func_body, body)), m)
+      (located_expr(tokens, i, m, SLetRec(name, params, func_body, body)), m)
     }
     _ => syntax_error_at(tokens, i, "expected function name after 'let rec'")
   }
 }
 
 ///|
-fn parse_do_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_do_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "expected expression after 'do'")
   }
@@ -812,11 +813,14 @@ fn parse_do_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
     syntax_error_at(tokens, j, "expected 'in' after do expression")
   }
   let (body, k) = parse_expr(tokens, j + 1)
-  (located_expr(tokens, i, k, Let(PBind("_"), value_expr, body)), k)
+  (located_expr(tokens, i, k, SDo(value_expr, body)), k)
 }
 
 ///|
-fn parse_if_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_if_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == IfTok {
     let (cond, j) = parse_expr(tokens, i + 1)
     if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
@@ -827,21 +831,24 @@ fn parse_if_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
       syntax_error_at(tokens, k, "expected 'else' in if expression")
     }
     let (else_expr, m) = parse_expr(tokens, k + 1)
-    (located_expr(tokens, i, m, If(cond, then_expr, else_expr)), m)
+    (located_expr(tokens, i, m, SIf(cond, then_expr, else_expr)), m)
   } else {
     parse_match_expr(tokens, i)
   }
 }
 
 ///|
-fn parse_match_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_match_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == MatchTok {
     let (value_expr, j) = parse_expr(tokens, i + 1)
     if j >= tokens.length() || token_kind(tokens, j) != WithTok {
       syntax_error_at(tokens, j, "expected 'with' after match expression")
     }
     let (cases, k) = parse_match_cases(tokens, j + 1)
-    (located_expr(tokens, i, k, Match(value_expr, cases)), k)
+    (located_expr(tokens, i, k, SMatch(value_expr, cases)), k)
   } else {
     parse_lambda_expr(tokens, i)
   }
@@ -851,7 +858,7 @@ fn parse_match_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise 
 fn parse_lambda_expr(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == FnTok {
     if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
       syntax_error_at(tokens, i + 1, "expected '(' after 'fn'")
@@ -861,7 +868,7 @@ fn parse_lambda_expr(
       syntax_error_at(tokens, j, "expected '=>' after lambda params")
     }
     let (body, k) = parse_expr(tokens, j + 1)
-    (located_expr(tokens, i, k, Lambda(params, body)), k)
+    (located_expr(tokens, i, k, SLambda(params, body)), k)
   } else {
     parse_or_expr(tokens, i)
   }
@@ -909,22 +916,25 @@ fn parse_params_nonempty(
 }
 
 ///|
-fn parse_or_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_or_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   let (left, j) = parse_and_expr(tokens, i)
   parse_or_tail(left, tokens, j)
 }
 
 ///|
 fn parse_or_tail(
-  left : Expr,
+  left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() &&
     (token_kind(tokens, i) == OrOrTok || token_kind(tokens, i) == OrWordTok) {
     let (right, j) = parse_and_expr(tokens, i + 1)
     parse_or_tail(
-      located_expr_from_left(left, tokens, j, Binary(Or, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(Or, left, right)),
       tokens,
       j,
     )
@@ -934,22 +944,25 @@ fn parse_or_tail(
 }
 
 ///|
-fn parse_and_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_and_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   let (left, j) = parse_eq_expr(tokens, i)
   parse_and_tail(left, tokens, j)
 }
 
 ///|
 fn parse_and_tail(
-  left : Expr,
+  left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() &&
     (token_kind(tokens, i) == AndAndTok || token_kind(tokens, i) == AndWordTok) {
     let (right, j) = parse_eq_expr(tokens, i + 1)
     parse_and_tail(
-      located_expr_from_left(left, tokens, j, Binary(And, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(And, left, right)),
       tokens,
       j,
     )
@@ -959,28 +972,31 @@ fn parse_and_tail(
 }
 
 ///|
-fn parse_eq_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_eq_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   let (left, j) = parse_is_expr(tokens, i)
   parse_eq_tail(left, tokens, j)
 }
 
 ///|
 fn parse_eq_tail(
-  left : Expr,
+  left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == EqEqTok {
     let (right, j) = parse_is_expr(tokens, i + 1)
     parse_eq_tail(
-      located_expr_from_left(left, tokens, j, Binary(Eq, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(Eq, left, right)),
       tokens,
       j,
     )
   } else if i < tokens.length() && token_kind(tokens, i) == BangEqTok {
     let (right, j) = parse_is_expr(tokens, i + 1)
     parse_eq_tail(
-      located_expr_from_left(left, tokens, j, Binary(Ne, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(Ne, left, right)),
       tokens,
       j,
     )
@@ -990,21 +1006,24 @@ fn parse_eq_tail(
 }
 
 ///|
-fn parse_is_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_is_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   let (left, j) = parse_cmp_expr(tokens, i)
   parse_is_tail(left, tokens, j)
 }
 
 ///|
 fn parse_is_tail(
-  left : Expr,
+  left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == IsTok {
     let (pattern, j) = parse_pattern(tokens, i + 1)
     parse_is_tail(
-      located_expr_from_left(left, tokens, j, Is(left, pattern)),
+      located_expr_from_left(left, tokens, j, SIs(left, pattern)),
       tokens,
       j,
     )
@@ -1014,42 +1033,45 @@ fn parse_is_tail(
 }
 
 ///|
-fn parse_cmp_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_cmp_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   let (left, j) = parse_add_expr(tokens, i)
   parse_cmp_tail(left, tokens, j)
 }
 
 ///|
 fn parse_cmp_tail(
-  left : Expr,
+  left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == LtTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
     parse_cmp_tail(
-      located_expr_from_left(left, tokens, j, Binary(Lt, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(Lt, left, right)),
       tokens,
       j,
     )
   } else if i < tokens.length() && token_kind(tokens, i) == LeTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
     parse_cmp_tail(
-      located_expr_from_left(left, tokens, j, Binary(Le, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(Le, left, right)),
       tokens,
       j,
     )
   } else if i < tokens.length() && token_kind(tokens, i) == GtTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
     parse_cmp_tail(
-      located_expr_from_left(left, tokens, j, Binary(Gt, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(Gt, left, right)),
       tokens,
       j,
     )
   } else if i < tokens.length() && token_kind(tokens, i) == GeTok {
     let (right, j) = parse_add_expr(tokens, i + 1)
     parse_cmp_tail(
-      located_expr_from_left(left, tokens, j, Binary(Ge, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(Ge, left, right)),
       tokens,
       j,
     )
@@ -1059,28 +1081,31 @@ fn parse_cmp_tail(
 }
 
 ///|
-fn parse_add_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_add_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   let (left, j) = parse_mul_expr(tokens, i)
   parse_add_tail(left, tokens, j)
 }
 
 ///|
 fn parse_add_tail(
-  left : Expr,
+  left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == PlusTok {
     let (right, j) = parse_mul_expr(tokens, i + 1)
     parse_add_tail(
-      located_expr_from_left(left, tokens, j, Binary(Add, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(Add, left, right)),
       tokens,
       j,
     )
   } else if i < tokens.length() && token_kind(tokens, i) == MinusTok {
     let (right, j) = parse_mul_expr(tokens, i + 1)
     parse_add_tail(
-      located_expr_from_left(left, tokens, j, Binary(Sub, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(Sub, left, right)),
       tokens,
       j,
     )
@@ -1090,28 +1115,31 @@ fn parse_add_tail(
 }
 
 ///|
-fn parse_mul_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_mul_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   let (left, j) = parse_unary_expr(tokens, i)
   parse_mul_tail(left, tokens, j)
 }
 
 ///|
 fn parse_mul_tail(
-  left : Expr,
+  left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == StarTok {
     let (right, j) = parse_unary_expr(tokens, i + 1)
     parse_mul_tail(
-      located_expr_from_left(left, tokens, j, Binary(Mul, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(Mul, left, right)),
       tokens,
       j,
     )
   } else if i < tokens.length() && token_kind(tokens, i) == SlashTok {
     let (right, j) = parse_unary_expr(tokens, i + 1)
     parse_mul_tail(
-      located_expr_from_left(left, tokens, j, Binary(Div, left, right)),
+      located_expr_from_left(left, tokens, j, SBinary(Div, left, right)),
       tokens,
       j,
     )
@@ -1121,19 +1149,22 @@ fn parse_mul_tail(
 }
 
 ///|
-fn parse_unary_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+fn parse_unary_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == RefTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
-    (located_expr(tokens, i, j, RefNew(expr)), j)
+    (located_expr(tokens, i, j, SRefNew(expr)), j)
   } else if i < tokens.length() && token_kind(tokens, i) == BangTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
-    (located_expr(tokens, i, j, RefGet(expr)), j)
+    (located_expr(tokens, i, j, SRefGet(expr)), j)
   } else if i < tokens.length() && token_kind(tokens, i) == MinusTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
-    (located_expr(tokens, i, j, Unary(Neg, expr)), j)
+    (located_expr(tokens, i, j, SUnary(Neg, expr)), j)
   } else if i < tokens.length() && token_kind(tokens, i) == NotTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
-    (located_expr(tokens, i, j, Unary(Not, expr)), j)
+    (located_expr(tokens, i, j, SUnary(Not, expr)), j)
   } else {
     parse_postfix_expr(tokens, i)
   }
@@ -1143,21 +1174,21 @@ fn parse_unary_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise 
 fn parse_postfix_expr(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   let (expr, j) = parse_primary_expr(tokens, i)
   parse_postfix_tail(expr, tokens, j)
 }
 
 ///|
 fn parse_postfix_tail(
-  expr : Expr,
+  expr : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == LParenTok {
     let (args, j) = parse_args(tokens, i + 1)
     parse_postfix_tail(
-      located_expr_from_left(expr, tokens, j, Call(expr, args)),
+      located_expr_from_left(expr, tokens, j, SCall(expr, args)),
       tokens,
       j,
     )
@@ -1168,7 +1199,7 @@ fn parse_postfix_tail(
     match token_kind(tokens, i + 1) {
       IdentTok(name) =>
         parse_postfix_tail(
-          located_expr_from_left(expr, tokens, i + 2, Field(expr, name)),
+          located_expr_from_left(expr, tokens, i + 2, SField(expr, name)),
           tokens,
           i + 2,
         )
@@ -1188,7 +1219,7 @@ fn parse_postfix_tail(
 fn parse_args(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[Expr], Int) raise {
+) -> (Array[SurfaceExpr], Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end in args")
   }
@@ -1203,7 +1234,7 @@ fn parse_args(
 fn parse_args_nonempty(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[Expr], Int) raise {
+) -> (Array[SurfaceExpr], Int) raise {
   let args = []
   for j = i, _pos = 0 {
     let (arg, next_expr) = parse_expr(tokens, j)
@@ -1229,17 +1260,17 @@ fn parse_args_nonempty(
 fn parse_primary_expr(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end")
   }
   match token_kind(tokens, i) {
-    IntTok(v) => (located_expr(tokens, i, i + 1, IntLit(v)), i + 1)
-    StrTok(v) => (located_expr(tokens, i, i + 1, StringLit(v)), i + 1)
-    TrueTok => (located_expr(tokens, i, i + 1, BoolLit(true)), i + 1)
-    FalseTok => (located_expr(tokens, i, i + 1, BoolLit(false)), i + 1)
-    NilTok => (located_expr(tokens, i, i + 1, NilLit), i + 1)
-    IdentTok(name) => (located_expr(tokens, i, i + 1, Var(name)), i + 1)
+    IntTok(v) => (located_expr(tokens, i, i + 1, SIntLit(v)), i + 1)
+    StrTok(v) => (located_expr(tokens, i, i + 1, SStringLit(v)), i + 1)
+    TrueTok => (located_expr(tokens, i, i + 1, SBoolLit(true)), i + 1)
+    FalseTok => (located_expr(tokens, i, i + 1, SBoolLit(false)), i + 1)
+    NilTok => (located_expr(tokens, i, i + 1, SNilLit), i + 1)
+    IdentTok(name) => (located_expr(tokens, i, i + 1, SVar(name)), i + 1)
     HashTok => parse_variant_literal(tokens, i + 1)
     LBraceTok => parse_record_literal(tokens, i + 1)
     LBracketTok => parse_list_literal(tokens, i + 1)
@@ -1265,7 +1296,7 @@ fn parse_primary_expr(
 fn parse_variant_literal(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "expected variant name after '#'")
   }
@@ -1278,7 +1309,7 @@ fn parse_variant_literal(
       if j >= tokens.length() || token_kind(tokens, j) != RParenTok {
         syntax_error_at(tokens, j, "expected ')' after variant payload")
       }
-      (located_expr(tokens, i - 1, j + 1, Variant(tag, value_expr)), j + 1)
+      (located_expr(tokens, i - 1, j + 1, SVariant(tag, value_expr)), j + 1)
     }
     tok =>
       syntax_error_at(
@@ -1293,9 +1324,9 @@ fn parse_variant_literal(
 fn parse_record_literal(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == RBraceTok {
-    return (located_expr(tokens, i - 1, i + 1, Record([])), i + 1)
+    return (located_expr(tokens, i - 1, i + 1, SRecord([])), i + 1)
   }
   let fields = []
   for j = i, _pos = 0 {
@@ -1315,7 +1346,7 @@ fn parse_record_literal(
       token_kind(tokens, j + 1) == ColonTok {
       parse_expr(tokens, j + 2)
     } else {
-      (Var(name), j + 1)
+      (SVar(name), j + 1)
     }
     fields.push((name, value_expr))
     if next_expr >= tokens.length() {
@@ -1326,7 +1357,7 @@ fn parse_record_literal(
     }
     if token_kind(tokens, next_expr) == RBraceTok {
       break (
-        located_expr(tokens, i - 1, next_expr + 1, Record(fields)),
+        located_expr(tokens, i - 1, next_expr + 1, SRecord(fields)),
         next_expr + 1,
       )
     }
@@ -1342,9 +1373,9 @@ fn parse_record_literal(
 fn parse_list_literal(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Expr, Int) raise {
+) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == RBracketTok {
-    return (located_expr(tokens, i - 1, i + 1, List([])), i + 1)
+    return (located_expr(tokens, i - 1, i + 1, SList([])), i + 1)
   }
   let items = []
   for j = i, _pos = 0 {
@@ -1358,7 +1389,7 @@ fn parse_list_literal(
     }
     if token_kind(tokens, next_expr) == RBracketTok {
       break (
-        located_expr(tokens, i - 1, next_expr + 1, List(items)),
+        located_expr(tokens, i - 1, next_expr + 1, SList(items)),
         next_expr + 1,
       )
     }
@@ -1374,7 +1405,7 @@ fn parse_list_literal(
 fn parse_match_cases(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[(MatchPattern, Expr?, Expr)], Int) raise {
+) -> (Array[(MatchPattern, SurfaceExpr?, SurfaceExpr)], Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end in match")
   }
@@ -1391,7 +1422,7 @@ fn parse_match_cases(
 fn parse_match_cases_tail(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[(MatchPattern, Expr?, Expr)], Int) raise {
+) -> (Array[(MatchPattern, SurfaceExpr?, SurfaceExpr)], Int) raise {
   if i >= tokens.length() {
     return ([], i)
   }
@@ -1408,7 +1439,7 @@ fn parse_match_cases_tail(
 fn parse_match_case(
   tokens : Array[SpannedToken],
   i : Int,
-) -> ((MatchPattern, Expr?, Expr), Int) raise {
+) -> ((MatchPattern, SurfaceExpr?, SurfaceExpr), Int) raise {
   let (pattern, j) = parse_pattern(tokens, i)
   let (cond_expr, k) = if j < tokens.length() && token_kind(tokens, j) == IfTok {
     let (cond, next) = parse_expr(tokens, j + 1)
