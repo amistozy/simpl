@@ -30,8 +30,6 @@ priv enum Token {
   FnTok
   NotTok
   RefTok
-  MatchTok
-  WithTok
   DoTok
   EndKeywordTok
   IsTok
@@ -51,7 +49,6 @@ priv enum Token {
   OrOrTok
   AssignTok
   ArrowTok
-  ThinArrowTok
   BangTok
   ColonEqTok
   ColonTok
@@ -213,13 +210,7 @@ fn lex_loop(
     ')' => push_single_char_token(source, i, line, column, RParenTok, acc)
     ',' => push_single_char_token(source, i, line, column, CommaTok, acc)
     '+' => push_single_char_token(source, i, line, column, PlusTok, acc)
-    '-' =>
-      if i + 1 < source.length() &&
-        source.unsafe_get(i + 1).unsafe_to_char() == '>' {
-        push_multi_char_token(source, i, i + 2, line, column, ThinArrowTok, acc)
-      } else {
-        push_single_char_token(source, i, line, column, MinusTok, acc)
-      }
+    '-' => push_single_char_token(source, i, line, column, MinusTok, acc)
     '*' => push_single_char_token(source, i, line, column, StarTok, acc)
     '/' => push_single_char_token(source, i, line, column, SlashTok, acc)
     '>' =>
@@ -608,8 +599,6 @@ fn keyword_or_ident(text : String) -> Token {
     "fn" => FnTok
     "not" => NotTok
     "ref" => RefTok
-    "match" => MatchTok
-    "with" => WithTok
     "do" => DoTok
     "end" => EndKeywordTok
     "is" => IsTok
@@ -637,8 +626,6 @@ fn token_name(tok : Token) -> String {
     FnTok => "fn"
     NotTok => "not"
     RefTok => "ref"
-    MatchTok => "match"
-    WithTok => "with"
     DoTok => "do"
     EndKeywordTok => "end"
     IsTok => "is"
@@ -658,7 +645,6 @@ fn token_name(tok : Token) -> String {
     OrOrTok => "||"
     AssignTok => "="
     ArrowTok => "=>"
-    ThinArrowTok => "->"
     BangTok => "!"
     ColonEqTok => ":="
     ColonTok => ":"
@@ -822,35 +808,118 @@ fn parse_if_expr(
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == IfTok {
-    let (cond, j) = parse_expr(tokens, i + 1)
-    if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
-      syntax_error_at(tokens, j, "expected 'then' in if expression")
+    if starts_ucs_pattern_split(tokens, i + 1) {
+      parse_ucs_pattern_split_expr(tokens, i)
+    } else {
+      let (cond, j) = parse_expr(tokens, i + 1)
+      if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
+        syntax_error_at(tokens, j, "expected 'then' in if expression")
+      }
+      let (then_expr, k) = parse_expr(tokens, j + 1)
+      let (else_expr, m) = parse_ucs_if_tail(tokens, k)
+      (located_expr(tokens, i, m, SIf(cond, then_expr, else_expr)), m)
     }
-    let (then_expr, k) = parse_expr(tokens, j + 1)
-    if k >= tokens.length() || token_kind(tokens, k) != ElseTok {
-      syntax_error_at(tokens, k, "expected 'else' in if expression")
-    }
-    let (else_expr, m) = parse_expr(tokens, k + 1)
-    (located_expr(tokens, i, m, SIf(cond, then_expr, else_expr)), m)
   } else {
-    parse_match_expr(tokens, i)
+    parse_lambda_expr(tokens, i)
   }
 }
 
 ///|
-fn parse_match_expr(
+fn starts_ucs_pattern_split(tokens : Array[SpannedToken], i : Int) -> Bool {
+  try {
+    let (_, j) = parse_cmp_expr(tokens, i)
+    if j >= tokens.length() || token_kind(tokens, j) != IsTok {
+      return false
+    }
+    let (_, k) = parse_pattern(tokens, j + 1)
+    ucs_pattern_case_reaches_then(tokens, k)
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ucs_pattern_case_reaches_then(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> Bool raise {
+  if i >= tokens.length() {
+    false
+  } else if token_kind(tokens, i) == ThenTok {
+    true
+  } else if token_kind(tokens, i) == IfTok {
+    let (_, j) = parse_expr(tokens, i + 1)
+    j < tokens.length() && token_kind(tokens, j) == ThenTok
+  } else {
+    false
+  }
+}
+
+///|
+fn parse_ucs_pattern_split_expr(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  if i < tokens.length() && token_kind(tokens, i) == MatchTok {
-    let (value_expr, j) = parse_expr(tokens, i + 1)
-    if j >= tokens.length() || token_kind(tokens, j) != WithTok {
-      syntax_error_at(tokens, j, "expected 'with' after match expression")
+  let (value_expr, j) = parse_cmp_expr(tokens, i + 1)
+  if j >= tokens.length() || token_kind(tokens, j) != IsTok {
+    syntax_error_at(tokens, j, "expected 'is' in conditional pattern split")
+  }
+  let (cases, k) = parse_ucs_pattern_cases(tokens, j + 1)
+  (located_expr(tokens, i, k, SMatch(value_expr, cases)), k)
+}
+
+///|
+fn parse_ucs_if_tail(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected 'else' in if expression")
+  }
+  if token_kind(tokens, i) == ElseTok {
+    let (else_expr, j) = parse_expr(tokens, i + 1)
+    (else_expr, consume_optional_end(tokens, j))
+  } else if has_then_before_ucs_boundary(tokens, i) {
+    let (cond, j) = parse_expr(tokens, i)
+    if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
+      syntax_error_at(tokens, j, "expected 'then' in if case")
     }
-    let (cases, k) = parse_match_cases(tokens, j + 1)
-    (located_expr(tokens, i, k, SMatch(value_expr, cases)), k)
+    let (then_expr, k) = parse_expr(tokens, j + 1)
+    let (else_expr, m) = parse_ucs_if_tail(tokens, k)
+    (located_expr(tokens, i, m, SIf(cond, then_expr, else_expr)), m)
   } else {
-    parse_lambda_expr(tokens, i)
+    syntax_error_at(tokens, i, "expected 'else' in if expression")
+  }
+}
+
+///|
+fn has_then_before_ucs_boundary(tokens : Array[SpannedToken], i : Int) -> Bool {
+  if i >= tokens.length() {
+    return false
+  }
+  for j = i, depth = 0 {
+    if j >= tokens.length() {
+      break false
+    }
+    match token_kind(tokens, j) {
+      ThenTok if depth == 0 => break true
+      ElseTok if depth == 0 => break false
+      EndKeywordTok if depth == 0 => break false
+      EndTok if depth == 0 => break false
+      LParenTok | LBracketTok | LBraceTok => continue j + 1, depth + 1
+      RParenTok | RBracketTok | RBraceTok =>
+        continue j + 1, if depth > 0 { depth - 1 } else { depth }
+      _ => continue j + 1, depth
+    }
+  }
+}
+
+///|
+fn consume_optional_end(tokens : Array[SpannedToken], i : Int) -> Int {
+  if i < tokens.length() && token_kind(tokens, i) == EndKeywordTok {
+    i + 1
+  } else {
+    i
   }
 }
 
@@ -1403,41 +1472,57 @@ fn parse_list_literal(
 }
 
 ///|
-fn parse_match_cases(
+fn parse_ucs_pattern_cases(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)], Int) raise {
   if i >= tokens.length() {
-    syntax_error_eof(tokens, "unexpected end in match")
+    syntax_error_eof(tokens, "unexpected end in conditional pattern split")
   }
   let start_i = if token_kind(tokens, i) == PipeTok { i + 1 } else { i }
-  if start_i >= tokens.length() {
-    syntax_error_eof(tokens, "unexpected end in match")
-  }
-  let (case, j) = parse_match_case(tokens, start_i)
-  let (rest, k) = parse_match_cases_tail(tokens, j)
+  let (case, j) = parse_ucs_pattern_case(tokens, start_i)
+  let (rest, k) = parse_ucs_pattern_cases_tail(tokens, j)
   ([case] + rest, k)
 }
 
 ///|
-fn parse_match_cases_tail(
+fn parse_ucs_pattern_cases_tail(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)], Int) raise {
   if i >= tokens.length() {
     return ([], i)
   }
-  if token_kind(tokens, i) == PipeTok {
-    parse_match_cases(tokens, i)
+  if token_kind(tokens, i) == ElseTok {
+    let (body, j) = parse_expr(tokens, i + 1)
+    ([(SPBind("_"), None, body)], consume_optional_end(tokens, j))
   } else if token_kind(tokens, i) == EndKeywordTok {
     ([], i + 1)
+  } else if token_kind(tokens, i) == PipeTok ||
+    starts_ucs_pattern_case(tokens, i) {
+    parse_ucs_pattern_cases(tokens, i)
   } else {
     ([], i)
   }
 }
 
 ///|
-fn parse_match_case(
+fn starts_ucs_pattern_case(tokens : Array[SpannedToken], i : Int) -> Bool {
+  try {
+    let start_i = if i < tokens.length() && token_kind(tokens, i) == PipeTok {
+      i + 1
+    } else {
+      i
+    }
+    let (_, j) = parse_pattern(tokens, start_i)
+    ucs_pattern_case_reaches_then(tokens, j)
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn parse_ucs_pattern_case(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> ((SurfacePattern, SurfaceExpr?, SurfaceExpr), Int) raise {
@@ -1448,8 +1533,8 @@ fn parse_match_case(
   } else {
     (None, j)
   }
-  if k >= tokens.length() || token_kind(tokens, k) != ThinArrowTok {
-    syntax_error_at(tokens, k, "expected '->' after match pattern")
+  if k >= tokens.length() || token_kind(tokens, k) != ThenTok {
+    syntax_error_at(tokens, k, "expected 'then' after conditional pattern")
   }
   let (body, next_expr) = parse_expr(tokens, k + 1)
   ((pattern, cond_expr, body), next_expr)

@@ -17,7 +17,7 @@ The current implementation already covers a strong set of core features for lang
 - Explicit desugar layer between surface syntax and core evaluation
 - Lexical scoping and closures
 - Recursive functions via `let rec`
-- Shared pattern syntax for `match`, `let`, and function parameters
+- Shared pattern syntax for UCS pattern splits, `let`, and function parameters
 - Dynamic values including records, lists, variants, and references
 - Error messages with source locations
 - Both source-based and AST-based entry points
@@ -42,9 +42,10 @@ The current implementation already covers a strong set of core features for lang
 - `let pattern = value in body`
 - `let rec f(...) = ... in ...`
 - `do expr in body`
-- `if cond then a else b`
+- UCS conditionals such as `if cond then a else b`
+- UCS condition cases such as `if cond1 then a cond2 then b else c`
+- UCS pattern splits such as `if value is pattern then body else fallback`
 - `fn(...) => expr`
-- `match expr with | ...` with optional `end` for nested matches
 - `expr is pattern`
 - function calls such as `f(x, y)`
 - unary operators: `-x`, `not x`
@@ -56,7 +57,7 @@ The current implementation already covers a strong set of core features for lang
 
 ### Patterns
 
-Patterns are used not only in `match`, but also in `let` bindings and function parameters.
+Patterns are used in UCS pattern splits, `let` bindings, and function parameters.
 
 Supported pattern forms include:
 
@@ -69,7 +70,7 @@ Supported pattern forms include:
 - list patterns with an ignored middle slice such as `[head, .., tail]`
 - variant patterns such as `#Left(x)`
 - or-patterns such as `1 | 2`
-- guards such as `#Some(x) if x > 0 -> ...`
+- guards such as `#Some(x) if x > 0 then ...`
 
 ## Quick Examples
 
@@ -110,15 +111,15 @@ let value = @simpl.eval_source(
 // => VInt(42)
 ```
 
-### Variants and Pattern Matching
+### Variants and Pattern Splits
 
 ```moonbit nocheck
 ///|
 let value = @simpl.eval_source(
   (
-    #| match #Left(41) with
-    #| | #Left(x) -> x + 1
-    #| | #Right(y) -> y
+    #| if #Left(41) is
+    #|   #Left(x) then x + 1
+    #|   #Right(y) then y
   ),
 )
 // => VInt(42)
@@ -140,8 +141,8 @@ let value = @simpl.eval_source(
 ```
 
 Bindings introduced by `is` flow through left-to-right `and`/`or` expressions
-and into the true branch of `if`. In a successful `match` guard, they also flow
-into that case body.
+and into the true branch of `if`. In a successful UCS pattern guard, they also
+flow into that case body.
 
 ### References and Assignment
 
