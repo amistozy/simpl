@@ -43,8 +43,8 @@ The current implementation already covers a strong set of core features for lang
 - `let rec f(...) = ... in ...`
 - `do expr in body`
 - UCS conditionals such as `if cond then a else b`
-- UCS condition cases such as `if cond1 then a cond2 then b else c`
-- UCS pattern splits such as `if value is pattern then body else fallback`
+- UCS condition cases such as `if cond1 then a | cond2 then b else c`
+- UCS pattern splits such as `if value is pattern then body | other then alt else fallback`
 - `fn(...) => expr`
 - `expr is pattern`
 - function calls such as `f(x, y)`
@@ -118,8 +118,8 @@ let value = @simpl.eval_source(
 let value = @simpl.eval_source(
   (
     #| if #Left(41) is
-    #|   #Left(x) then x + 1
-    #|   #Right(y) then y
+    #| | #Left(x) then x + 1
+    #| | #Right(y) then y
   ),
 )
 // => VInt(42)

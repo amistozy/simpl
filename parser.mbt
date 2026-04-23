@@ -811,7 +811,13 @@ fn parse_if_expr(
     if starts_ucs_pattern_split(tokens, i + 1) {
       parse_ucs_pattern_split_expr(tokens, i)
     } else {
-      let (cond, j) = parse_expr(tokens, i + 1)
+      let case_i = if i + 1 < tokens.length() &&
+        token_kind(tokens, i + 1) == PipeTok {
+        i + 2
+      } else {
+        i + 1
+      }
+      let (cond, j) = parse_expr(tokens, case_i)
       if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
         syntax_error_at(tokens, j, "expected 'then' in if expression")
       }
@@ -831,7 +837,13 @@ fn starts_ucs_pattern_split(tokens : Array[SpannedToken], i : Int) -> Bool {
     if j >= tokens.length() || token_kind(tokens, j) != IsTok {
       return false
     }
-    let (_, k) = parse_pattern(tokens, j + 1)
+    let case_i = if j + 1 < tokens.length() &&
+      token_kind(tokens, j + 1) == PipeTok {
+      j + 2
+    } else {
+      j + 1
+    }
+    let (_, k) = parse_pattern(tokens, case_i)
     ucs_pattern_case_reaches_then(tokens, k)
   } catch {
     _ => false
@@ -879,8 +891,8 @@ fn parse_ucs_if_tail(
   if token_kind(tokens, i) == ElseTok {
     let (else_expr, j) = parse_expr(tokens, i + 1)
     (else_expr, consume_optional_end(tokens, j))
-  } else if has_then_before_ucs_boundary(tokens, i) {
-    let (cond, j) = parse_expr(tokens, i)
+  } else if token_kind(tokens, i) == PipeTok {
+    let (cond, j) = parse_expr(tokens, i + 1)
     if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
       syntax_error_at(tokens, j, "expected 'then' in if case")
     }
@@ -889,28 +901,6 @@ fn parse_ucs_if_tail(
     (located_expr(tokens, i, m, SIf(cond, then_expr, else_expr)), m)
   } else {
     syntax_error_at(tokens, i, "expected 'else' in if expression")
-  }
-}
-
-///|
-fn has_then_before_ucs_boundary(tokens : Array[SpannedToken], i : Int) -> Bool {
-  if i >= tokens.length() {
-    return false
-  }
-  for j = i, depth = 0 {
-    if j >= tokens.length() {
-      break false
-    }
-    match token_kind(tokens, j) {
-      ThenTok if depth == 0 => break true
-      ElseTok if depth == 0 => break false
-      EndKeywordTok if depth == 0 => break false
-      EndTok if depth == 0 => break false
-      LParenTok | LBracketTok | LBraceTok => continue j + 1, depth + 1
-      RParenTok | RBracketTok | RBraceTok =>
-        continue j + 1, if depth > 0 { depth - 1 } else { depth }
-      _ => continue j + 1, depth
-    }
   }
 }
 
@@ -1498,26 +1488,10 @@ fn parse_ucs_pattern_cases_tail(
     ([(SPBind("_"), None, body)], consume_optional_end(tokens, j))
   } else if token_kind(tokens, i) == EndKeywordTok {
     ([], i + 1)
-  } else if token_kind(tokens, i) == PipeTok ||
-    starts_ucs_pattern_case(tokens, i) {
+  } else if token_kind(tokens, i) == PipeTok {
     parse_ucs_pattern_cases(tokens, i)
   } else {
     ([], i)
-  }
-}
-
-///|
-fn starts_ucs_pattern_case(tokens : Array[SpannedToken], i : Int) -> Bool {
-  try {
-    let start_i = if i < tokens.length() && token_kind(tokens, i) == PipeTok {
-      i + 1
-    } else {
-      i
-    }
-    let (_, j) = parse_pattern(tokens, start_i)
-    ucs_pattern_case_reaches_then(tokens, j)
-  } catch {
-    _ => false
   }
 }
 

@@ -97,6 +97,21 @@ test "parse error is reported" {
 }
 
 ///|
+test "legacy match syntax is rejected" {
+  assert_true(@simpl.parse_is_error("match 42 with | 42 -> 1"))
+}
+
+///|
+test "UCS follow-up branches require pipe" {
+  assert_true(@simpl.parse_is_error("if false then 0 true then 1 else 2"))
+  assert_true(
+    @simpl.parse_is_error(
+      "if #Right(1) is #Left(x) then x #Right(y) then y else 0",
+    ),
+  )
+}
+
+///|
 test "parse error includes source position" {
   assert_eq(
     @simpl.parse_error_text("1 2"),
@@ -388,8 +403,8 @@ test "let supports general patterns" {
 test "variant literal and match" {
   let code =
     #| if #Left(41) is
-    #|   #Left(x) then x + 1
-    #|   #Right(y) then y
+    #| | #Left(x) then x + 1
+    #| | #Right(y) then y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -398,8 +413,8 @@ test "variant can be stored in let binding" {
   let code =
     #| let v = #Right(42) in
     #| if v is
-    #|   #Left(x) then x
-    #|   #Right(y) then y
+    #| | #Left(x) then x
+    #| | #Right(y) then y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -438,8 +453,8 @@ test "list equality is recursive" {
 test "list pattern match" {
   let code =
     #| if [1, 2] is
-    #|   [x, y] then x + y
-    #|   [] then 0
+    #| | [x, y] then x + y
+    #| | [] then 0
   assert_true(@simpl.eval_source_is_int(code, 3))
 }
 
@@ -447,8 +462,8 @@ test "list pattern match" {
 test "empty list pattern match" {
   let code =
     #| if [] is
-    #|   [] then 42
-    #|   [x] then x
+    #| | [] then 42
+    #| | [x] then x
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -456,7 +471,7 @@ test "empty list pattern match" {
 test "nested list pattern match" {
   let code =
     #| if [#Left(1), #Right(2)] is
-    #|   [#Left(x), #Right(y)] then x + y
+    #| | [#Left(x), #Right(y)] then x + y
   assert_true(@simpl.eval_source_is_int(code, 3))
 }
 
@@ -464,12 +479,11 @@ test "nested list pattern match" {
 test "list rest pattern supports fixed prefix and suffix" {
   let code =
     #| if [1, 2, 3, 4, 5, 6] is
-    #|   [a, b, ..c, d, e] then
+    #| | [a, b, ..c, d, e] then
     #|     if c is
-    #|       [x, y] then a + b + d + e + x + y
-    #|       _ then 0
-    #|     end
-    #|   _ then 0
+    #|     | [x, y] then a + b + d + e + x + y
+    #|     else 0
+    #| else 0
   assert_true(@simpl.eval_source_is_int(code, 21))
 }
 
@@ -477,12 +491,11 @@ test "list rest pattern supports fixed prefix and suffix" {
 test "list rest pattern allows empty middle slice" {
   let code =
     #| if [10, 20, 30, 40] is
-    #|   [a, b, ..c, d, e] then
+    #| | [a, b, ..c, d, e] then
     #|     if c is
-    #|       [] then a + b + d + e
-    #|       _ then 0
-    #|     end
-    #|   _ then 0
+    #|     | [] then a + b + d + e
+    #|     else 0
+    #| else 0
   assert_true(@simpl.eval_source_is_int(code, 100))
 }
 
@@ -490,8 +503,8 @@ test "list rest pattern allows empty middle slice" {
 test "list rest pattern can ignore the middle with bare dotdot" {
   let code =
     #| if [1, 2, 3, 4, 5] is
-    #|   [a, .., z] then a + z
-    #|   _ then 0
+    #| | [a, .., z] then a + z
+    #| else 0
   assert_true(@simpl.eval_source_is_int(code, 6))
 }
 
@@ -499,8 +512,8 @@ test "list rest pattern can ignore the middle with bare dotdot" {
 test "list rest pattern can ignore middle before fixed suffix" {
   let code =
     #| if [10, 20, 30, 40, 50] is
-    #|   [a, .., y, z] then a + y + z
-    #|   _ then 0
+    #| | [a, .., y, z] then a + y + z
+    #| else 0
   assert_true(@simpl.eval_source_is_int(code, 100))
 }
 
@@ -508,12 +521,11 @@ test "list rest pattern can ignore middle before fixed suffix" {
 test "list rest pattern works with nested patterns" {
   let code =
     #| if [#Left(1), #Right(2), #Right(3), #Left(4)] is
-    #|   [#Left(a), ..mid, #Left(b)] then
+    #| | [#Left(a), ..mid, #Left(b)] then
     #|     if mid is
-    #|       [#Right(x), #Right(y)] then a + x + y + b
-    #|       _ then 0
-    #|     end
-    #|   _ then 0
+    #|     | [#Right(x), #Right(y)] then a + x + y + b
+    #|     else 0
+    #| else 0
   assert_true(@simpl.eval_source_is_int(code, 10))
 }
 
@@ -521,8 +533,8 @@ test "list rest pattern works with nested patterns" {
 test "list pattern rejects multiple rest bindings" {
   let code =
     #| if [1, 2, 3] is
-    #|   [..a, ..b] then 0
-    #|   _ then 1
+    #| | [..a, ..b] then 0
+    #| else 1
   assert_true(@simpl.parse_is_error(code))
 }
 
@@ -530,7 +542,7 @@ test "list pattern rejects multiple rest bindings" {
 test "nested variant pattern match" {
   let code =
     #| if #Outer(#Inner(41)) is
-    #|   #Outer(#Inner(x)) then x + 1
+    #| | #Outer(#Inner(x)) then x + 1
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -538,7 +550,7 @@ test "nested variant pattern match" {
 test "variant carrying list pattern match" {
   let code =
     #| if #Wrap([10, 32]) is
-    #|   #Wrap([x, y]) then x + y
+    #| | #Wrap([x, y]) then x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -546,9 +558,9 @@ test "variant carrying list pattern match" {
 test "match guards can refine successful pattern bindings" {
   let code =
     #| if #Some(42) is
-    #|   #Some(x) if x < 0 then 0
-    #|   #Some(x) if x >= 42 then x
-    #|   _ then -1
+    #| | #Some(x) if x < 0 then 0
+    #| | #Some(x) if x >= 42 then x
+    #| else -1
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -556,8 +568,8 @@ test "match guards can refine successful pattern bindings" {
 test "match guards can use bindings from nested patterns" {
   let code =
     #| if {pair: [10, 32]} is
-    #|   {pair: [x, y]} if x + y == 42 then y
-    #|   _ then 0
+    #| | {pair: [x, y]} if x + y == 42 then y
+    #| else 0
   assert_true(@simpl.eval_source_is_int(code, 32))
 }
 
@@ -566,8 +578,8 @@ test "match guard is bindings flow into case body" {
   let code =
     #| let f(x) = #Some(x + 1) in
     #| if [1, 2] is
-    #|   [x, ..] if f(x) is #Some(y) then y
-    #|   _ then 0
+    #| | [x, ..] if f(x) is #Some(y) then y
+    #| else 0
   assert_true(@simpl.eval_source_is_int(code, 2))
 }
 
@@ -575,8 +587,8 @@ test "match guard is bindings flow into case body" {
 test "guard failure falls through to later cases" {
   let code =
     #| if [20, 22] is
-    #|   [x, y] if x > y then x
-    #|   [x, y] then x + y
+    #| | [x, y] if x > y then x
+    #| | [x, y] then x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -584,8 +596,8 @@ test "guard failure falls through to later cases" {
 test "or patterns match any alternative" {
   let code =
     #| if #Right(42) is
-    #|   #Left(x) | #Right(x) then x
-    #|   _ then 0
+    #| | #Left(x) | #Right(x) then x
+    #| else 0
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -593,9 +605,9 @@ test "or patterns match any alternative" {
 test "or patterns work with guards" {
   let code =
     #| if [20, 22] is
-    #|   [x, 0] | [0, x] then x
-    #|   [x, y] | [y, x] if x + y == 42 then y
-    #|   _ then 0
+    #| | [x, 0] | [0, x] then x
+    #| | [x, y] | [y, x] if x + y == 42 then y
+    #| else 0
   assert_true(@simpl.eval_source_is_int(code, 22))
 }
 
@@ -603,8 +615,8 @@ test "or patterns work with guards" {
 test "or patterns require the same bindings on each branch" {
   let code =
     #| if #Left(42) is
-    #|   #Left(x) | #Right(y) then x
-    #|   _ then 0
+    #| | #Left(x) | #Right(y) then x
+    #| else 0
   assert_true(@simpl.parse_is_error(code))
 }
 
@@ -612,12 +624,11 @@ test "or patterns require the same bindings on each branch" {
 test "match end disambiguates nested match cases" {
   let code =
     #| if 41 is
-    #|   42 then
+    #| | 42 then
     #|     if 41 is
-    #|       42 then 0
-    #|       _ then 1
-    #|     end
-    #|   _ then 2
+    #|     | 42 then 0
+    #|     else 1
+    #| else 2
   assert_true(@simpl.eval_source_is_int(code, 2))
 }
 
@@ -650,20 +661,20 @@ test "let rec supports parameter patterns" {
 test "literal patterns match primitive values" {
   let int_code =
     #| if 42 is
-    #|   0 then 0
-    #|   42 then 1
+    #| | 0 then 0
+    #| | 42 then 1
   let string_code =
     #| if "moon" is
-    #|   "sun" then 0
-    #|   "moon" then 1
+    #| | "sun" then 0
+    #| | "moon" then 1
   let bool_code =
     #| if false is
-    #|   true then 1
-    #|   false then 42
+    #| | true then 1
+    #| | false then 42
   let nil_code =
     #| if nil is
-    #|   nil then 42
-    #|   _ then 0
+    #| | nil then 42
+    #| else 0
   assert_true(@simpl.eval_source_is_int(int_code, 1))
   assert_true(@simpl.eval_source_is_int(string_code, 1))
   assert_true(@simpl.eval_source_is_int(bool_code, 42))
@@ -687,10 +698,10 @@ test "is expression bindings flow into then branch" {
 test "UCS boolean condition cases are whitespace insensitive" {
   let spaced =
     #| if
-    #|   false then 0
-    #|   1 + 1 == 2 then 42
-    #|   else 1
-  let flat = "if false then 0 1 + 1 == 2 then 42 else 1"
+    #| | false then 0
+    #| | 1 + 1 == 2 then 42
+    #| else 1
+  let flat = "if false then 0 | 1 + 1 == 2 then 42 else 1"
   assert_true(@simpl.eval_source_is_int(spaced, 42))
   assert_true(@simpl.eval_source_is_int(flat, 42))
 }
@@ -699,9 +710,9 @@ test "UCS boolean condition cases are whitespace insensitive" {
 test "UCS pattern split replaces match syntax" {
   let code =
     #| if #Right(42) is
-    #|   #Left(x) then x
-    #|   #Right(y) then y
-    #|   else 0
+    #| | #Left(x) then x
+    #| | #Right(y) then y
+    #| else 0
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -709,9 +720,9 @@ test "UCS pattern split replaces match syntax" {
 test "UCS pattern split supports guards and end" {
   let code =
     #| if [20, 22] is
-    #|   [x, y] if x > y then x
-    #|   [x, y] if x + y == 42 then y
-    #|   else 0
+    #| | [x, y] if x > y then x
+    #| | [x, y] if x + y == 42 then y
+    #| else 0
     #| end
   assert_true(@simpl.eval_source_is_int(code, 22))
 }
@@ -720,8 +731,8 @@ test "UCS pattern split supports guards and end" {
 test "UCS pattern split is not indentation sensitive" {
   let pretty =
     #| if [1, 2, 3] is
-    #|   [head, ..tail] then head
-    #|   else 0
+    #| | [head, ..tail] then head
+    #| else 0
   let flat = "if [1, 2, 3] is [head, ..tail] then head else 0"
   assert_true(@simpl.eval_source_is_int(pretty, 1))
   assert_true(@simpl.eval_source_is_int(flat, 1))
@@ -755,8 +766,8 @@ test "is expression supports composite and or patterns" {
 test "record patterns match and can nest other patterns" {
   let code =
     #| if {left: #Some(10), right: [1, 32], flag: true} is
-    #|   {left: #Some(x), right: [1, y], flag: true} then x + y
-    #|   _ then 0
+    #| | {left: #Some(x), right: [1, y], flag: true} then x + y
+    #| else 0
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -764,6 +775,6 @@ test "record patterns match and can nest other patterns" {
 test "record patterns support shorthand field binding" {
   let code =
     #| if {x: 10, y: 32} is
-    #|   {x, y} then x + y
+    #| | {x, y} then x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }

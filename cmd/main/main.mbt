@@ -5,7 +5,7 @@
 fn main {
   let code =
     #| if {x: 1, y: 2} is
-    #|   {x: y} then y
+    #| | {x: y} then y
 
   let result = try? @lib.eval_source(code)
   debug(result)
