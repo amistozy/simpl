@@ -43,7 +43,7 @@ test "comparison and logic operators" {
 ///|
 test "extended comparisons (!= <= >=)" {
   let code =
-    #| if 1 != 2 and 2 <= 2 and 3 >= 2 then 1 else 0
+    #| if 1 != 2 && 2 <= 2 && 3 >= 2 then 1 else 0
   assert_true(@simpl.eval_source_is_int(code, 1))
 }
 
@@ -109,6 +109,23 @@ test "UCS follow-up branches require pipe" {
       "if #Right(1) is #Left(x) then x #Right(y) then y else 0",
     ),
   )
+}
+
+///|
+test "UCS pattern guard with if is rejected" {
+  assert_true(
+    @simpl.parse_is_error("if #Some(1) is | #Some(x) if x > 0 then x else 0"),
+  )
+}
+
+///|
+test "or keyword is removed" {
+  assert_true(@simpl.parse_is_error("true or false"))
+}
+
+///|
+test "is expression is removed" {
+  assert_true(@simpl.parse_is_error("x is #Some(y)"))
 }
 
 ///|
@@ -308,7 +325,7 @@ test "do sugar nests like let _ bindings" {
 test "and short-circuits right-hand side" {
   let code =
     #| let r = ref 0 in
-    #| do false and (r := 1 == 1) in
+    #| do false && (r := 1 == 1) in
     #| !r
   assert_true(@simpl.eval_source_is_int(code, 0))
 }
@@ -317,7 +334,7 @@ test "and short-circuits right-hand side" {
 test "or short-circuits right-hand side" {
   let code =
     #| let r = ref 0 in
-    #| do true or (r := 1 == 1) in
+    #| do true || (r := 1 == 1) in
     #| !r
   assert_true(@simpl.eval_source_is_int(code, 0))
 }
@@ -325,14 +342,14 @@ test "or short-circuits right-hand side" {
 ///|
 test "and returns the actual operand value" {
   let code =
-    #| "left" and "right"
+    #| "left" && "right"
   assert_true(@simpl.eval_source_is_string(code, "right"))
 }
 
 ///|
 test "or returns the actual operand value" {
   let code =
-    #| nil or "fallback"
+    #| nil || "fallback"
   assert_true(@simpl.eval_source_is_string(code, "fallback"))
 }
 
@@ -558,8 +575,12 @@ test "variant carrying list pattern match" {
 test "match guards can refine successful pattern bindings" {
   let code =
     #| if #Some(42) is
-    #| | #Some(x) if x < 0 then 0
-    #| | #Some(x) if x >= 42 then x
+    #| | #Some(x) and 
+    #|   | x < 0 then 0
+    #|   end
+    #| | #Some(x) and 
+    #|   | x >= 42 then x
+    #|   end
     #| else -1
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -568,7 +589,9 @@ test "match guards can refine successful pattern bindings" {
 test "match guards can use bindings from nested patterns" {
   let code =
     #| if {pair: [10, 32]} is
-    #| | {pair: [x, y]} if x + y == 42 then y
+    #| | {pair: [x, y]} and 
+    #|   | x + y == 42 then y
+    #|   end
     #| else 0
   assert_true(@simpl.eval_source_is_int(code, 32))
 }
@@ -578,7 +601,9 @@ test "match guard is bindings flow into case body" {
   let code =
     #| let f(x) = #Some(x + 1) in
     #| if [1, 2] is
-    #| | [x, ..] if f(x) is #Some(y) then y
+    #| | [x, ..] and f(x) is 
+    #|   | #Some(y) then y
+    #|   end
     #| else 0
   assert_true(@simpl.eval_source_is_int(code, 2))
 }
@@ -587,7 +612,9 @@ test "match guard is bindings flow into case body" {
 test "guard failure falls through to later cases" {
   let code =
     #| if [20, 22] is
-    #| | [x, y] if x > y then x
+    #| | [x, y] and 
+    #|   | x > y then x
+    #|   end
     #| | [x, y] then x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -606,7 +633,9 @@ test "or patterns work with guards" {
   let code =
     #| if [20, 22] is
     #| | [x, 0] | [0, x] then x
-    #| | [x, y] | [y, x] if x + y == 42 then y
+    #| | [x, y] | [y, x] and 
+    #|   | x + y == 42 then y
+    #|   end
     #| else 0
   assert_true(@simpl.eval_source_is_int(code, 22))
 }
@@ -682,19 +711,6 @@ test "literal patterns match primitive values" {
 }
 
 ///|
-test "is expression bindings flow into then branch" {
-  let code =
-    #| if [1, 2, 3] is [head, ..tail] then head else 0
-  let and_code =
-    #| if [1, 2, 3] is [head, ..tail] and head == 1 then
-    #|   tail is [2, 3]
-    #| else
-    #|   false
-  assert_true(@simpl.eval_source_is_int(code, 1))
-  assert_true(@simpl.eval_source_is_bool(and_code, true))
-}
-
-///|
 test "UCS boolean condition cases are whitespace insensitive" {
   let spaced =
     #| if
@@ -720,11 +736,77 @@ test "UCS pattern split replaces match syntax" {
 test "UCS pattern split supports guards and end" {
   let code =
     #| if [20, 22] is
-    #| | [x, y] if x > y then x
-    #| | [x, y] if x + y == 42 then y
+    #| | [x, y] and 
+    #|   | x > y then x
+    #|   end
+    #| | [x, y] and 
+    #|   | x + y == 42 then y
+    #|   end
     #| else 0
     #| end
   assert_true(@simpl.eval_source_is_int(code, 22))
+}
+
+///|
+test "UCS pattern guards can start with and" {
+  let code =
+    #| if [20, 22] is
+    #| | [x, y] and 
+    #|   | x + y == 42 then y
+    #|   end
+    #| else 0
+  assert_true(@simpl.eval_source_is_int(code, 22))
+}
+
+///|
+test "UCS pattern case supports nested split sugar after and" {
+  let code =
+    #| let compute(input) = if input > 0 then #Some(input + 1) else nil in
+    #| if #Left(1) is
+    #| | #Right(nil) then 0
+    #| | #Right(#Some(cached)) then cached
+    #| | #Left(input) and compute(input) is
+    #|   | nil then 0
+    #|   | #Some(result) then result
+    #|   end
+    #| else -1
+  assert_true(@simpl.eval_source_is_int(code, 2))
+}
+
+///|
+test "UCS nested guard branches after and" {
+  let code =
+    #| let x = #Some(42) in
+    #| if x is
+    #| | #Some(y) and
+    #|   | y > 0 then 1
+    #|   | y == 0 then 2
+    #|   end
+    #| else 3
+  assert_true(@simpl.eval_source_is_int(code, 1))
+}
+
+///|
+test "UCS snippets from ucs.txt parse" {
+  let snippet1 =
+    #| if x is #Some(a) and y is #Some(b) then a + b else 0
+  let snippet2 =
+    #| if foo(u, v, w) is
+    #| | #Some(x) and x is
+    #|   | #Left(_) then "left-defined"
+    #|   | #Right(_) then "right-defined"
+    #|   end
+    #| | nil then "undefined"
+  let snippet3 =
+    #| if [xs, ys] is
+    #| | [[x, ..], [y, ..]] and 
+    #|   | x + y > 0 then 1
+    #|   end
+    #| | [[], []] then 2
+    #| else 3
+  assert_true(@simpl.parse_is_ok(snippet1))
+  assert_true(@simpl.parse_is_ok(snippet2))
+  assert_true(@simpl.parse_is_ok(snippet3))
 }
 
 ///|
@@ -736,30 +818,6 @@ test "UCS pattern split is not indentation sensitive" {
   let flat = "if [1, 2, 3] is [head, ..tail] then head else 0"
   assert_true(@simpl.eval_source_is_int(pretty, 1))
   assert_true(@simpl.eval_source_is_int(flat, 1))
-}
-
-///|
-test "is expression bindings flow through top-level and" {
-  let code =
-    #| let xs = [1, 2, 3] in
-    #| xs is [x, ..] and x > 0
-  assert_true(@simpl.eval_source_is_bool(code, true))
-}
-
-///|
-test "is expression supports composite and or patterns" {
-  let list_code =
-    #| [#Left(1), #Right(2)] is [#Left(_), #Right(2)]
-  let record_code =
-    #| {left: #Some(10), right: [1, 32]} is {left: #Some(_), right: [1, 32]}
-  let or_code =
-    #| #Right(42) is #Left(_) | #Right(_)
-  let miss_code =
-    #| {x: 1, y: 2} is {x: 1, y: 3}
-  assert_true(@simpl.eval_source_is_bool(list_code, true))
-  assert_true(@simpl.eval_source_is_bool(record_code, true))
-  assert_true(@simpl.eval_source_is_bool(or_code, true))
-  assert_true(@simpl.eval_source_is_bool(miss_code, false))
 }
 
 ///|

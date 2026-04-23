@@ -4,8 +4,13 @@
 /// Run with `moon run cmd/main` from the project root.
 fn main {
   let code =
-    #| if {x: 1, y: 2} is
-    #| | {x: y} then y
+    #| let x = #Some(-1) in
+    #| if x is
+    #| | #Some(y) and
+    #|   | y > 0 then 1
+    #|   | y == 0 then 2
+    #|   end
+    #| else 3
 
   let result = try? @lib.eval_source(code)
   debug(result)

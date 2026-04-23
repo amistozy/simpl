@@ -46,10 +46,9 @@ The current implementation already covers a strong set of core features for lang
 - UCS condition cases such as `if cond1 then a | cond2 then b else c`
 - UCS pattern splits such as `if value is pattern then body | other then alt else fallback`
 - `fn(...) => expr`
-- `expr is pattern`
 - function calls such as `f(x, y)`
 - unary operators: `-x`, `not x`
-- binary operators: `+ - * / == != < <= > >= and or && ||`
+- binary operators: `+ - * / == != < <= > >= && ||`
 - reference operations: `ref e`, `!e`, `e1 := e2`
 - record literals and field access, such as `{x: 1}` and `p.x`
 - list literals such as `[1, 2, 3]`
@@ -70,7 +69,7 @@ Supported pattern forms include:
 - list patterns with an ignored middle slice such as `[head, .., tail]`
 - variant patterns such as `#Left(x)`
 - or-patterns such as `1 | 2`
-- guards such as `#Some(x) if x > 0 then ...`
+- guards such as `#Some(x) and x > 0 then ...`
 
 ## Quick Examples
 
@@ -140,8 +139,8 @@ let value = @simpl.eval_source(
 // => VInt(3)
 ```
 
-Bindings introduced by `is` flow through left-to-right `and`/`or` expressions
-and into the true branch of `if`. In a successful UCS pattern guard, they also
+Bindings introduced by `is` flow through left-to-right `&&`/`||` expressions
+and into the true branch of `if`. In a successful UCS pattern guard (`and`), they also
 flow into that case body.
 
 ### References and Assignment
