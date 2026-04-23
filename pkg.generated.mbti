@@ -58,6 +58,8 @@ pub fn if_then_else(Expr, Expr, Expr) -> Expr
 
 pub fn int_lit(Int) -> Expr
 
+pub fn is_expr(Expr, MatchPattern) -> Expr
+
 pub fn lambda(Array[String], Expr) -> Expr
 
 pub fn lambda_patterns(Array[MatchPattern], Expr) -> Expr
@@ -183,6 +185,7 @@ pub enum Expr {
   Variant(String, Expr)
   If(Expr, Expr, Expr)
   Let(MatchPattern, Expr, Expr)
+  Is(Expr, MatchPattern)
   Match(Expr, Array[(MatchPattern, Expr?, Expr)])
   LetRec(String, Array[MatchPattern], Expr, Expr)
   Lambda(Array[MatchPattern], Expr)

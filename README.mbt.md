@@ -44,6 +44,7 @@ The current implementation already covers a strong set of core features for lang
 - `if cond then a else b`
 - `fn(...) => expr`
 - `match expr with | ...` with optional `end` for nested matches
+- `expr is pattern`
 - function calls such as `f(x, y)`
 - unary operators: `-x`, `not x`
 - binary operators: `+ - * / == != < <= > >= and or && ||`
@@ -122,6 +123,24 @@ let value = @simpl.eval_source(
 // => VInt(42)
 ```
 
+### Pattern Tests
+
+```moonbit nocheck
+///|
+let value = @simpl.eval_source(
+  (
+    #| if [#Left(1), #Right(2)] is [#Left(x), #Right(y)] then
+    #|   x + y
+    #| else
+    #|   0
+  ),
+)
+// => VInt(3)
+```
+
+Bindings introduced by `is` flow into the true branch of `if`, and through
+left-to-right `and` conditions.
+
 ### References and Assignment
 
 ```moonbit nocheck
@@ -175,6 +194,7 @@ Useful constructors include:
 
 - literals and variables: `int_lit`, `bool_lit`, `string_lit`, `nil_lit`, `var_ref`
 - control flow: `if_then_else`, `let_in`, `let_rec_in`
+- pattern tests: `is_expr`
 - functions: `lambda`, `call`
 - composite values: `list`, `record`, `variant`
 - pattern-related helpers: `let_pattern_in`, `lambda_patterns`, `match_cases`

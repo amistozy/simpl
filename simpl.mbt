@@ -12,6 +12,7 @@ pub enum Expr {
   Variant(String, Expr)
   If(Expr, Expr, Expr)
   Let(MatchPattern, Expr, Expr)
+  Is(Expr, MatchPattern)
   Match(Expr, Array[(MatchPattern, Expr?, Expr)])
   LetRec(String, Array[MatchPattern], Expr, Expr)
   Lambda(Array[MatchPattern], Expr)
@@ -120,17 +121,24 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     Var(name) => lookup(env, name)
     Record(fields) => VRecord(eval_record_fields(fields, env))
     Variant(tag, value_expr) => VVariant(tag, eval_with_env(value_expr, env))
-    If(cond, then_branch, else_branch) =>
-      if truthy(eval_with_env(cond, env)) {
-        eval_with_env(then_branch, env)
+    If(cond, then_branch, else_branch) => {
+      let (passes, then_env) = eval_condition_bindings(cond, env)
+      if passes {
+        eval_with_env(then_branch, then_env)
       } else {
         eval_with_env(else_branch, env)
       }
+    }
     Let(pattern, value_expr, body) => {
       let v = eval_with_env(value_expr, env)
       let bound_env = bind_pattern(pattern, v, env)
       eval_with_env(body, bound_env)
     }
+    Is(value_expr, pattern) =>
+      VBool(
+        try_bind_pattern(pattern, eval_with_env(value_expr, env), env)
+        is Some(_),
+      )
     Match(value_expr, cases) => {
       let value = eval_with_env(value_expr, env)
       eval_match_cases(value, cases, env, 0)
@@ -196,6 +204,47 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
         _ =>
           eval_binary(op, eval_with_env(left, env), eval_with_env(right, env))
       }
+  }
+}
+
+///|
+fn eval_condition_bindings(cond : Expr, env : Env) -> (Bool, Env) raise {
+  match cond {
+    Located(span, inner) =>
+      eval_condition_bindings(inner, env) catch {
+        RuntimeErrorAt(message, inner_span) =>
+          raise RuntimeErrorAt(
+            message,
+            if inner_span == unknown_source_span() {
+              span
+            } else {
+              inner_span
+            },
+          )
+        _ => raise RuntimeErrorAt("unknown runtime error", span)
+      }
+    Is(value_expr, pattern) =>
+      match try_bind_pattern(pattern, eval_with_env(value_expr, env), env) {
+        Some(bound_env) => (true, bound_env)
+        None => (false, env)
+      }
+    Binary(And, left, right) => {
+      let (left_passes, left_env) = eval_condition_bindings(left, env)
+      if left_passes {
+        eval_condition_bindings(right, left_env)
+      } else {
+        (false, env)
+      }
+    }
+    Binary(Or, left, right) => {
+      let (left_passes, left_env) = eval_condition_bindings(left, env)
+      if left_passes {
+        (true, left_env)
+      } else {
+        eval_condition_bindings(right, env)
+      }
+    }
+    _ => (truthy(eval_with_env(cond, env)), env)
   }
 }
 
@@ -890,6 +939,11 @@ pub fn let_pattern_in(
   body : Expr,
 ) -> Expr {
   Let(pattern, value_expr, body)
+}
+
+///|
+pub fn is_expr(value_expr : Expr, pattern : MatchPattern) -> Expr {
+  Is(value_expr, pattern)
 }
 
 ///|

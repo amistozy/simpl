@@ -661,6 +661,35 @@ test "literal patterns match primitive values" {
 }
 
 ///|
+test "is expression bindings flow into then branch" {
+  let code =
+    #| if [1, 2, 3] is [head, ..tail] then head else 0
+  let and_code =
+    #| if [1, 2, 3] is [head, ..tail] and head == 1 then
+    #|   tail is [2, 3]
+    #| else
+    #|   false
+  assert_true(@simpl.eval_source_is_int(code, 1))
+  assert_true(@simpl.eval_source_is_bool(and_code, true))
+}
+
+///|
+test "is expression supports composite and or patterns" {
+  let list_code =
+    #| [#Left(1), #Right(2)] is [#Left(_), #Right(2)]
+  let record_code =
+    #| {left: #Some(10), right: [1, 32]} is {left: #Some(_), right: [1, 32]}
+  let or_code =
+    #| #Right(42) is #Left(_) | #Right(_)
+  let miss_code =
+    #| {x: 1, y: 2} is {x: 1, y: 3}
+  assert_true(@simpl.eval_source_is_bool(list_code, true))
+  assert_true(@simpl.eval_source_is_bool(record_code, true))
+  assert_true(@simpl.eval_source_is_bool(or_code, true))
+  assert_true(@simpl.eval_source_is_bool(miss_code, false))
+}
+
+///|
 test "record patterns match and can nest other patterns" {
   let code =
     #| match {left: #Some(10), right: [1, 32], flag: true} with

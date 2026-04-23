@@ -34,6 +34,7 @@ priv enum Token {
   WithTok
   DoTok
   EndKeywordTok
+  IsTok
   AndWordTok
   OrWordTok
   PlusTok
@@ -611,6 +612,7 @@ fn keyword_or_ident(text : String) -> Token {
     "with" => WithTok
     "do" => DoTok
     "end" => EndKeywordTok
+    "is" => IsTok
     "and" => AndWordTok
     "or" => OrWordTok
     _ => IdentTok(text)
@@ -639,6 +641,7 @@ fn token_name(tok : Token) -> String {
     WithTok => "with"
     DoTok => "do"
     EndKeywordTok => "end"
+    IsTok => "is"
     AndWordTok => "and"
     OrWordTok => "or"
     PlusTok => "+"
@@ -957,7 +960,7 @@ fn parse_and_tail(
 
 ///|
 fn parse_eq_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
-  let (left, j) = parse_cmp_expr(tokens, i)
+  let (left, j) = parse_is_expr(tokens, i)
   parse_eq_tail(left, tokens, j)
 }
 
@@ -968,16 +971,40 @@ fn parse_eq_tail(
   i : Int,
 ) -> (Expr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == EqEqTok {
-    let (right, j) = parse_cmp_expr(tokens, i + 1)
+    let (right, j) = parse_is_expr(tokens, i + 1)
     parse_eq_tail(
       located_expr_from_left(left, tokens, j, Binary(Eq, left, right)),
       tokens,
       j,
     )
   } else if i < tokens.length() && token_kind(tokens, i) == BangEqTok {
-    let (right, j) = parse_cmp_expr(tokens, i + 1)
+    let (right, j) = parse_is_expr(tokens, i + 1)
     parse_eq_tail(
       located_expr_from_left(left, tokens, j, Binary(Ne, left, right)),
+      tokens,
+      j,
+    )
+  } else {
+    (left, i)
+  }
+}
+
+///|
+fn parse_is_expr(tokens : Array[SpannedToken], i : Int) -> (Expr, Int) raise {
+  let (left, j) = parse_cmp_expr(tokens, i)
+  parse_is_tail(left, tokens, j)
+}
+
+///|
+fn parse_is_tail(
+  left : Expr,
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Expr, Int) raise {
+  if i < tokens.length() && token_kind(tokens, i) == IsTok {
+    let (pattern, j) = parse_pattern(tokens, i + 1)
+    parse_is_tail(
+      located_expr_from_left(left, tokens, j, Is(left, pattern)),
       tokens,
       j,
     )
