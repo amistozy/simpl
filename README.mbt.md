@@ -1,83 +1,92 @@
 # simpl
 
-`simpl` is a small interpreter-style language implemented in MoonBit. It also exposes a reusable parser and evaluator API, so the project works both as a language playground and as a compact reference implementation for building small languages in MoonBit.
+`simpl` is a compact interpreter-style language implemented in MoonBit.
 
-This repository is a good fit if you want to:
+The project serves two purposes:
 
-- learn how a small language can be implemented in MoonBit
-- study a recursive-descent parser and evaluator in a compact codebase
-- write tests directly against an AST instead of only using source strings
-- extend the language into a larger experimental interpreter
+- A small language playground you can run and extend.
+- A reusable library for parsing, desugaring, and evaluating expressions in tests or other tools.
 
-The current implementation already covers a strong set of core features for language experiments, including expression evaluation, lexical scoping, closures, recursion, pattern matching, records, variants, lists, and references.
+It includes a recursive-descent parser, a desugar layer, an evaluator with lexical scoping, and a practical set of language features (patterns, variants, records, lists, references, recursion, and UCS-style conditionals).
 
-## Highlights
+## Why This Repo
 
-- Separate parser and evaluator layers
-- Explicit desugar layer between surface syntax and core evaluation
-- Lexical scoping and closures
-- Recursive functions via `let rec`
-- Shared pattern syntax for UCS pattern splits, `let`, and function parameters
-- Dynamic values including records, lists, variants, and references
-- Error messages with source locations
-- Both source-based and AST-based entry points
+Use this repository if you want to:
 
-## Language Features
+- learn how to build a small language in MoonBit
+- study a readable parser + evaluator architecture
+- test semantics through source strings or direct AST construction
+- experiment with extending syntax and runtime behavior
 
-### Values
+## Language Snapshot
 
-- `Int`
-- `Bool`
-- `String`
-- `nil`
+### Value forms
+
+- `Int`, `Bool`, `String`, `nil`
 - lists
 - records
 - variants
 - closures
 - references
 
-### Expressions
+### Expression forms
 
 - literals and variables
 - `let pattern = value in body`
 - `let rec f(...) = ... in ...`
 - `do expr in body`
-- UCS `if` (multi-way boolean cases), for example:
+- UCS `if`:
   `if | c1 then a | c2 then b else c`
-- UCS `if is` (pattern split), for example:
+- UCS `if is` pattern split:
   `if value is | p1 then a | p2 then b else c`
-- UCS guard refinements with `and` / `and is`
-- `end` as sugar for `else nil`
-- `or` as a UCS-only terminator for multi-way `and` / `and is` guard attachment
-- `fn(...) => expr`
-- function calls such as `f(x, y)`
-- unary operators: `-x`, `not x`
-- binary operators: `+ - * / == != < <= > >= && ||`
-- reference operations: `ref e`, `!e`, `e1 := e2`
-- record literals and field access, such as `{x: 1}` and `p.x`
-- list literals such as `[1, 2, 3]`
-- variant literals such as `#Left(1)`
+- UCS guards (`and`, `and is`) and `or` terminator
+- `end` sugar for `else nil`
+- function definitions: `fn(...) => expr`
+- function calls: `f(x, y)`
+- unary ops: `-x`, `not x`
+- binary ops: `+ - * / == != < <= > >= && ||`
+- references: `ref e`, `!e`, `e1 := e2`
+- record/list/variant literals and field access
 
-### Patterns
+### Pattern forms
 
-Patterns are used in UCS pattern splits, `let` bindings, and function parameters.
+Patterns are used in `let`, function parameters, and UCS `if is`:
 
-Supported pattern forms include:
+- bind: `x`
+- wildcard: `_`
+- literals: `42`, `true`, `"moon"`, `nil`
+- records: `{x, y}`, `{left: #Some(x)}`
+- lists: `[x, y]`
+- list with rest: `[a, b, ..rest]`
+- list with ignored middle: `[head, .., tail]`
+- variants: `#Left(x)`
+- alternation: `1 | 2`
+- guarded patterns: `#Some(x) and x > 0`
 
-- variable bindings such as `x`
-- wildcard `_`
-- literal patterns such as `42`, `true`, `"moon"`, and `nil`
-- record patterns such as `{x, y}` and `{left: #Some(x)}`
-- list patterns such as `[x, y]`
-- list patterns with a rest binding such as `[a, b, ..rest]`
-- list patterns with an ignored middle slice such as `[head, .., tail]`
-- variant patterns such as `#Left(x)`
-- or-patterns such as `1 | 2`
-- guards such as `#Some(x) and x > 0 then ...`
+## Quick Start
 
-## Quick Examples
+From project root:
 
-### Evaluate Source Directly
+```powershell
+moon test
+moon run cmd/main
+```
+
+If snapshots change:
+
+```powershell
+moon test --update
+```
+
+Before finishing a change:
+
+```powershell
+moon info && moon fmt
+```
+
+## Minimal Examples
+
+### Evaluate source
 
 ```moonbit nocheck
 ///|
@@ -85,7 +94,7 @@ let value = @simpl.eval_source("1 + 2 * 3")
 // => VInt(7)
 ```
 
-### Closures and Lexical Scoping
+### Lexical scoping with closures
 
 ```moonbit nocheck
 ///|
@@ -100,21 +109,7 @@ let value = @simpl.eval_source(
 // => VInt(15)
 ```
 
-### Record Destructuring
-
-```moonbit nocheck
-///|
-let value = @simpl.eval_source(
-  (
-    #| let p = {x: 10, y: 32} in
-    #| let {x, y} = p in
-    #| x + y
-  ),
-)
-// => VInt(42)
-```
-
-### Variants and Pattern Splits
+### Variant pattern split
 
 ```moonbit nocheck
 ///|
@@ -129,19 +124,7 @@ let value = @simpl.eval_source(
 // => VInt(42)
 ```
 
-### Pattern Tests
-
-```moonbit nocheck
-///|
-let value = @simpl.eval_source(
-  "if [#Left(1), #Right(2)] is [#Left(x), #Right(y)] then x + y else 0",
-)
-// => VInt(3)
-```
-
-`is` is used in UCS (`if ... is`, `and ... is`). `&&` and `||` remain normal logical operators.
-
-### References and Assignment
+### References
 
 ```moonbit nocheck
 ///|
@@ -155,30 +138,32 @@ let value = @simpl.eval_source(
 // => VInt(6)
 ```
 
-## Using It as a Library
+## Library API
 
-The project supports both source-string execution and manual AST construction.
+The package is `amistozy/simpl`.
 
-### Run from Source Strings
+Typical pipeline:
 
-```moonbit nocheck
-///|
-let result = @simpl.eval_source(
-  "let rec fact(n) = if n == 0 then 1 else n * fact(n - 1) in fact(5)",
-)
-```
+1. `parse(source) -> SurfaceExpr`
+2. `desugar(surface) -> Expr`
+3. `eval(expr) -> Value`
 
-Common entry points:
+Convenience entry points:
 
-- `parse(source)` parses source into a `SurfaceExpr`
-- `desugar(expr)` lowers `SurfaceExpr` into core `Expr`
-- `desugar_pattern(pattern)` lowers surface patterns into core match patterns
-- `eval(expr)` evaluates an AST
-- `eval_source(source)` parses and evaluates source
-- `parse_error_text(source)` returns formatted parse error text
-- `eval_error_text(source)` returns formatted runtime error text
+- `eval_source(source)`
+- `parse_error_text(source)`
+- `eval_error_text(source)`
 
-### Construct ASTs Manually
+AST builder helpers (selected):
+
+- literals/vars: `int_lit`, `bool_lit`, `string_lit`, `nil_lit`, `var_ref`
+- control flow: `if_then_else`, `let_in`, `let_rec_in`, `let_pattern_in`
+- functions: `lambda`, `lambda_patterns`, `call`
+- matching: `is_expr`, `match_cases`, `match_case_clauses`
+- data: `list`, `record`, `variant`
+- refs: `ref_new`, `ref_get`, `ref_set`
+
+Example (AST-first testing style):
 
 ```moonbit nocheck
 ///|
@@ -192,65 +177,28 @@ let value = @simpl.eval(expr)
 // => VInt(7)
 ```
 
-Useful constructors include:
-
-- literals and variables: `int_lit`, `bool_lit`, `string_lit`, `nil_lit`, `var_ref`
-- control flow: `if_then_else`, `let_in`, `let_rec_in`
-- pattern tests: `is_expr`
-- functions: `lambda`, `call`
-- composite values: `list`, `record`, `variant`
-- pattern-related helpers: `let_pattern_in`, `lambda_patterns`, `match_cases`
-- references: `ref_new`, `ref_get`, `ref_set`
-
-If you are writing tests, AST construction is often more stable than asserting against source strings.
-
 ## Error Reporting
 
-`simpl` reports errors with source locations, which makes debugging and testing much easier. Examples:
+Errors include source ranges, which helps both debugging and stable tests.
+
+Examples:
 
 - parse error: `unexpected token after expression: int at 1:3-4`
 - runtime error: `division by zero at 1:1-6`
-- pattern failure: `pattern match failure: expected [x, y], got [1] at 1:5-22`
-
-This makes the project useful both for interactive experiments and for precise test assertions.
+- pattern failure with location metadata
 
 ## Project Layout
 
-- [`simpl.mbt`](simpl.mbt): interpreter core, runtime values, and AST helper constructors
-- [`parser.mbt`](parser.mbt): lexer, parser, and error formatting
-- [`simpl_test.mbt`](simpl_test.mbt): black-box tests covering language features and error behavior
-- [`simpl_wbtest.mbt`](simpl_wbtest.mbt): white-box tests
-- [`cmd/main/main.mbt`](cmd/main/main.mbt): a minimal runnable entry point
+- `simpl.mbt`: core AST, desugar, evaluator, helper constructors
+- `parser.mbt`: lexer/parser and parse diagnostics
+- `simpl_test.mbt`: black-box tests
+- `simpl_wbtest.mbt`: white-box tests
+- `cmd/main/main.mbt`: runnable sample entry
+- `IF_SYNTAX.md`: syntax notes for `if` / UCS-related behavior
 
-## Development
+## Development Notes
 
-Run these commands from the project root:
-
-```powershell
-moon test
-```
-
-```powershell
-moon run cmd/main
-```
-
-```powershell
-moon info
-moon fmt
-```
-
-If your changes affect snapshot outputs, update them with:
-
-```powershell
-moon test --update
-```
-
-## Good Next Extensions
-
-- a richer standard library
-- more pattern forms and data structures
-- `while`, a module system, or additional control-flow forms
-- a friendlier REPL
-- more advanced error recovery and diagnostics
-
-If you want to study how to implement a small language in MoonBit, this repository is already a solid starting point: the structure is approachable, the tests are clear, and the semantic boundaries are fairly explicit.
+- Keep MoonBit files block-structured (`///|`) and refactor block-by-block when possible.
+- Move deprecated code to `deprecated.mbt` when applicable.
+- Prefer stable assertions (`assert_eq`, `assert_true`) for deterministic outputs.
+- Use snapshots when behavior output is intentionally broad and may evolve.
