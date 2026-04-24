@@ -42,9 +42,13 @@ The current implementation already covers a strong set of core features for lang
 - `let pattern = value in body`
 - `let rec f(...) = ... in ...`
 - `do expr in body`
-- UCS conditionals such as `if cond then a else b`
-- UCS condition cases such as `if cond1 then a | cond2 then b else c`
-- UCS pattern splits such as `if value is pattern then body | other then alt else fallback`
+- UCS `if` (multi-way boolean cases), for example:
+  `if | c1 then a | c2 then b else c`
+- UCS `if is` (pattern split), for example:
+  `if value is | p1 then a | p2 then b else c`
+- UCS guard refinements with `and` / `and is`
+- `end` as sugar for `else nil`
+- `or` as a UCS-only terminator for multi-way `and` / `and is` guard attachment
 - `fn(...) => expr`
 - function calls such as `f(x, y)`
 - unary operators: `-x`, `not x`
@@ -119,6 +123,7 @@ let value = @simpl.eval_source(
     #| if #Left(41) is
     #| | #Left(x) then x + 1
     #| | #Right(y) then y
+    #| end
   ),
 )
 // => VInt(42)
@@ -129,19 +134,12 @@ let value = @simpl.eval_source(
 ```moonbit nocheck
 ///|
 let value = @simpl.eval_source(
-  (
-    #| if [#Left(1), #Right(2)] is [#Left(x), #Right(y)] then
-    #|   x + y
-    #| else
-    #|   0
-  ),
+  "if [#Left(1), #Right(2)] is [#Left(x), #Right(y)] then x + y else 0",
 )
 // => VInt(3)
 ```
 
-Bindings introduced by `is` flow through left-to-right `&&`/`||` expressions
-and into the true branch of `if`. In a successful UCS pattern guard (`and`), they also
-flow into that case body.
+`is` is used in UCS (`if ... is`, `and ... is`). `&&` and `||` remain normal logical operators.
 
 ### References and Assignment
 

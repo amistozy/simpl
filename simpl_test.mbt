@@ -119,7 +119,7 @@ test "UCS pattern guard with if is rejected" {
 }
 
 ///|
-test "or keyword is removed" {
+test "or is reserved for UCS and not a boolean operator" {
   assert_true(@simpl.parse_is_error("true or false"))
 }
 
@@ -233,11 +233,8 @@ test "pattern match failure reports expected pattern and actual value" {
 }
 
 ///|
-test "non-exhaustive match reports unmatched value" {
-  assert_eq(
-    @simpl.eval_error_text("if 42 is 0 then 0"),
-    Some("non-exhaustive match: no case matched value 42 at 1:1-18"),
-  )
+test "if is requires else or end terminator" {
+  assert_true(@simpl.parse_is_error("if 42 is 0 then 0"))
 }
 
 ///|
@@ -422,6 +419,7 @@ test "variant literal and match" {
     #| if #Left(41) is
     #| | #Left(x) then x + 1
     #| | #Right(y) then y
+    #| end
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -432,6 +430,7 @@ test "variant can be stored in let binding" {
     #| if v is
     #| | #Left(x) then x
     #| | #Right(y) then y
+    #| end
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -472,6 +471,7 @@ test "list pattern match" {
     #| if [1, 2] is
     #| | [x, y] then x + y
     #| | [] then 0
+    #| end
   assert_true(@simpl.eval_source_is_int(code, 3))
 }
 
@@ -481,6 +481,7 @@ test "empty list pattern match" {
     #| if [] is
     #| | [] then 42
     #| | [x] then x
+    #| end
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -489,6 +490,7 @@ test "nested list pattern match" {
   let code =
     #| if [#Left(1), #Right(2)] is
     #| | [#Left(x), #Right(y)] then x + y
+    #| end
   assert_true(@simpl.eval_source_is_int(code, 3))
 }
 
@@ -560,6 +562,7 @@ test "nested variant pattern match" {
   let code =
     #| if #Outer(#Inner(41)) is
     #| | #Outer(#Inner(x)) then x + 1
+    #| end
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -568,6 +571,7 @@ test "variant carrying list pattern match" {
   let code =
     #| if #Wrap([10, 32]) is
     #| | #Wrap([x, y]) then x + y
+    #| end
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -575,12 +579,8 @@ test "variant carrying list pattern match" {
 test "match guards can refine successful pattern bindings" {
   let code =
     #| if #Some(42) is
-    #| | #Some(x) and 
-    #|   | x < 0 then 0
-    #|   end
-    #| | #Some(x) and 
-    #|   | x >= 42 then x
-    #|   end
+    #| | #Some(x) and x < 0 then 0
+    #| | #Some(x) and x >= 42 then x
     #| else -1
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -589,9 +589,7 @@ test "match guards can refine successful pattern bindings" {
 test "match guards can use bindings from nested patterns" {
   let code =
     #| if {pair: [10, 32]} is
-    #| | {pair: [x, y]} and 
-    #|   | x + y == 42 then y
-    #|   end
+    #| | {pair: [x, y]} and x + y == 42 then y
     #| else 0
   assert_true(@simpl.eval_source_is_int(code, 32))
 }
@@ -612,10 +610,9 @@ test "match guard is bindings flow into case body" {
 test "guard failure falls through to later cases" {
   let code =
     #| if [20, 22] is
-    #| | [x, y] and 
-    #|   | x > y then x
-    #|   end
+    #| | [x, y] and x > y then x
     #| | [x, y] then x + y
+    #| end
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -692,14 +689,17 @@ test "literal patterns match primitive values" {
     #| if 42 is
     #| | 0 then 0
     #| | 42 then 1
+    #| end
   let string_code =
     #| if "moon" is
     #| | "sun" then 0
     #| | "moon" then 1
+    #| end
   let bool_code =
     #| if false is
     #| | true then 1
     #| | false then 42
+    #| end
   let nil_code =
     #| if nil is
     #| | nil then 42
@@ -736,12 +736,8 @@ test "UCS pattern split replaces match syntax" {
 test "UCS pattern split supports guards and end" {
   let code =
     #| if [20, 22] is
-    #| | [x, y] and 
-    #|   | x > y then x
-    #|   end
-    #| | [x, y] and 
-    #|   | x + y == 42 then y
-    #|   end
+    #| | [x, y] and x > y then x
+    #| | [x, y] and x + y == 42 then y
     #| else 0
     #| end
   assert_true(@simpl.eval_source_is_int(code, 22))
@@ -787,6 +783,32 @@ test "UCS nested guard branches after and" {
 }
 
 ///|
+test "UCS and multi-branch can stop with or" {
+  let code =
+    #| let x = #Some(42) in
+    #| if x is
+    #| | #Some(y) and
+    #|   | y < 0 then 0
+    #|   or
+    #| | #Some(y) then y
+    #| end
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "UCS and is multi-branch can stop with or" {
+  let code =
+    #| let f(x) = #Some(x) in
+    #| if #Some(42) is
+    #| | #Some(v) and f(v) is
+    #|   | #Some(n) and n < 0 then 0
+    #|   or
+    #| | #Some(v) then v
+    #| end
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 test "UCS snippets from ucs.txt parse" {
   let snippet1 =
     #| if x is #Some(a) and y is #Some(b) then a + b else 0
@@ -797,6 +819,7 @@ test "UCS snippets from ucs.txt parse" {
     #|   | #Right(_) then "right-defined"
     #|   end
     #| | nil then "undefined"
+    #| end
   let snippet3 =
     #| if [xs, ys] is
     #| | [[x, ..], [y, ..]] and 
@@ -834,5 +857,6 @@ test "record patterns support shorthand field binding" {
   let code =
     #| if {x: 10, y: 32} is
     #| | {x, y} then x + y
+    #| end
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
