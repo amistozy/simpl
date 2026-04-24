@@ -49,6 +49,8 @@ Each split point can host multiple branches.
 - In an `is` split, `else e` is sugar for `| _ then e`.
 - `end` is sugar for `else nil` at the split point it closes.
 
+In practical code, prefer `else` over explicit fallback branches because it is clearer and closes the current split directly.
+
 ## `if` single-route vs multi-route
 
 `if` is in **single-route mode** iff all of the following hold:
@@ -59,23 +61,14 @@ Each split point can host multiple branches.
 
 In all other cases, `if` is in **multi-route mode**.
 
-## `is` split mode
+## Split mode (`is` and `and`)
 
-- If the first `is` branch starts with `|`, it is multi-route.
-- Otherwise, it is single-route.
+`is` and `and` follow the same mode rule:
 
-In multi-route `is`, branches attach until closed by one of:
+- if the first nested branch starts with `|`, the split is **multi-route**;
+- otherwise, it is **single-route**.
 
-- `else`
-- `end`
-- `or`
-
-## `and` split mode
-
-- If the first `and` branch starts with `|`, it is multi-route.
-- Otherwise, it is single-route.
-
-In multi-route `and`, branches attach until closed by one of:
+In multi-route mode, branches attach until closed by one of:
 
 - `else`
 - `end`
@@ -87,7 +80,7 @@ In multi-route `and`, branches attach until closed by one of:
 
 - `or` closes the current split point.
 - `else` and `end` close the current split point with fallback semantics.
-- After an inner split closes, parsing continues at the enclosing split.
+- after an inner split closes, parsing continues at the enclosing split.
 
 ## Examples
 
@@ -110,17 +103,17 @@ else "pos"
 
 ```simpl
 if value is
-| #Left(x) then x
-| _ then 0
-end
+| #Left(#Some(x)) then x
+| #Right(y) then y
+else 0
 ```
 
 ### `if` with mixed branch forms
 
 ```simpl
 if
-| #Left(1) is #Left(x) then x
-| true then 0
+| f(value) is #Left(x) then x
+| f > 2 then 2
 else -1
 ```
 
@@ -138,7 +131,7 @@ if
   | has_cache then "cache"
   | has_network then "network"
   or
-| true then "wait"
+| ready then "pending"
 else "idle"
 ```
 
@@ -146,37 +139,46 @@ else "idle"
 
 ```simpl
 if flag and
-| cond_a then 1
-else 2
-end
+  | cond_a then 1
+  else 2
+else 3
 ```
 
 ### Pattern refinement with `and ... is`
 
 ```simpl
 if user is
-| #Some(u) and u.role is #Admin(_) then "admin"
-| #Some(u) then u.name
+| #Some(u) and u.role is 
+  | #Admin(_) then "admin"
+  else u.name
 else "guest"
+```
+
+### Prefer split-merge over duplicated heads
+
+```simpl
+if input is
+| #Some(a) and
+  | a > 10 then "big"
+  | a == 10 then "edge"
+  else "small"
+else "none"
 ```
 
 ### Nested split composition
 
 ```simpl
 if
-| #Some(x) is
-  | #Some(y) and
-    | y > 0 then y
-    | y == 0 then 0
-    or
-  | _ then -1
-  or
-| true then 42
+| f(x) is #Some(y) and
+  | y > 0 then y
+  | y == 0 then 0
+  else -1
+| x > 0 then x
 else 0
 ```
 
 ## Notes
 
-- Indentation and newlines are formatting only; tokens define syntax.
-- Boolean operators are `&&` and `||`.
-- The word token `or` is reserved for split closure.
+- indentation and newlines are formatting only; tokens define syntax.
+- boolean operators are `&&` and `||`.
+- the word token `or` is reserved for split closure.
