@@ -1,215 +1,161 @@
-# Simpl `if` Syntax (Current UCS)
+# Simpl `if` Syntax
 
-This document describes the current conditional syntax in Simpl.
+This document defines the current `if` syntax in Simpl.
 
-## Overview
+## Scope
 
-Simpl uses a unified conditional style (UCS) centered on:
+Simpl implements a focused subset of *The Ultimate Conditional Syntax* with exactly three split points:
 
-- `if` for boolean-guard branching
-- `if ... is` for pattern-based branching
-- `and` / `and ... is` for guard refinements inside a branch
-- `else` and `end` for branch closure (`end` means `else nil`)
-- `or` only as a UCS guard-attachment terminator (not a boolean operator)
+- `if`
+- `is`
+- `and`
 
-Indentation and line breaks are not semantic.
+Supported control tokens:
 
-## 1. `if` (boolean multi-way)
+- branch introducer: `|`
+- branch body introducer: `then`
+- fallback: `else`
+- fallback sugar: `end` (equivalent to `else nil`)
+- split-closure token: `or`
 
-Multi-way form (Haskell/Kotlin style):
+`or` is **not** a branch. It only closes the current split point.
+
+## Core model
+
+A conditional is built from nested split points. Conceptually:
+
+```simpl
+if ... is ... and ... then ... else ...
+```
+
+can be viewed as:
 
 ```simpl
 if
-| cond1 then expr1
-| cond2 then expr2
-else expr3
-```
-
-The first branch pipe is optional. So these are also valid:
-
-```simpl
-if cond then then_expr else else_expr
-```
-
-```simpl
-if cond then
-  then_expr
-else
-  else_expr
-```
-
-You can use `end` instead of `else ...` as sugar for `else nil`:
-
-```simpl
-if
-| cond1 then expr1
-| cond2 then expr2
-end
-```
-
-## 2. `if ... is` (pattern split)
-
-`if ... is` works like pattern matching:
-
-```simpl
-if value is
-| pattern1 then expr1
-| pattern2 then expr2
-else fallback_expr
-```
-
-The first branch pipe is optional:
-
-```simpl
-if value is pattern then expr else fallback
-```
-
-```simpl
-if value is pattern then 
-  expr 
-else 
-  fallback
-```
-
-`end` is allowed and means `else nil`:
-
-```simpl
-if value is
-| pattern1 then expr1
-| pattern2 then expr2
-end
-```
-
-## 3. `and` (guard refinement)
-
-`and` attaches an extra condition to a branch.
-
-### 3.1 Single-route `and`
-
-If the branch after `and` does **not** start with `|`, it is single-route:
-
-```simpl
-if
-| condA and condB then expr1
-| condC then expr2
-else expr3
-```
-
-No `else`/`end`/`or` is required to close this `and` node.
-
-### 3.2 Multi-route `and`
-
-If the first `and` branch starts with `|`, it is multi-route:
-
-```simpl
-if
-| outerCond and
-  | guard1 then expr1
-  | guard2 then expr2
-  else exprElse
-| otherCond then exprOther
-else exprFinal
-```
-
-A multi-route `and` node is closed by one of:
-
-- `else ...`
-- `end` (sugar for `else nil`)
-- `or` (close current `and` attachment and continue outer branches)
-
-Example with `or`:
-
-```simpl
-if x is
-| #Left(y) and
-  | y < 0 then 0
-  | y > 10 then 1
+| ... is
+  | ... and
+    | ... then ...
+    or
   or
-| #Right(y) and y < 0 then 2
-else 3
+else ...
 ```
 
-### 3.3 `and` chains
+Each split point can host multiple branches.
 
-`and` can be chained. A chain may mix:
+## Branch and fallback sugar
 
-- boolean guards
-- `and ... is` guards
-- single-route and multi-route `and` nodes
+- In an `if` split, `else e` is sugar for an extra branch `| true then e`.
+- In an `and` split, `else e` is sugar for `| true then e`.
+- In an `is` split, `else e` is sugar for `| _ then e`.
+- `end` is sugar for `else nil` at the split point it closes.
 
-Example (single-route chain):
+## `if` single-route vs multi-route
+
+### Rule
+
+`if` is in **single-route mode** iff all of the following hold:
+
+1. the first branch has no leading `|`, and
+2. that first branch is an `is` split, and
+3. that `is` split is **multi-route** (its first pattern branch starts with `|`).
+
+In all other cases, `if` is **multi-route mode**.
+
+### Consequences
+
+- `if` multi-route mode must be closed by `else` or `end`.
+- `if` single-route mode does not attach later outer `| ...` branches.
+
+## `is` split mode
+
+- If the first `is` branch starts with `|`, it is multi-route.
+- Otherwise, it is single-route.
+
+In multi-route `is`, branches attach until the split is closed by one of:
+
+- `else`
+- `end`
+- `or`
+
+If multi-route `is` is used as the first branch of `if` under the single-route rule above, that closed `is` branch forms the whole `if` body (outer `if` does not continue with additional branches).
+
+## `and` split mode
+
+- If the first `and` branch starts with `|`, it is multi-route.
+- Otherwise, it is single-route.
+
+In multi-route `and`, branches attach until closed by:
+
+- `else`
+- `end`
+- `or`
+
+Important: `else` closes only the current `and` split. It does **not** automatically consume the outer `if` closure.
+
+## Closure precedence and nesting
+
+`else`, `end`, and `or` always apply to the **current open split point**.
+
+- `or` only closes the current split point.
+- `else`/`end` close the current split point with fallback semantics.
+- After closing an inner split, parsing continues at the enclosing split.
+
+## Valid examples
+
+### `if` multi-route
 
 ```simpl
 if
-| a > 0 and b > 0 and c > 0 then 1
+| true then 1
+| false then 2
 else 0
 ```
 
-Example (single-route + multi-route nesting):
+### `if` single-route (special case)
+
+```simpl
+if #Some(1) is
+| #Some(x) then x
+| _ then 0
+end
+```
+
+### `and` else closes `and`, `end` closes outer `if`
+
+```simpl
+if true and
+| false then 1
+else 2
+end
+```
+
+### `or` closes current split only
 
 ```simpl
 if
-| 1 > 0 and
-  | 2 > 1 and 3 > 2 then 42
-  else 41
-else 40
+| true and
+  | false then 1
+  | true then 2
+  or
+| true then 3
+else 0
 ```
 
-## 4. `and ... is` (pattern refinement inside a branch)
+## Invalid example
 
-`and ... is` is the pattern-split counterpart of `and`.
-
-Single-route:
+`and` closed, but outer `if` still open:
 
 ```simpl
-if v is
-| #Left(x) and f(x) is #Ok(y) then y
-| #Right(x) and x > 0 then x
-else 42
+if true and
+| false then 1
+| true then 2
+end
 ```
 
-Multi-route:
+This is invalid because `end` closes the `and` split here, while the outer `if` (multi-route) still lacks `else/end`.
 
-```simpl
-if v is
-| #Left(x) and f(x) is
-  | #Ok(y) then y
-  | #Err(_) then 0
-  else -1
-| #Right(x) and x > 0 then x
-else 42
-```
+## Notes
 
-Like multi-route `and`, multi-route `and ... is` is closed by `else`, `end`, or `or`.
-
-### 4.1 Chaining `and` with `and ... is`
-
-Inside the same guard chain, `and` and `and ... is` can be combined freely.
-
-Example:
-
-```simpl
-if #Some(#Some(42)) is
-| #Some(x) and x is
-  | #Some(y) and y > 0 and y is 42 and
-    | y > 42 then 1
-    | y == 42 then 2
-    or
-  else 3
-else 4
-```
-
-This style is valid: single-route and multi-route nodes can nest arbitrarily.
-
-## 5. Operators and reserved words
-
+- Indentation and newlines are formatting only; tokens define syntax.
 - Boolean operators are `&&` and `||`.
-- `or` is **not** a boolean operator; it is reserved for UCS guard-node closure.
-- `is` is used in UCS (`if ... is`, `and ... is`) as conditional pattern syntax.
-
-## 6. Design notes
-
-- Newline and indentation are formatting only; token structure defines parsing.
-- For OCaml-like style:
-  - single-line forms usually omit the first `|`
-  - multi-line branch groups usually keep the first `|` for alignment
+- The word token `or` is reserved for split closure and is not a boolean operator.

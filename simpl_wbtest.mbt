@@ -109,50 +109,20 @@ test "desugared surface ast evaluates as core ast" {
 }
 
 ///|
-test "parser keeps if-and as UCS node instead of binary and" {
-  match parse("if true and true then 1 end") {
-    SLocated(
-      _,
-      SUcsIf(
-        [
-          SUcsCondAnd(
-            SLocated(_, SBoolLit(true)),
-            [SUcsCondCase(SLocated(_, SBoolLit(true)), SLocated(_, SIntLit(1)))],
-            None
-          ),
-        ],
-        SLocated(_, SNilLit)
-      )
-    ) => assert_true(true)
+test "parser marks no-pipe multi-is first arm as standalone if" {
+  match parse("if #Some(1) is | #Some(x) then x | _ then 0 end") {
+    SLocated(_, SIf([SIfCondArm(_, SIfIs(_, _))], SLocated(_, SNilLit))) =>
+      assert_true(true)
     _ => assert_true(false)
   }
 }
 
 ///|
-test "desugar keeps if-and as core UCS node" {
-  let surface = SUcsIf(
-    [
-      SUcsCondAnd(
-        SBoolLit(true),
-        [SUcsCondCase(SBoolLit(true), SIntLit(1))],
-        None,
-      ),
-    ],
-    SNilLit,
-  )
-  match desugar(surface) {
-    UcsIf(
-      [
-        (
-          BoolLit(true),
-          UcsGuardAndCondBranches(
-            [(BoolLit(true), UcsGuardBody(IntLit(1)))],
-            None
-          ),
-        ),
-      ],
-      NilLit
-    ) => assert_true(true)
-    _ => assert_true(false)
-  }
+test "parser treats no-pipe single-is first arm as if multi-route" {
+  assert_true(parse_is_error("if #Some(1) is #Some(x) then x"))
+}
+
+///|
+test "parser still requires outer if closure after and end" {
+  assert_true(parse_is_error("if true and | false then 1 | true then 2 end"))
 }

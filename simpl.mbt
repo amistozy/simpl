@@ -10,11 +10,10 @@ pub enum SurfaceExpr {
   SVar(String)
   SRecord(Array[SurfaceRecordField])
   SVariant(String, SurfaceExpr)
-  SUcsIf(Array[SurfaceUcsCondCase], SurfaceExpr)
+  SIf(Array[SurfaceIfCondArm], SurfaceExpr)
   SLet(SurfacePattern, SurfaceExpr, SurfaceExpr)
   SDo(SurfaceExpr, SurfaceExpr)
   SLetFun(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
-  SUcsIfIs(SurfaceExpr, Array[(SurfacePattern, SurfaceUcsGuard)], SurfaceExpr)
   SLetRec(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
   SLambda(Array[SurfacePattern], SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceExpr])
@@ -27,27 +26,20 @@ pub enum SurfaceExpr {
 } derive(Debug)
 
 ///|
-pub enum SurfaceUcsCondCase {
-  SUcsCondCase(SurfaceExpr, SurfaceExpr)
-  SUcsCondAnd(SurfaceExpr, Array[SurfaceUcsCondCase], SurfaceExpr?)
-  SUcsCondAndIs(
-    SurfaceExpr,
-    SurfaceExpr,
-    Array[(SurfacePattern, SurfaceUcsGuard)],
-    SurfaceExpr?
-  )
+pub enum SurfaceIfCondArm {
+  SIfCondArm(SurfaceExpr, SurfaceIfGuard)
 } derive(Debug)
 
 ///|
-pub enum SurfaceUcsGuard {
-  SUcsGuardBody(SurfaceExpr)
-  SUcsGuardAndCond(SurfaceExpr, SurfaceUcsGuard)
-  SUcsGuardAndCondBranches(Array[SurfaceUcsCondCase], SurfaceExpr?)
-  SUcsGuardAndIs(
-    SurfaceExpr,
-    Array[(SurfacePattern, SurfaceUcsGuard)],
-    SurfaceExpr?
-  )
+pub enum SurfaceIfPatternArm {
+  SIfPatternArm(SurfacePattern, SurfaceIfGuard)
+} derive(Debug)
+
+///|
+pub enum SurfaceIfGuard {
+  SIfThen(SurfaceExpr)
+  SIfAnd(Array[SurfaceIfCondArm])
+  SIfIs(SurfaceExpr, Array[SurfaceIfPatternArm])
 } derive(Debug)
 
 ///|
@@ -88,9 +80,8 @@ pub enum Expr {
   Var(String)
   Record(Array[(String, Expr)])
   Variant(String, Expr)
-  UcsIf(Array[(Expr, UcsGuard)], Expr)
+  If(Array[IfCondArm], Expr)
   Let(MatchPattern, Expr, Expr)
-  UcsIfIs(Expr, Array[(MatchPattern, UcsGuard)], Expr)
   LetRec(String, Array[MatchPattern], Expr, Expr)
   Lambda(Array[MatchPattern], Expr)
   Call(Expr, Array[Expr])
@@ -103,11 +94,20 @@ pub enum Expr {
 } derive(Debug)
 
 ///|
-pub enum UcsGuard {
-  UcsGuardBody(Expr)
-  UcsGuardAndCond(Expr, UcsGuard)
-  UcsGuardAndCondBranches(Array[(Expr, UcsGuard)], Expr?)
-  UcsGuardAndIs(Expr, Array[(MatchPattern, UcsGuard)], Expr?)
+pub enum IfCondArm {
+  IfCondArm(Expr, IfGuard)
+} derive(Debug)
+
+///|
+pub enum IfPatternArm {
+  IfPatternArm(MatchPattern, IfGuard)
+} derive(Debug)
+
+///|
+pub enum IfGuard {
+  IfThen(Expr)
+  IfAnd(Array[IfCondArm])
+  IfIs(Expr, Array[IfPatternArm])
 } derive(Debug)
 
 ///|
@@ -187,8 +187,8 @@ pub fn desugar(expr : SurfaceExpr) -> Expr {
     SList(items) => List(items.map(item => desugar(item)))
     SRecord(fields) => Record(fields.map(field => desugar_record_field(field)))
     SVariant(tag, value_expr) => Variant(tag, desugar(value_expr))
-    SUcsIf(cases, else_expr) =>
-      UcsIf(cases.map(case => desugar_ucs_cond_case(case)), desugar(else_expr))
+    SIf(cases, else_expr) =>
+      If(cases.map(case => desugar_if_cond_arm(case)), desugar(else_expr))
     SLet(pattern, value_expr, body) =>
       Let(desugar_pattern(pattern), desugar(value_expr), desugar(body))
     SDo(value_expr, body) => Let(PBind("_"), desugar(value_expr), desugar(body))
@@ -197,15 +197,6 @@ pub fn desugar(expr : SurfaceExpr) -> Expr {
         PBind(name),
         Lambda(params.map(param => desugar_pattern(param)), desugar(func_body)),
         desugar(body),
-      )
-    SUcsIfIs(value_expr, cases, else_expr) =>
-      UcsIfIs(
-        desugar(value_expr),
-        cases.map(case => {
-          let (pattern, case_guard) = case
-          (desugar_pattern(pattern), desugar_ucs_pattern_guard(case_guard))
-        }),
-        desugar(else_expr),
       )
     SLetRec(name, params, func_body, body) =>
       LetRec(
@@ -229,52 +220,28 @@ pub fn desugar(expr : SurfaceExpr) -> Expr {
 }
 
 ///|
-fn desugar_ucs_pattern_guard(case_guard : SurfaceUcsGuard) -> UcsGuard {
-  match case_guard {
-    SUcsGuardBody(body) => UcsGuardBody(desugar(body))
-    SUcsGuardAndCond(cond, next_guard) =>
-      UcsGuardAndCond(desugar(cond), desugar_ucs_pattern_guard(next_guard))
-    SUcsGuardAndCondBranches(branches, fallback) =>
-      UcsGuardAndCondBranches(
-        branches.map(branch => desugar_ucs_cond_case(branch)),
-        fallback.map(item => desugar(item)),
-      )
-    SUcsGuardAndIs(value_expr, cases, fallback) =>
-      UcsGuardAndIs(
-        desugar(value_expr),
-        cases.map(case => {
-          let (pattern, inner_guard) = case
-          (desugar_pattern(pattern), desugar_ucs_pattern_guard(inner_guard))
-        }),
-        fallback.map(item => desugar(item)),
-      )
+fn desugar_if_cond_arm(surface_arm : SurfaceIfCondArm) -> IfCondArm {
+  match surface_arm {
+    SIfCondArm(cond, arm_guard) =>
+      IfCondArm(desugar(cond), desugar_if_guard(arm_guard))
   }
 }
 
 ///|
-fn desugar_ucs_cond_case(surface_case : SurfaceUcsCondCase) -> (Expr, UcsGuard) {
-  match surface_case {
-    SUcsCondCase(cond, body) => (desugar(cond), UcsGuardBody(desugar(body)))
-    SUcsCondAnd(base_cond, branches, fallback) =>
-      (
-        desugar(base_cond),
-        UcsGuardAndCondBranches(
-          branches.map(branch => desugar_ucs_cond_case(branch)),
-          fallback.map(item => desugar(item)),
-        ),
-      )
-    SUcsCondAndIs(base_cond, value_expr, cases, fallback) =>
-      (
-        desugar(base_cond),
-        UcsGuardAndIs(
-          desugar(value_expr),
-          cases.map(case => {
-            let (pattern, case_guard) = case
-            (desugar_pattern(pattern), desugar_ucs_pattern_guard(case_guard))
-          }),
-          fallback.map(item => desugar(item)),
-        ),
-      )
+fn desugar_if_pattern_arm(surface_arm : SurfaceIfPatternArm) -> IfPatternArm {
+  match surface_arm {
+    SIfPatternArm(pattern, arm_guard) =>
+      IfPatternArm(desugar_pattern(pattern), desugar_if_guard(arm_guard))
+  }
+}
+
+///|
+fn desugar_if_guard(surface_guard : SurfaceIfGuard) -> IfGuard {
+  match surface_guard {
+    SIfThen(body) => IfThen(desugar(body))
+    SIfAnd(arms) => IfAnd(arms.map(arm => desugar_if_cond_arm(arm)))
+    SIfIs(value_expr, arms) =>
+      IfIs(desugar(value_expr), arms.map(arm => desugar_if_pattern_arm(arm)))
   }
 }
 
@@ -349,15 +316,11 @@ pub fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     Var(name) => lookup(env, name)
     Record(fields) => VRecord(eval_record_fields(fields, env))
     Variant(tag, value_expr) => VVariant(tag, eval_with_env(value_expr, env))
-    UcsIf(cases, else_expr) => eval_ucs_cond_cases(cases, else_expr, env, 0)
+    If(cases, else_expr) => eval_if_cond_arms(cases, else_expr, env, 0)
     Let(pattern, value_expr, body) => {
       let v = eval_with_env(value_expr, env)
       let bound_env = bind_pattern(pattern, v, env)
       eval_with_env(body, bound_env)
-    }
-    UcsIfIs(value_expr, cases, else_expr) => {
-      let value = eval_with_env(value_expr, env)
-      eval_ucs_pattern_cases(value, cases, else_expr, env, 0)
     }
     LetRec(name, params, func_body, body) => {
       let rec_closure = VRecClosure(name, params, func_body, env)
@@ -472,39 +435,39 @@ fn eval_condition_bindings(cond : Expr, env : Env) -> (Bool, Env) raise {
 }
 
 ///|
-fn eval_ucs_cond_cases(
-  cases : Array[(Expr, UcsGuard)],
+fn eval_if_cond_arms(
+  arms : Array[IfCondArm],
   else_expr : Expr,
   env : Env,
   i : Int,
 ) -> Value raise {
-  match eval_ucs_cond_cases_with_fallback(cases, Some(else_expr), env, i) {
+  match eval_if_cond_arms_with_fallback(arms, Some(else_expr), env, i) {
     Some(result) => result
     None => eval_with_env(else_expr, env)
   }
 }
 
 ///|
-fn eval_ucs_cond_cases_with_fallback(
-  cases : Array[(Expr, UcsGuard)],
+fn eval_if_cond_arms_with_fallback(
+  arms : Array[IfCondArm],
   fallback : Expr?,
   env : Env,
   i : Int,
 ) -> Value? raise {
-  if i >= cases.length() {
+  if i >= arms.length() {
     return match fallback {
       Some(default_expr) => Some(eval_with_env(default_expr, env))
       None => None
     }
   }
-  let (cond, case_guard) = cases[i]
+  let IfCondArm(cond, arm_guard) = arms[i]
   let (passes, base_env) = eval_condition_bindings(cond, env)
   if !passes {
-    return eval_ucs_cond_cases_with_fallback(cases, fallback, env, i + 1)
+    return eval_if_cond_arms_with_fallback(arms, fallback, env, i + 1)
   }
-  match eval_ucs_guard(case_guard, base_env) {
+  match eval_if_guard(arm_guard, base_env) {
     Some(result) => Some(result)
-    None => eval_ucs_cond_cases_with_fallback(cases, fallback, env, i + 1)
+    None => eval_if_cond_arms_with_fallback(arms, fallback, env, i + 1)
   }
 }
 
@@ -569,78 +532,41 @@ fn eval_record_fields(
 }
 
 ///|
-fn eval_ucs_pattern_cases(
-  value : Value,
-  cases : Array[(MatchPattern, UcsGuard)],
-  else_expr : Expr,
-  env : Env,
-  i : Int,
-) -> Value raise {
-  match
-    eval_ucs_pattern_cases_with_fallback(value, cases, Some(else_expr), env, i) {
-    Some(result) => result
-    None => eval_with_env(else_expr, env)
-  }
-}
-
-///|
-fn eval_ucs_guard(case_guard : UcsGuard, env : Env) -> Value? raise {
-  match case_guard {
-    UcsGuardBody(body) => Some(eval_with_env(body, env))
-    UcsGuardAndCond(cond, next_guard) => {
-      let (passes, guard_env) = eval_condition_bindings(cond, env)
-      if passes {
-        eval_ucs_guard(next_guard, guard_env)
-      } else {
-        None
-      }
-    }
-    UcsGuardAndCondBranches(branches, fallback) =>
-      eval_ucs_cond_cases_with_fallback(branches, fallback, env, 0)
-    UcsGuardAndIs(value_expr, cases, fallback) => {
+fn eval_if_guard(arm_guard : IfGuard, env : Env) -> Value? raise {
+  match arm_guard {
+    IfThen(body) => Some(eval_with_env(body, env))
+    IfAnd(arms) => eval_if_cond_arms_with_fallback(arms, None, env, 0)
+    IfIs(value_expr, arms) => {
       let value = eval_with_env(value_expr, env)
-      match eval_ucs_pattern_cases_with_fallback(value, cases, None, env, 0) {
-        Some(result) => Some(result)
-        None =>
-          match fallback {
-            Some(default_expr) => Some(eval_with_env(default_expr, env))
-            None => None
-          }
-      }
+      eval_if_pattern_arms_with_fallback(value, arms, None, env, 0)
     }
   }
 }
 
 ///|
-fn eval_ucs_pattern_cases_with_fallback(
+fn eval_if_pattern_arms_with_fallback(
   value : Value,
-  cases : Array[(MatchPattern, UcsGuard)],
+  arms : Array[IfPatternArm],
   fallback : Expr?,
   env : Env,
   i : Int,
 ) -> Value? raise {
-  if i >= cases.length() {
+  if i >= arms.length() {
     return match fallback {
       Some(default_expr) => Some(eval_with_env(default_expr, env))
       None => None
     }
   }
-  let (pattern, case_guard) = cases[i]
+  let IfPatternArm(pattern, arm_guard) = arms[i]
   match try_bind_pattern(pattern, value, env) {
     Some(bound_env) =>
-      match eval_ucs_guard(case_guard, bound_env) {
+      match eval_if_guard(arm_guard, bound_env) {
         Some(result) => Some(result)
         None =>
-          eval_ucs_pattern_cases_with_fallback(
-            value,
-            cases,
-            fallback,
-            env,
-            i + 1,
-          )
+          eval_if_pattern_arms_with_fallback(value, arms, fallback, env, i + 1)
       }
     None =>
-      eval_ucs_pattern_cases_with_fallback(value, cases, fallback, env, i + 1)
+      eval_if_pattern_arms_with_fallback(value, arms, fallback, env, i + 1)
   }
 }
 
@@ -1228,7 +1154,7 @@ pub fn if_then_else(
   then_branch : Expr,
   else_branch : Expr,
 ) -> Expr {
-  UcsIf([(cond, UcsGuardBody(then_branch))], else_branch)
+  If([IfCondArm(cond, IfThen(then_branch))], else_branch)
 }
 
 ///|
@@ -1262,7 +1188,15 @@ pub fn let_fun_in(
 
 ///|
 pub fn is_expr(value_expr : Expr, pattern : MatchPattern) -> Expr {
-  UcsIfIs(value_expr, [(pattern, UcsGuardBody(BoolLit(true)))], BoolLit(false))
+  If(
+    [
+      IfCondArm(
+        BoolLit(true),
+        IfIs(value_expr, [IfPatternArm(pattern, IfThen(BoolLit(true)))]),
+      ),
+    ],
+    BoolLit(false),
+  )
 }
 
 ///|
@@ -1330,16 +1264,23 @@ pub fn match_case_clauses(
   value_expr : Expr,
   cases : Array[(MatchPattern, Expr?, Expr)],
 ) -> Expr {
-  UcsIfIs(
-    value_expr,
-    cases.map(case => {
-      let (pattern, cond_expr, body) = case
-      let case_guard = match cond_expr {
-        Some(cond) => UcsGuardAndCond(cond, UcsGuardBody(body))
-        None => UcsGuardBody(body)
-      }
-      (pattern, case_guard)
-    }),
+  If(
+    [
+      IfCondArm(
+        BoolLit(true),
+        IfIs(
+          value_expr,
+          cases.map(case => {
+            let (pattern, cond_expr, body) = case
+            let case_guard = match cond_expr {
+              Some(cond) => IfAnd([IfCondArm(cond, IfThen(body))])
+              None => IfThen(body)
+            }
+            IfPatternArm(pattern, case_guard)
+          }),
+        ),
+      ),
+    ],
     NilLit,
   )
 }

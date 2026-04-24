@@ -191,9 +191,8 @@ pub enum Expr {
   Var(String)
   Record(Array[(String, Expr)])
   Variant(String, Expr)
-  UcsIf(Array[(Expr, UcsGuard)], Expr)
+  If(Array[IfCondArm], Expr)
   Let(MatchPattern, Expr, Expr)
-  UcsIfIs(Expr, Array[(MatchPattern, UcsGuard)], Expr)
   LetRec(String, Array[MatchPattern], Expr, Expr)
   Lambda(Array[MatchPattern], Expr)
   Call(Expr, Array[Expr])
@@ -203,6 +202,20 @@ pub enum Expr {
   Field(Expr, String)
   Unary(UnOp, Expr)
   Binary(BinOp, Expr, Expr)
+} derive(@debug.Debug)
+
+pub enum IfCondArm {
+  IfCondArm(Expr, IfGuard)
+} derive(@debug.Debug)
+
+pub enum IfGuard {
+  IfThen(Expr)
+  IfAnd(Array[IfCondArm])
+  IfIs(Expr, Array[IfPatternArm])
+} derive(@debug.Debug)
+
+pub enum IfPatternArm {
+  IfPatternArm(MatchPattern, IfGuard)
 } derive(@debug.Debug)
 
 pub enum MatchPattern {
@@ -228,11 +241,10 @@ pub enum SurfaceExpr {
   SVar(String)
   SRecord(Array[SurfaceRecordField])
   SVariant(String, SurfaceExpr)
-  SUcsIf(Array[SurfaceUcsCondCase], SurfaceExpr)
+  SIf(Array[SurfaceIfCondArm], SurfaceExpr)
   SLet(SurfacePattern, SurfaceExpr, SurfaceExpr)
   SDo(SurfaceExpr, SurfaceExpr)
   SLetFun(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
-  SUcsIfIs(SurfaceExpr, Array[(SurfacePattern, SurfaceUcsGuard)], SurfaceExpr)
   SLetRec(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
   SLambda(Array[SurfacePattern], SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceExpr])
@@ -242,6 +254,20 @@ pub enum SurfaceExpr {
   SField(SurfaceExpr, String)
   SUnary(UnOp, SurfaceExpr)
   SBinary(BinOp, SurfaceExpr, SurfaceExpr)
+} derive(@debug.Debug)
+
+pub enum SurfaceIfCondArm {
+  SIfCondArm(SurfaceExpr, SurfaceIfGuard)
+} derive(@debug.Debug)
+
+pub enum SurfaceIfGuard {
+  SIfThen(SurfaceExpr)
+  SIfAnd(Array[SurfaceIfCondArm])
+  SIfIs(SurfaceExpr, Array[SurfaceIfPatternArm])
+} derive(@debug.Debug)
+
+pub enum SurfaceIfPatternArm {
+  SIfPatternArm(SurfacePattern, SurfaceIfGuard)
 } derive(@debug.Debug)
 
 pub enum SurfacePattern {
@@ -265,26 +291,6 @@ pub enum SurfaceRecordField {
 pub enum SurfaceRecordPatternField {
   SPRecordField(String, SurfacePattern)
   SPRecordShorthand(String)
-} derive(@debug.Debug)
-
-pub enum SurfaceUcsCondCase {
-  SUcsCondCase(SurfaceExpr, SurfaceExpr)
-  SUcsCondAnd(SurfaceExpr, Array[SurfaceUcsCondCase], SurfaceExpr?)
-  SUcsCondAndIs(SurfaceExpr, SurfaceExpr, Array[(SurfacePattern, SurfaceUcsGuard)], SurfaceExpr?)
-} derive(@debug.Debug)
-
-pub enum SurfaceUcsGuard {
-  SUcsGuardBody(SurfaceExpr)
-  SUcsGuardAndCond(SurfaceExpr, SurfaceUcsGuard)
-  SUcsGuardAndCondBranches(Array[SurfaceUcsCondCase], SurfaceExpr?)
-  SUcsGuardAndIs(SurfaceExpr, Array[(SurfacePattern, SurfaceUcsGuard)], SurfaceExpr?)
-} derive(@debug.Debug)
-
-pub enum UcsGuard {
-  UcsGuardBody(Expr)
-  UcsGuardAndCond(Expr, UcsGuard)
-  UcsGuardAndCondBranches(Array[(Expr, UcsGuard)], Expr?)
-  UcsGuardAndIs(Expr, Array[(MatchPattern, UcsGuard)], Expr?)
 } derive(@debug.Debug)
 
 pub enum UnOp {

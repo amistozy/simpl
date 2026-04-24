@@ -808,57 +808,125 @@ fn parse_if_expr(
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == IfTok {
-    if starts_ucs_pattern_split(tokens, i + 1) {
-      parse_ucs_pattern_split_expr(tokens, i)
-    } else {
-      let case_i = if i + 1 < tokens.length() &&
-        token_kind(tokens, i + 1) == PipeTok {
-        i + 2
-      } else {
-        i + 1
-      }
-      let (first_case, j) = parse_ucs_if_cond_case(tokens, case_i)
-      let (rest_cases, else_expr, m) = parse_ucs_if_cases_tail(tokens, j)
-      (
-        located_expr(tokens, i, m, SUcsIf([first_case] + rest_cases, else_expr)),
-        m,
+    let has_leading_pipe = i + 1 < tokens.length() &&
+      token_kind(tokens, i + 1) == PipeTok
+    let case_i = if has_leading_pipe { i + 2 } else { i + 1 }
+    let (first_arm, j, first_is_multi_route_is) = parse_if_first_cond_arm(
+      tokens, case_i,
+    )
+    if is_if_single_route_mode(has_leading_pipe, first_is_multi_route_is) {
+      let (closed_first_arm, end_i) = close_single_route_if_is(
+        tokens, first_arm, j,
+      )
+      return (
+        located_expr(
+          tokens,
+          i,
+          end_i,
+          SIf([closed_first_arm], located_expr(tokens, i, end_i, SNilLit)),
+        ),
+        end_i,
       )
     }
+    let (rest_arms, else_expr, end_i) = parse_if_tail(tokens, j)
+    (
+      located_expr(tokens, i, end_i, SIf([first_arm] + rest_arms, else_expr)),
+      end_i,
+    )
   } else {
     parse_lambda_expr(tokens, i)
   }
 }
 
 ///|
-fn parse_ucs_if_cond_case(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> (SurfaceUcsCondCase, Int) raise {
-  let (cond, j) = parse_expr(tokens, i)
-  let (case_guard, k) = parse_ucs_guard_for_pattern_head(
-    tokens, j, "expected 'then' in if expression", "expected 'then' in if guard case",
-    "expected 'is' after nested split value",
-  )
-  (surface_cond_case_from_head_and_guard(cond, case_guard), k)
+fn is_if_single_route_mode(
+  has_leading_pipe : Bool,
+  first_is_multi_route_is : Bool,
+) -> Bool {
+  !has_leading_pipe && first_is_multi_route_is
 }
 
 ///|
-fn parse_ucs_if_cases_tail(
+fn parse_if_first_cond_arm(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[SurfaceUcsCondCase], SurfaceExpr, Int) raise {
+) -> (SurfaceIfCondArm, Int, Bool) raise {
+  let (head_expr, j) = parse_expr(tokens, i)
+  if j < tokens.length() && token_kind(tokens, j) == IsTok {
+    let first_is_multi_route_is = j + 1 < tokens.length() &&
+      token_kind(tokens, j + 1) == PipeTok
+    let (arm_guard, end_i) = parse_if_is_guard(tokens, head_expr, j + 1)
+    return (
+      SIfCondArm(located_expr(tokens, i, j, SBoolLit(true)), arm_guard),
+      end_i,
+      first_is_multi_route_is,
+    )
+  }
+  let (arm_guard, end_i) = parse_if_guard_after_value(tokens, head_expr, j)
+  (SIfCondArm(head_expr, arm_guard), end_i, false)
+}
+
+///|
+fn close_single_route_if_is(
+  tokens : Array[SpannedToken],
+  first_arm : SurfaceIfCondArm,
+  i : Int,
+) -> (SurfaceIfCondArm, Int) raise {
+  match first_arm {
+    SIfCondArm(cond, SIfIs(value_expr, arms)) =>
+      if i < tokens.length() && token_kind(tokens, i) == ElseTok {
+        let (body, j) = parse_expr(tokens, i + 1)
+        (
+          SIfCondArm(
+            cond,
+            SIfIs(
+              value_expr,
+              arms + [SIfPatternArm(SPBind("_"), SIfThen(body))],
+            ),
+          ),
+          consume_optional_end(tokens, j),
+        )
+      } else if i < tokens.length() && token_kind(tokens, i) == EndKeywordTok {
+        (
+          SIfCondArm(
+            cond,
+            SIfIs(
+              value_expr,
+              [
+                ..arms,
+                SIfPatternArm(
+                  SPBind("_"),
+                  SIfThen(located_expr(tokens, i, i + 1, SNilLit)),
+                ),
+              ],
+            ),
+          ),
+          i + 1,
+        )
+      } else {
+        (first_arm, i)
+      }
+    _ => (first_arm, i)
+  }
+}
+
+///|
+fn parse_if_tail(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Array[SurfaceIfCondArm], SurfaceExpr, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "expected '|' or 'else' or 'end' in if expression")
   }
-  if token_kind(tokens, i) == ElseTok {
+  if token_kind(tokens, i) == PipeTok {
+    let (arm, j) = parse_if_cond_arm(tokens, i + 1)
+    let (rest, else_expr, end_i) = parse_if_tail(tokens, j)
+    ([arm] + rest, else_expr, end_i)
+  } else if token_kind(tokens, i) == ElseTok {
     let (else_expr, j) = parse_expr(tokens, i + 1)
     ([], else_expr, consume_optional_end(tokens, j))
   } else if token_kind(tokens, i) == EndKeywordTok {
     ([], located_expr(tokens, i, i + 1, SNilLit), i + 1)
-  } else if token_kind(tokens, i) == PipeTok {
-    let (next_case, j) = parse_ucs_if_cond_case(tokens, i + 1)
-    let (rest, else_expr, k) = parse_ucs_if_cases_tail(tokens, j)
-    ([next_case] + rest, else_expr, k)
   } else {
     syntax_error_at(
       tokens, i, "expected '|' or 'else' or 'end' in if expression",
@@ -867,101 +935,184 @@ fn parse_ucs_if_cases_tail(
 }
 
 ///|
-fn parse_ucs_cond_guard_branches(
+fn parse_if_cond_arm(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[SurfaceUcsCondCase], SurfaceExpr?, Int) raise {
-  let start_i = if i < tokens.length() && token_kind(tokens, i) == PipeTok {
-    i + 1
-  } else {
-    i
+) -> (SurfaceIfCondArm, Int) raise {
+  let (head_expr, j) = parse_expr(tokens, i)
+  if j < tokens.length() && token_kind(tokens, j) == IsTok {
+    let (arm_guard, end_i) = parse_if_is_guard(tokens, head_expr, j + 1)
+    return (
+      SIfCondArm(located_expr(tokens, i, j, SBoolLit(true)), arm_guard),
+      end_i,
+    )
   }
-  if start_i >= tokens.length() {
-    syntax_error_eof(tokens, "unexpected end in nested if guard cases")
-  }
-  let (case_, k) = parse_ucs_if_cond_case(tokens, start_i)
-  let (rest, fallback, end_i) = parse_ucs_cond_guard_branches_tail(tokens, k)
-  ([case_] + rest, fallback, end_i)
+  let (arm_guard, end_i) = parse_if_guard_after_value(tokens, head_expr, j)
+  (SIfCondArm(head_expr, arm_guard), end_i)
 }
 
 ///|
-fn parse_ucs_cond_guard_branches_tail(
+fn parse_if_guard_after_value(
+  tokens : Array[SpannedToken],
+  _value_expr : SurfaceExpr,
+  i : Int,
+) -> (SurfaceIfGuard, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected 'then' or 'and' or 'is' in if branch")
+  }
+  if token_kind(tokens, i) == ThenTok {
+    let (body, j) = parse_expr(tokens, i + 1)
+    return (SIfThen(body), j)
+  }
+  if token_kind(tokens, i) == AndWordTok {
+    return parse_if_and_guard(tokens, i + 1)
+  }
+  syntax_error_at(tokens, i, "expected 'then' or 'and' or 'is' in if branch")
+}
+
+///|
+fn parse_if_guard_after_pattern(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[SurfaceUcsCondCase], SurfaceExpr?, Int) raise {
+) -> (SurfaceIfGuard, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected 'then' or 'and' in pattern branch")
+  }
+  if token_kind(tokens, i) == ThenTok {
+    let (body, j) = parse_expr(tokens, i + 1)
+    return (SIfThen(body), j)
+  }
+  if token_kind(tokens, i) == AndWordTok {
+    return parse_if_and_guard(tokens, i + 1)
+  }
+  syntax_error_at(tokens, i, "expected 'then' or 'and' in pattern branch")
+}
+
+///|
+fn parse_if_and_guard(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceIfGuard, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "unexpected end after 'and'")
+  }
+  if token_kind(tokens, i) == PipeTok {
+    let (first_arm, j) = parse_if_cond_arm(tokens, i + 1)
+    let (rest, end_i) = parse_if_and_multi_tail(tokens, j)
+    (SIfAnd([first_arm] + rest), end_i)
+  } else {
+    let (only_arm, j) = parse_if_cond_arm(tokens, i)
+    (SIfAnd([only_arm]), j)
+  }
+}
+
+///|
+fn parse_if_and_multi_tail(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Array[SurfaceIfCondArm], Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(
-      tokens, "expected '|' or 'or' or 'else' or 'end' after nested if guard case",
+      tokens, "expected '|' or 'or' or 'else' or 'end' after multi 'and' branch",
     )
   }
   if token_kind(tokens, i) == PipeTok {
-    parse_ucs_cond_guard_branches(tokens, i)
+    let (arm, j) = parse_if_cond_arm(tokens, i + 1)
+    let (rest, end_i) = parse_if_and_multi_tail(tokens, j)
+    ([arm] + rest, end_i)
   } else if token_kind(tokens, i) == OrWordTok {
-    ([], None, i + 1)
+    ([], i + 1)
   } else if token_kind(tokens, i) == ElseTok {
     let (body, j) = parse_expr(tokens, i + 1)
-    ([], Some(body), consume_optional_end(tokens, j))
+    (
+      [
+        SIfCondArm(
+          located_expr(tokens, i, i + 1, SBoolLit(true)),
+          SIfThen(body),
+        ),
+      ],
+      j,
+    )
   } else if token_kind(tokens, i) == EndKeywordTok {
-    ([], Some(located_expr(tokens, i, i + 1, SNilLit)), i + 1)
+    (
+      [
+        SIfCondArm(
+          located_expr(tokens, i, i + 1, SBoolLit(true)),
+          SIfThen(located_expr(tokens, i, i + 1, SNilLit)),
+        ),
+      ],
+      i + 1,
+    )
   } else {
     syntax_error_at(
-      tokens, i, "expected '|' or 'or' or 'else' or 'end' after nested if guard case",
+      tokens, i, "expected '|' or 'or' or 'else' or 'end' after multi 'and' branch",
     )
   }
 }
 
 ///|
-fn starts_ucs_pattern_split(tokens : Array[SpannedToken], i : Int) -> Bool {
-  try {
-    let (_, j) = parse_cmp_expr(tokens, i)
-    if j >= tokens.length() || token_kind(tokens, j) != IsTok {
-      return false
-    }
-    let case_i = if j + 1 < tokens.length() &&
-      token_kind(tokens, j + 1) == PipeTok {
-      j + 2
-    } else {
-      j + 1
-    }
-    let (_, k) = parse_pattern(tokens, case_i)
-    ucs_pattern_case_reaches_then(tokens, k)
-  } catch {
-    _ => false
-  }
-}
-
-///|
-fn ucs_pattern_case_reaches_then(
+fn parse_if_is_guard(
   tokens : Array[SpannedToken],
+  value_expr : SurfaceExpr,
   i : Int,
-) -> Bool raise {
+) -> (SurfaceIfGuard, Int) raise {
   if i >= tokens.length() {
-    false
-  } else if token_kind(tokens, i) == ThenTok {
-    true
-  } else if token_kind(tokens, i) == AndWordTok {
-    if i + 1 < tokens.length() && token_kind(tokens, i + 1) == PipeTok {
-      true
-    } else {
-      let (_, j, hits_multi) = parse_ucs_guard_prefix_after_and(tokens, i + 1)
-      hits_multi || (j < tokens.length() && token_kind(tokens, j) == ThenTok)
-    }
+    syntax_error_eof(tokens, "unexpected end after 'is'")
+  }
+  if token_kind(tokens, i) == PipeTok {
+    let (first_arm, j) = parse_if_pattern_arm(tokens, i + 1)
+    let (rest, end_i) = parse_if_is_multi_tail(tokens, j)
+    (SIfIs(value_expr, [first_arm] + rest), end_i)
   } else {
-    false
+    let (only_arm, j) = parse_if_pattern_arm(tokens, i)
+    (SIfIs(value_expr, [only_arm]), j)
   }
 }
 
 ///|
-fn parse_ucs_pattern_split_expr(
+fn parse_if_pattern_arm(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (SurfaceExpr, Int) raise {
-  let (value_expr, j) = parse_cmp_expr(tokens, i + 1)
-  if j >= tokens.length() || token_kind(tokens, j) != IsTok {
-    syntax_error_at(tokens, j, "expected 'is' in conditional pattern split")
+) -> (SurfaceIfPatternArm, Int) raise {
+  let (pattern, j) = parse_pattern(tokens, i)
+  let (arm_guard, end_i) = parse_if_guard_after_pattern(tokens, j)
+  (SIfPatternArm(pattern, arm_guard), end_i)
+}
+
+///|
+fn parse_if_is_multi_tail(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (Array[SurfaceIfPatternArm], Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(
+      tokens, "expected '|' or 'or' or 'else' or 'end' after multi 'is' branch",
+    )
   }
-  let (cases, else_expr, k) = parse_ucs_pattern_cases(tokens, j + 1)
-  (located_expr(tokens, i, k, SUcsIfIs(value_expr, cases, else_expr)), k)
+  if token_kind(tokens, i) == PipeTok {
+    let (arm, j) = parse_if_pattern_arm(tokens, i + 1)
+    let (rest, end_i) = parse_if_is_multi_tail(tokens, j)
+    ([arm] + rest, end_i)
+  } else if token_kind(tokens, i) == OrWordTok {
+    ([], i + 1)
+  } else if token_kind(tokens, i) == ElseTok {
+    let (body, j) = parse_expr(tokens, i + 1)
+    ([SIfPatternArm(SPBind("_"), SIfThen(body))], j)
+  } else if token_kind(tokens, i) == EndKeywordTok {
+    (
+      [
+        SIfPatternArm(
+          SPBind("_"),
+          SIfThen(located_expr(tokens, i, i + 1, SNilLit)),
+        ),
+      ],
+      i + 1,
+    )
+  } else {
+    syntax_error_at(
+      tokens, i, "expected '|' or 'or' or 'else' or 'end' after multi 'is' branch",
+    )
+  }
 }
 
 ///|
@@ -1489,314 +1640,6 @@ fn parse_list_literal(
       next_expr,
       "unexpected token in list: " + token_name(token_kind(tokens, next_expr)),
     )
-  }
-}
-
-///|
-fn parse_ucs_pattern_cases(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> (Array[(SurfacePattern, SurfaceUcsGuard)], SurfaceExpr, Int) raise {
-  if i >= tokens.length() {
-    syntax_error_eof(tokens, "unexpected end in conditional pattern split")
-  }
-  let start_i = if token_kind(tokens, i) == PipeTok { i + 1 } else { i }
-  let (first_case, j) = parse_ucs_pattern_case(tokens, start_i)
-  let (rest, else_expr, k) = parse_ucs_pattern_cases_tail(tokens, j)
-  ([first_case] + rest, else_expr, k)
-}
-
-///|
-fn parse_ucs_pattern_cases_tail(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> (Array[(SurfacePattern, SurfaceUcsGuard)], SurfaceExpr, Int) raise {
-  if i >= tokens.length() {
-    syntax_error_eof(
-      tokens, "expected '|' or 'else' or 'end' in conditional pattern split",
-    )
-  }
-  if token_kind(tokens, i) == ElseTok {
-    let (body, j) = parse_expr(tokens, i + 1)
-    ([], body, consume_optional_end(tokens, j))
-  } else if token_kind(tokens, i) == EndKeywordTok {
-    ([], located_expr(tokens, i, i + 1, SNilLit), i + 1)
-  } else if token_kind(tokens, i) == PipeTok {
-    parse_ucs_pattern_cases(tokens, i)
-  } else {
-    syntax_error_at(
-      tokens, i, "expected '|' or 'else' or 'end' in conditional pattern split",
-    )
-  }
-}
-
-///|
-fn parse_ucs_pattern_case(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> ((SurfacePattern, SurfaceUcsGuard), Int) raise {
-  let (pattern, j) = parse_pattern(tokens, i)
-  if j < tokens.length() && token_kind(tokens, j) == IfTok {
-    syntax_error_at(tokens, j, "pattern guards use 'and', not 'if'")
-  }
-  if j < tokens.length() && token_kind(tokens, j) == AndAndTok {
-    syntax_error_at(tokens, j, "pattern guards use keyword 'and', not '&&'")
-  }
-  let (case_guard, k) = parse_ucs_guard_for_pattern_head(
-    tokens, j, "expected 'then' after conditional pattern", "expected 'then' in nested pattern guard case",
-    "expected 'is' after nested split value",
-  )
-  ((pattern, case_guard), k)
-}
-
-///|
-fn parse_ucs_nested_guard_is_cases(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> (Array[(SurfacePattern, SurfaceUcsGuard)], SurfaceExpr?, Int) raise {
-  if i >= tokens.length() {
-    syntax_error_eof(tokens, "unexpected end in nested 'and is' cases")
-  }
-  if token_kind(tokens, i) == PipeTok {
-    let (first_case, j) = parse_ucs_nested_guard_is_case(tokens, i + 1)
-    let (rest, fallback, k) = parse_ucs_nested_guard_is_cases_tail(tokens, j)
-    ([first_case] + rest, fallback, k)
-  } else {
-    let (only_case, j) = parse_ucs_nested_guard_is_case(tokens, i)
-    ([only_case], None, j)
-  }
-}
-
-///|
-fn parse_ucs_nested_guard_is_cases_tail(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> (Array[(SurfacePattern, SurfaceUcsGuard)], SurfaceExpr?, Int) raise {
-  if i >= tokens.length() {
-    syntax_error_eof(
-      tokens, "expected '|' or 'else' or 'end' in nested 'and is' cases",
-    )
-  }
-  if token_kind(tokens, i) == PipeTok {
-    parse_ucs_nested_guard_is_cases(tokens, i)
-  } else if token_kind(tokens, i) == OrWordTok {
-    ([], None, i + 1)
-  } else if token_kind(tokens, i) == ElseTok {
-    let (body, j) = parse_expr(tokens, i + 1)
-    ([], Some(body), consume_optional_end(tokens, j))
-  } else if token_kind(tokens, i) == EndKeywordTok {
-    ([], Some(located_expr(tokens, i, i + 1, SNilLit)), i + 1)
-  } else {
-    syntax_error_at(
-      tokens, i, "expected '|' or 'else' or 'end' in nested 'and is' cases",
-    )
-  }
-}
-
-///|
-fn parse_ucs_nested_guard_is_case(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> ((SurfacePattern, SurfaceUcsGuard), Int) raise {
-  let (pattern, j) = parse_pattern(tokens, i)
-  let (case_guard, k) = parse_ucs_guard_for_pattern_head(
-    tokens, j, "expected 'then' in nested 'and is' case", "expected 'then' in nested 'and is' case",
-    "expected 'is' after nested split value",
-  )
-  ((pattern, case_guard), k)
-}
-
-///|
-fn parse_ucs_guard_for_pattern_head(
-  tokens : Array[SpannedToken],
-  i : Int,
-  then_msg : String,
-  nested_then_msg : String,
-  nested_is_msg : String,
-) -> (SurfaceUcsGuard, Int) raise {
-  if i < tokens.length() && token_kind(tokens, i) == AndWordTok {
-    if i + 1 < tokens.length() && token_kind(tokens, i + 1) == PipeTok {
-      let (branches, fallback, end_i) = parse_ucs_pattern_guard_branches(
-        tokens,
-        i + 1,
-      )
-      return (SUcsGuardAndCondBranches(branches, fallback), end_i)
-    }
-    if starts_ucs_nested_pattern_split(tokens, i + 1) {
-      let (value_expr, split_i) = parse_cmp_expr(tokens, i + 1)
-      if split_i >= tokens.length() || token_kind(tokens, split_i) != IsTok {
-        syntax_error_at(tokens, split_i, nested_is_msg)
-      }
-      let (cases, fallback, end_i) = parse_ucs_nested_guard_is_cases(
-        tokens,
-        split_i + 1,
-      )
-      return (SUcsGuardAndIs(value_expr, cases, fallback), end_i)
-    }
-    let (prefix_cond, k, hits_multi) = parse_ucs_guard_prefix_after_and(
-      tokens,
-      i + 1,
-    )
-    if hits_multi {
-      let (branches, fallback, end_i) = parse_ucs_pattern_guard_branches(
-        tokens, k,
-      )
-      let tail_guard = SUcsGuardAndCondBranches(branches, fallback)
-      return (SUcsGuardAndCond(prefix_cond, tail_guard), end_i)
-    }
-    if k >= tokens.length() || token_kind(tokens, k) != ThenTok {
-      syntax_error_at(tokens, k, nested_then_msg)
-    }
-    let (body, next_expr) = parse_expr(tokens, k + 1)
-    return (SUcsGuardAndCond(prefix_cond, SUcsGuardBody(body)), next_expr)
-  }
-  if i >= tokens.length() || token_kind(tokens, i) != ThenTok {
-    syntax_error_at(tokens, i, then_msg)
-  }
-  let (body, next_expr) = parse_expr(tokens, i + 1)
-  (SUcsGuardBody(body), next_expr)
-}
-
-///|
-fn surface_cond_case_from_head_and_guard(
-  head_cond : SurfaceExpr,
-  case_guard : SurfaceUcsGuard,
-) -> SurfaceUcsCondCase {
-  match case_guard {
-    SUcsGuardBody(body) => SUcsCondCase(head_cond, body)
-    SUcsGuardAndCond(cond, next_guard) =>
-      match next_guard {
-        SUcsGuardBody(body) =>
-          SUcsCondAnd(head_cond, [SUcsCondCase(cond, body)], None)
-        _ =>
-          surface_cond_case_from_head_and_guard(
-            SBinary(And, head_cond, cond),
-            next_guard,
-          )
-      }
-    SUcsGuardAndCondBranches(branches, fallback) =>
-      SUcsCondAnd(head_cond, branches, fallback)
-    SUcsGuardAndIs(value_expr, cases, fallback) =>
-      SUcsCondAndIs(head_cond, value_expr, cases, fallback)
-  }
-}
-
-///|
-fn parse_ucs_guard_prefix_after_and(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> (SurfaceExpr, Int, Bool) raise {
-  let (seg, j) = parse_ucs_guard_segment(tokens, i)
-  if j < tokens.length() && token_kind(tokens, j) == AndWordTok {
-    if j + 1 < tokens.length() && token_kind(tokens, j + 1) == PipeTok {
-      return (seg, j + 1, true)
-    }
-    let (rest, k, hits_multi) = parse_ucs_guard_prefix_after_and(tokens, j + 1)
-    (SBinary(And, seg, rest), k, hits_multi)
-  } else {
-    (seg, j, false)
-  }
-}
-
-///|
-fn parse_ucs_guard_segment(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> (SurfaceExpr, Int) raise {
-  if starts_ucs_nested_pattern_split(tokens, i) {
-    let (value_expr, split_i) = parse_cmp_expr(tokens, i)
-    if split_i >= tokens.length() || token_kind(tokens, split_i) != IsTok {
-      syntax_error_at(tokens, split_i, "expected 'is' after nested split value")
-    }
-    let case_i = if split_i + 1 < tokens.length() &&
-      token_kind(tokens, split_i + 1) == PipeTok {
-      split_i + 2
-    } else {
-      split_i + 1
-    }
-    let (pattern, end_i) = parse_pattern(tokens, case_i)
-    (build_surface_is_guard_expr(value_expr, pattern), end_i)
-  } else {
-    parse_expr(tokens, i)
-  }
-}
-
-///|
-fn build_surface_is_guard_expr(
-  value_expr : SurfaceExpr,
-  pattern : SurfacePattern,
-) -> SurfaceExpr {
-  SUcsIfIs(
-    value_expr,
-    [(pattern, SUcsGuardBody(SBoolLit(true)))],
-    SBoolLit(false),
-  )
-}
-
-///|
-fn parse_ucs_pattern_guard_branches(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> (Array[SurfaceUcsCondCase], SurfaceExpr?, Int) raise {
-  let start_i = if i < tokens.length() && token_kind(tokens, i) == PipeTok {
-    i + 1
-  } else {
-    i
-  }
-  if start_i >= tokens.length() {
-    syntax_error_eof(tokens, "unexpected end in nested pattern guard cases")
-  }
-  let (current, k) = parse_ucs_if_cond_case(tokens, start_i)
-  let (rest, fallback, end_i) = parse_ucs_pattern_guard_branches_tail(tokens, k)
-  ([current] + rest, fallback, end_i)
-}
-
-///|
-fn parse_ucs_pattern_guard_branches_tail(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> (Array[SurfaceUcsCondCase], SurfaceExpr?, Int) raise {
-  if i >= tokens.length() {
-    syntax_error_eof(
-      tokens, "expected '|' or 'else' or 'end' after nested pattern guard case",
-    )
-  }
-  if token_kind(tokens, i) == PipeTok {
-    parse_ucs_pattern_guard_branches(tokens, i)
-  } else if token_kind(tokens, i) == OrWordTok {
-    ([], None, i + 1)
-  } else if token_kind(tokens, i) == ElseTok {
-    let (body, j) = parse_expr(tokens, i + 1)
-    ([], Some(body), consume_optional_end(tokens, j))
-  } else if token_kind(tokens, i) == EndKeywordTok {
-    ([], Some(located_expr(tokens, i, i + 1, SNilLit)), i + 1)
-  } else {
-    syntax_error_at(
-      tokens, i, "expected '|' or 'else' or 'end' after nested pattern guard case",
-    )
-  }
-}
-
-///|
-fn starts_ucs_nested_pattern_split(
-  tokens : Array[SpannedToken],
-  i : Int,
-) -> Bool {
-  try {
-    let (_, j) = parse_cmp_expr(tokens, i)
-    if j >= tokens.length() || token_kind(tokens, j) != IsTok {
-      return false
-    }
-    let case_i = if j + 1 < tokens.length() &&
-      token_kind(tokens, j + 1) == PipeTok {
-      j + 2
-    } else {
-      j + 1
-    }
-    let (_, k) = parse_pattern(tokens, case_i)
-    ucs_pattern_case_reaches_then(tokens, k)
-  } catch {
-    _ => false
   }
 }
 
