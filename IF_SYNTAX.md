@@ -122,6 +122,32 @@ if x is
 else 3
 ```
 
+### 3.3 `and` chains
+
+`and` can be chained. A chain may mix:
+
+- boolean guards
+- `and ... is` guards
+- single-route and multi-route `and` nodes
+
+Example (single-route chain):
+
+```simpl
+if
+| a > 0 and b > 0 and c > 0 then 1
+else 0
+```
+
+Example (single-route + multi-route nesting):
+
+```simpl
+if
+| 1 > 0 and
+  | 2 > 1 and 3 > 2 then 42
+  else 41
+else 40
+```
+
 ## 4. `and ... is` (pattern refinement inside a branch)
 
 `and ... is` is the pattern-split counterpart of `and`.
@@ -148,6 +174,25 @@ else 42
 ```
 
 Like multi-route `and`, multi-route `and ... is` is closed by `else`, `end`, or `or`.
+
+### 4.1 Chaining `and` with `and ... is`
+
+Inside the same guard chain, `and` and `and ... is` can be combined freely.
+
+Example:
+
+```simpl
+if #Some(#Some(42)) is
+| #Some(x) and x is
+  | #Some(y) and y > 0 and y is 42 and
+    | y > 42 then 1
+    | y == 42 then 2
+    or
+  else 3
+else 4
+```
+
+This style is valid: single-route and multi-route nodes can nest arbitrarily.
 
 ## 5. Operators and reserved words
 
