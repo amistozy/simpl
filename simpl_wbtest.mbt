@@ -142,7 +142,15 @@ test "desugar keeps if-and as core UCS node" {
   )
   match desugar(surface) {
     UcsIf(
-      [UcsCondAnd(BoolLit(true), [UcsCondCase(BoolLit(true), IntLit(1))], None)],
+      [
+        (
+          BoolLit(true),
+          UcsGuardAndCondBranches(
+            [(BoolLit(true), UcsGuardBody(IntLit(1)))],
+            None
+          ),
+        ),
+      ],
       NilLit
     ) => assert_true(true)
     _ => assert_true(false)
