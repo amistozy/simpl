@@ -114,11 +114,12 @@ Example with `or`:
 
 ```simpl
 if x is
-| #Some(y) and
+| #Left(y) and
   | y < 0 then 0
+  | y > 10 then 1
   or
-| #Some(y) then y
-end
+| #Right(y) and y < 0 then 2
+else 3
 ```
 
 ## 4. `and ... is` (pattern refinement inside a branch)
@@ -129,21 +130,21 @@ Single-route:
 
 ```simpl
 if v is
-| #Some(x) and f(x) is #Ok(y) then y
-| _ then 0
-end
+| #Left(x) and f(x) is #Ok(y) then y
+| #Right(x) and x > 0 then x
+else 42
 ```
 
 Multi-route:
 
 ```simpl
 if v is
-| #Some(x) and f(x) is
+| #Left(x) and f(x) is
   | #Ok(y) then y
   | #Err(_) then 0
   else -1
-| _ then 0
-end
+| #Right(x) and x > 0 then x
+else 42
 ```
 
 Like multi-route `and`, multi-route `and ... is` is closed by `else`, `end`, or `or`.
