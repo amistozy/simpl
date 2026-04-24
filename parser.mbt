@@ -841,25 +841,8 @@ fn parse_ucs_if_cond_case(
     token_kind(tokens, j + 1) == PipeTok {
     let (branches, fallback, k) = parse_ucs_cond_guard_branches(tokens, j + 1)
     (SUcsCondAnd(cond, branches, fallback), k)
-  } else if j < tokens.length() &&
-    token_kind(tokens, j) == AndWordTok &&
-    starts_ucs_nested_pattern_split(tokens, j + 1) {
-    let (value_expr, split_i) = parse_cmp_expr(tokens, j + 1)
-    if split_i >= tokens.length() || token_kind(tokens, split_i) != IsTok {
-      syntax_error_at(tokens, split_i, "expected 'is' after nested split value")
-    }
-    let (pattern_cases, fallback, end_i) = parse_ucs_nested_guard_is_cases(
-      tokens,
-      split_i + 1,
-    )
-    (SUcsCondAndIs(cond, value_expr, pattern_cases, fallback), end_i)
   } else if j < tokens.length() && token_kind(tokens, j) == AndWordTok {
-    let (guard_cond, k) = parse_expr(tokens, j + 1)
-    if k >= tokens.length() || token_kind(tokens, k) != ThenTok {
-      syntax_error_at(tokens, k, "expected 'then' in if guard case")
-    }
-    let (then_expr, m) = parse_expr(tokens, k + 1)
-    (SUcsCondAnd(cond, [SUcsCondCase(guard_cond, then_expr)], None), m)
+    parse_ucs_if_and_chain(tokens, cond, j + 1)
   } else {
     if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
       syntax_error_at(tokens, j, "expected 'then' in if expression")
@@ -867,6 +850,38 @@ fn parse_ucs_if_cond_case(
     let (then_expr, k) = parse_expr(tokens, j + 1)
     (SUcsCondCase(cond, then_expr), k)
   }
+}
+
+///|
+fn parse_ucs_if_and_chain(
+  tokens : Array[SpannedToken],
+  base_cond : SurfaceExpr,
+  i : Int,
+) -> (SurfaceUcsCondCase, Int) raise {
+  if starts_ucs_nested_pattern_split(tokens, i) {
+    let (value_expr, split_i) = parse_cmp_expr(tokens, i)
+    if split_i >= tokens.length() || token_kind(tokens, split_i) != IsTok {
+      syntax_error_at(tokens, split_i, "expected 'is' after nested split value")
+    }
+    let (pattern_cases, fallback, end_i) = parse_ucs_nested_guard_is_cases(
+      tokens,
+      split_i + 1,
+    )
+    return (
+      SUcsCondAndIs(base_cond, value_expr, pattern_cases, fallback),
+      end_i,
+    )
+  }
+  let (guard_cond, j) = parse_expr(tokens, i)
+  if j < tokens.length() && token_kind(tokens, j) == AndWordTok {
+    let next_base = SBinary(And, base_cond, guard_cond)
+    return parse_ucs_if_and_chain(tokens, next_base, j + 1)
+  }
+  if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
+    syntax_error_at(tokens, j, "expected 'then' in if guard case")
+  }
+  let (then_expr, k) = parse_expr(tokens, j + 1)
+  (SUcsCondAnd(base_cond, [SUcsCondCase(guard_cond, then_expr)], None), k)
 }
 
 ///|
@@ -969,11 +984,9 @@ fn ucs_pattern_case_reaches_then(
   } else if token_kind(tokens, i) == AndWordTok {
     if i + 1 < tokens.length() && token_kind(tokens, i + 1) == PipeTok {
       true
-    } else if starts_ucs_nested_pattern_split(tokens, i + 1) {
-      true
     } else {
-      let (_, j) = parse_expr(tokens, i + 1)
-      j < tokens.length() && token_kind(tokens, j) == ThenTok
+      let (_, j, hits_multi) = parse_ucs_guard_prefix_after_and(tokens, i + 1)
+      hits_multi || (j < tokens.length() && token_kind(tokens, j) == ThenTok)
     }
   } else {
     false
@@ -1597,13 +1610,7 @@ fn parse_ucs_pattern_case(
   if j < tokens.length() && token_kind(tokens, j) == AndAndTok {
     syntax_error_at(tokens, j, "pattern guards use keyword 'and', not '&&'")
   }
-  let (cond_expr, k) = if j < tokens.length() &&
-    token_kind(tokens, j) == AndWordTok {
-    let (cond, next) = parse_expr(tokens, j + 1)
-    (Some(cond), next)
-  } else {
-    (None, j)
-  }
+  let (cond_expr, k) = parse_ucs_guard_chain_after(tokens, j)
   if k >= tokens.length() || token_kind(tokens, k) != ThenTok {
     syntax_error_at(tokens, k, "expected 'then' after conditional pattern")
   }
@@ -1624,12 +1631,12 @@ fn parse_ucs_nested_guard_is_cases(
     syntax_error_eof(tokens, "unexpected end in nested 'and is' cases")
   }
   if token_kind(tokens, i) == PipeTok {
-    let (first_case, j) = parse_ucs_nested_guard_is_case(tokens, i + 1)
+    let (first_cases, j) = parse_ucs_nested_guard_is_case(tokens, i + 1)
     let (rest, fallback, k) = parse_ucs_nested_guard_is_cases_tail(tokens, j)
-    ([first_case] + rest, fallback, k)
+    (first_cases + rest, fallback, k)
   } else {
-    let (only_case, j) = parse_ucs_nested_guard_is_case(tokens, i)
-    ([only_case], None, j)
+    let (only_cases, j) = parse_ucs_nested_guard_is_case(tokens, i)
+    (only_cases, None, j)
   }
 }
 
@@ -1663,20 +1670,196 @@ fn parse_ucs_nested_guard_is_cases_tail(
 fn parse_ucs_nested_guard_is_case(
   tokens : Array[SpannedToken],
   i : Int,
-) -> ((SurfacePattern, SurfaceExpr?, SurfaceExpr), Int) raise {
+) -> (Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)], Int) raise {
   let (pattern, j) = parse_pattern(tokens, i)
-  let (cond_expr, k) = if j < tokens.length() &&
-    token_kind(tokens, j) == AndWordTok {
-    let (cond, next) = parse_expr(tokens, j + 1)
-    (Some(cond), next)
+  if j < tokens.length() && token_kind(tokens, j) == AndWordTok {
+    if j + 1 < tokens.length() && token_kind(tokens, j + 1) == PipeTok {
+      let (branches, fallback, end_i) = parse_ucs_pattern_guard_branches(
+        tokens,
+        j + 1,
+      )
+      return (
+        expand_surface_cond_cases_for_pattern(pattern, None, branches, fallback),
+        end_i,
+      )
+    }
+    let (prefix_cond, k, hits_multi) = parse_ucs_guard_prefix_after_and(
+      tokens,
+      j + 1,
+    )
+    if hits_multi {
+      let (branches, fallback, end_i) = parse_ucs_pattern_guard_branches(
+        tokens, k,
+      )
+      return (
+        expand_surface_cond_cases_for_pattern(
+          pattern,
+          Some(prefix_cond),
+          branches,
+          fallback,
+        ),
+        end_i,
+      )
+    }
+    if k >= tokens.length() || token_kind(tokens, k) != ThenTok {
+      syntax_error_at(tokens, k, "expected 'then' in nested 'and is' case")
+    }
+    let (body, next_expr) = parse_expr(tokens, k + 1)
+    return ([(pattern, Some(prefix_cond), body)], next_expr)
+  }
+  if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
+    syntax_error_at(tokens, j, "expected 'then' in nested 'and is' case")
+  }
+  let (body, next_expr) = parse_expr(tokens, j + 1)
+  ([(pattern, None, body)], next_expr)
+}
+
+///|
+fn parse_ucs_guard_chain_after(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr?, Int) raise {
+  if i >= tokens.length() || token_kind(tokens, i) != AndWordTok {
+    return (None, i)
+  }
+  let (first_seg, j) = parse_ucs_guard_segment(tokens, i + 1)
+  let (rest, k) = parse_ucs_guard_chain_tail(tokens, j)
+  let combined = match rest {
+    Some(expr) => Some(SBinary(And, first_seg, expr))
+    None => Some(first_seg)
+  }
+  (combined, k)
+}
+
+///|
+fn parse_ucs_guard_prefix_after_and(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int, Bool) raise {
+  let (seg, j) = parse_ucs_guard_segment(tokens, i)
+  if j < tokens.length() && token_kind(tokens, j) == AndWordTok {
+    if j + 1 < tokens.length() && token_kind(tokens, j + 1) == PipeTok {
+      return (seg, j + 1, true)
+    }
+    let (rest, k, hits_multi) = parse_ucs_guard_prefix_after_and(tokens, j + 1)
+    (SBinary(And, seg, rest), k, hits_multi)
   } else {
-    (None, j)
+    (seg, j, false)
   }
-  if k >= tokens.length() || token_kind(tokens, k) != ThenTok {
-    syntax_error_at(tokens, k, "expected 'then' in nested 'and is' case")
+}
+
+///|
+fn parse_ucs_guard_chain_tail(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr?, Int) raise {
+  if i >= tokens.length() || token_kind(tokens, i) != AndWordTok {
+    return (None, i)
   }
-  let (body, next_expr) = parse_expr(tokens, k + 1)
-  ((pattern, cond_expr, body), next_expr)
+  let (seg, j) = parse_ucs_guard_segment(tokens, i + 1)
+  let (rest, k) = parse_ucs_guard_chain_tail(tokens, j)
+  let combined = match rest {
+    Some(expr) => Some(SBinary(And, seg, expr))
+    None => Some(seg)
+  }
+  (combined, k)
+}
+
+///|
+fn parse_ucs_guard_segment(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
+  if starts_ucs_nested_pattern_split(tokens, i) {
+    let (value_expr, split_i) = parse_cmp_expr(tokens, i)
+    if split_i >= tokens.length() || token_kind(tokens, split_i) != IsTok {
+      syntax_error_at(tokens, split_i, "expected 'is' after nested split value")
+    }
+    let case_i = if split_i + 1 < tokens.length() &&
+      token_kind(tokens, split_i + 1) == PipeTok {
+      split_i + 2
+    } else {
+      split_i + 1
+    }
+    let (pattern, end_i) = parse_pattern(tokens, case_i)
+    (build_surface_is_guard_expr(value_expr, pattern), end_i)
+  } else {
+    parse_expr(tokens, i)
+  }
+}
+
+///|
+fn build_surface_is_guard_expr(
+  value_expr : SurfaceExpr,
+  pattern : SurfacePattern,
+) -> SurfaceExpr {
+  SUcsIfIs(
+    value_expr,
+    [(pattern, SUcsPatternBody(SBoolLit(true)))],
+    SBoolLit(false),
+  )
+}
+
+///|
+fn merge_surface_guard_prefix(
+  prefix : SurfaceExpr?,
+  cond : SurfaceExpr,
+) -> SurfaceExpr {
+  match prefix {
+    Some(expr) => SBinary(And, expr, cond)
+    None => cond
+  }
+}
+
+///|
+fn expand_surface_cond_cases_for_pattern(
+  pattern : SurfacePattern,
+  prefix : SurfaceExpr?,
+  cond_cases : Array[SurfaceUcsCondCase],
+  fallback : SurfaceExpr?,
+) -> Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)] {
+  let expanded = cond_cases.fold(init=[], (acc, item) => {
+    acc + expand_surface_cond_case_for_pattern(pattern, prefix, item)
+  })
+  match fallback {
+    Some(body) => expanded + [(pattern, prefix, body)]
+    None => expanded
+  }
+}
+
+///|
+fn expand_surface_cond_case_for_pattern(
+  pattern : SurfacePattern,
+  prefix : SurfaceExpr?,
+  cond_case : SurfaceUcsCondCase,
+) -> Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)] {
+  match cond_case {
+    SUcsCondCase(cond, body) =>
+      [(pattern, Some(merge_surface_guard_prefix(prefix, cond)), body)]
+    SUcsCondAnd(base_cond, branches, fallback) => {
+      let next_prefix = Some(merge_surface_guard_prefix(prefix, base_cond))
+      expand_surface_cond_cases_for_pattern(
+        pattern, next_prefix, branches, fallback,
+      )
+    }
+    SUcsCondAndIs(base_cond, value_expr, cases, fallback) => {
+      let next_prefix = merge_surface_guard_prefix(prefix, base_cond)
+      let expanded_cases = cases.map(case => {
+        let (inner_pattern, inner_cond, body) = case
+        let is_guard = build_surface_is_guard_expr(value_expr, inner_pattern)
+        let base_guard = SBinary(And, next_prefix, is_guard)
+        let final_guard = match inner_cond {
+          Some(expr) => Some(SBinary(And, base_guard, expr))
+          None => Some(base_guard)
+        }
+        (pattern, final_guard, body)
+      })
+      match fallback {
+        Some(body) => expanded_cases + [(pattern, Some(next_prefix), body)]
+        None => expanded_cases
+      }
+    }
+  }
 }
 
 ///|

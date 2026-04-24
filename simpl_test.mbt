@@ -97,6 +97,70 @@ test "if and-is inside nested and guard works" {
 }
 
 ///|
+test "nested and is inside nested pattern split case works" {
+  let code =
+    #| if #Some(#Some(42)) is
+    #| | #Some(x) and x is
+    #|   | #Some(y) and y is 42 then 1
+    #|   else 2
+    #| else 3
+  assert_true(@simpl.eval_source_is_int(code, 1))
+}
+
+///|
+test "nested and-is chain with bool guard and is guard works" {
+  let code =
+    #| if #Some(#Some(42)) is
+    #| | #Some(x) and x is
+    #|   | #Some(y) and y > 0 and y is 42 then 1
+    #|   else 2
+    #| else 3
+  assert_true(@simpl.parse_is_ok(code))
+  assert_true(@simpl.eval_source_is_int(code, 1))
+}
+
+///|
+test "ucs matrix sanity for if if-is and and-is chains" {
+  let if_code =
+    #| if true and 1 < 2 and 2 < 3 then 1 else 0
+  let if_is_code =
+    #| if #Some(42) is
+    #| | #Some(x) and x > 0 and x is 42 then 1
+    #| else 0
+  let and_chain_code =
+    #| if
+    #| | true and
+    #|   | 1 < 2 and 2 < 3 then 1
+    #|   else 0
+    #| else -1
+  let and_is_chain_code =
+    #| if #Some(#Some(42)) is
+    #| | #Some(x) and x is
+    #|   | #Some(y) and y > 0 and y is 42 then 1
+    #|   else 0
+    #| else -1
+  assert_true(@simpl.eval_source_is_int(if_code, 1))
+  assert_true(@simpl.eval_source_is_int(if_is_code, 1))
+  assert_true(@simpl.eval_source_is_int(and_chain_code, 1))
+  assert_true(@simpl.eval_source_is_int(and_is_chain_code, 1))
+}
+
+///|
+test "nested single and and multi and under and is works" {
+  let code =
+    #| if #Some(#Some(42)) is
+    #| | #Some(x) and x is
+    #|   | #Some(y) and y > 0 and y is 42 and 
+    #|     | y > 42 then 1
+    #|     | y == 42 then 2
+    #|     or
+    #|   else 3
+    #| else 4
+  assert_true(@simpl.parse_is_ok(code))
+  assert_true(@simpl.eval_source_is_int(code, 2))
+}
+
+///|
 /// Blackbox: functional closures with lexical environment
 test "closure captures lexical env" {
   let expr = @simpl.let_in(
