@@ -4,14 +4,13 @@
 /// Run with `moon run cmd/main` from the project root.
 fn main {
   let code =
-    #| let x = #Some(-1) in
-    #| if x is
-    #| | #Some(y) and
-    #|   | y > 0 then 1
-    #|   | y == 0 then 2
-    #|   end
-    #| else 3
+    #| if
+    #| | 1 > 0 and 
+    #|   | 2 > 1 and 3 > 2 then 42
+    #|   else 41
+    #| else 40
 
-  let result = try? @lib.eval_source(code)
+  // let result = try? @lib.eval_source(code)
+  let result = try? @lib.parse(code)
   debug(result)
 }

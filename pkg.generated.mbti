@@ -191,10 +191,9 @@ pub enum Expr {
   Var(String)
   Record(Array[(String, Expr)])
   Variant(String, Expr)
-  If(Expr, Expr, Expr)
+  UcsIf(Array[UcsCondCase], Expr)
   Let(MatchPattern, Expr, Expr)
-  Is(Expr, MatchPattern)
-  Match(Expr, Array[(MatchPattern, Expr?, Expr)])
+  UcsIfIs(Expr, Array[(MatchPattern, UcsPatternGuard)], Expr)
   LetRec(String, Array[MatchPattern], Expr, Expr)
   Lambda(Array[MatchPattern], Expr)
   Call(Expr, Array[Expr])
@@ -229,12 +228,11 @@ pub enum SurfaceExpr {
   SVar(String)
   SRecord(Array[SurfaceRecordField])
   SVariant(String, SurfaceExpr)
-  SIf(SurfaceExpr, SurfaceExpr, SurfaceExpr)
+  SUcsIf(Array[SurfaceUcsCondCase], SurfaceExpr)
   SLet(SurfacePattern, SurfaceExpr, SurfaceExpr)
   SDo(SurfaceExpr, SurfaceExpr)
   SLetFun(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
-  SIs(SurfaceExpr, SurfacePattern)
-  SMatch(SurfaceExpr, Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)])
+  SUcsIfIs(SurfaceExpr, Array[(SurfacePattern, SurfaceUcsPatternGuard)], SurfaceExpr)
   SLetRec(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
   SLambda(Array[SurfacePattern], SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceExpr])
@@ -267,6 +265,30 @@ pub enum SurfaceRecordField {
 pub enum SurfaceRecordPatternField {
   SPRecordField(String, SurfacePattern)
   SPRecordShorthand(String)
+} derive(@debug.Debug)
+
+pub enum SurfaceUcsCondCase {
+  SUcsCondCase(SurfaceExpr, SurfaceExpr)
+  SUcsCondAnd(SurfaceExpr, Array[(SurfaceExpr, SurfaceExpr)], SurfaceExpr?)
+} derive(@debug.Debug)
+
+pub enum SurfaceUcsPatternGuard {
+  SUcsPatternBody(SurfaceExpr)
+  SUcsPatternAndCond(SurfaceExpr, SurfaceExpr)
+  SUcsPatternAndCondBranches(Array[(SurfaceExpr, SurfaceExpr)], SurfaceExpr?)
+  SUcsPatternAndIs(SurfaceExpr, Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)], SurfaceExpr?)
+} derive(@debug.Debug)
+
+pub enum UcsCondCase {
+  UcsCondCase(Expr, Expr)
+  UcsCondAnd(Expr, Array[(Expr, Expr)], Expr?)
+} derive(@debug.Debug)
+
+pub enum UcsPatternGuard {
+  UcsPatternBody(Expr)
+  UcsPatternAndCond(Expr, Expr)
+  UcsPatternAndCondBranches(Array[(Expr, Expr)], Expr?)
+  UcsPatternAndIs(Expr, Array[(MatchPattern, Expr?, Expr)], Expr?)
 } derive(@debug.Debug)
 
 pub enum UnOp {

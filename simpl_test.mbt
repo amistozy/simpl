@@ -48,6 +48,22 @@ test "extended comparisons (!= <= >=)" {
 }
 
 ///|
+test "if single-route and guard works" {
+  let code =
+    #| if true and true then 1 end
+  assert_true(@simpl.eval_source_is_int(code, 1))
+}
+
+///|
+test "if first-pipe case with and guard works" {
+  let code =
+    #| if
+    #| | true and true then 1
+    #| end
+  assert_true(@simpl.eval_source_is_int(code, 1))
+}
+
+///|
 /// Blackbox: functional closures with lexical environment
 test "closure captures lexical env" {
   let expr = @simpl.let_in(

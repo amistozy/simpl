@@ -107,3 +107,38 @@ test "desugared surface ast evaluates as core ast" {
     eval_is_int(Let(PBind("r"), RefNew(IntLit(0)), desugar(expr)), 42),
   )
 }
+
+///|
+test "parser keeps if-and as UCS node instead of binary and" {
+  match parse("if true and true then 1 end") {
+    SLocated(
+      _,
+      SUcsIf(
+        [
+          SUcsCondAnd(
+            SLocated(_, SBoolLit(true)),
+            [(SLocated(_, SBoolLit(true)), SLocated(_, SIntLit(1)))],
+            None
+          ),
+        ],
+        SLocated(_, SNilLit)
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar keeps if-and as core UCS node" {
+  let surface = SUcsIf(
+    [SUcsCondAnd(SBoolLit(true), [(SBoolLit(true), SIntLit(1))], None)],
+    SNilLit,
+  )
+  match desugar(surface) {
+    UcsIf(
+      [UcsCondAnd(BoolLit(true), [(BoolLit(true), IntLit(1))], None)],
+      NilLit
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
