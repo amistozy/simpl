@@ -270,24 +270,26 @@ pub enum SurfaceRecordPatternField {
 pub enum SurfaceUcsCondCase {
   SUcsCondCase(SurfaceExpr, SurfaceExpr)
   SUcsCondAnd(SurfaceExpr, Array[SurfaceUcsCondCase], SurfaceExpr?)
+  SUcsCondAndIs(SurfaceExpr, SurfaceExpr, Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)], SurfaceExpr?)
 } derive(@debug.Debug)
 
 pub enum SurfaceUcsPatternGuard {
   SUcsPatternBody(SurfaceExpr)
   SUcsPatternAndCond(SurfaceExpr, SurfaceExpr)
-  SUcsPatternAndCondBranches(Array[(SurfaceExpr, SurfaceExpr)], SurfaceExpr?)
+  SUcsPatternAndCondBranches(Array[SurfaceUcsCondCase], SurfaceExpr?)
   SUcsPatternAndIs(SurfaceExpr, Array[(SurfacePattern, SurfaceExpr?, SurfaceExpr)], SurfaceExpr?)
 } derive(@debug.Debug)
 
 pub enum UcsCondCase {
   UcsCondCase(Expr, Expr)
   UcsCondAnd(Expr, Array[UcsCondCase], Expr?)
+  UcsCondAndIs(Expr, Expr, Array[(MatchPattern, Expr?, Expr)], Expr?)
 } derive(@debug.Debug)
 
 pub enum UcsPatternGuard {
   UcsPatternBody(Expr)
   UcsPatternAndCond(Expr, Expr)
-  UcsPatternAndCondBranches(Array[(Expr, Expr)], Expr?)
+  UcsPatternAndCondBranches(Array[UcsCondCase], Expr?)
   UcsPatternAndIs(Expr, Array[(MatchPattern, Expr?, Expr)], Expr?)
 } derive(@debug.Debug)
 

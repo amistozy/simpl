@@ -75,6 +75,28 @@ test "nested and node inside and node works" {
 }
 
 ///|
+test "pattern guard nested and node works" {
+  let code =
+    #| if #Some(42) is
+    #| | #Some(x) and 
+    #|   | x > 1 and x > 2 then x
+    #|   else 41
+    #| else 40
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "if and-is inside nested and guard works" {
+  let code =
+    #| if #Some(42) is
+    #| | #Some(x) and
+    #|   | x > 1 and x is 2 then x
+    #|   else 41
+    #| else 40
+  assert_true(@simpl.eval_source_is_int(code, 41))
+}
+
+///|
 /// Blackbox: functional closures with lexical environment
 test "closure captures lexical env" {
   let expr = @simpl.let_in(

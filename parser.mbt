@@ -841,6 +841,18 @@ fn parse_ucs_if_cond_case(
     token_kind(tokens, j + 1) == PipeTok {
     let (branches, fallback, k) = parse_ucs_cond_guard_branches(tokens, j + 1)
     (SUcsCondAnd(cond, branches, fallback), k)
+  } else if j < tokens.length() &&
+    token_kind(tokens, j) == AndWordTok &&
+    starts_ucs_nested_pattern_split(tokens, j + 1) {
+    let (value_expr, split_i) = parse_cmp_expr(tokens, j + 1)
+    if split_i >= tokens.length() || token_kind(tokens, split_i) != IsTok {
+      syntax_error_at(tokens, split_i, "expected 'is' after nested split value")
+    }
+    let (pattern_cases, fallback, end_i) = parse_ucs_nested_guard_is_cases(
+      tokens,
+      split_i + 1,
+    )
+    (SUcsCondAndIs(cond, value_expr, pattern_cases, fallback), end_i)
   } else if j < tokens.length() && token_kind(tokens, j) == AndWordTok {
     let (guard_cond, k) = parse_expr(tokens, j + 1)
     if k >= tokens.length() || token_kind(tokens, k) != ThenTok {
@@ -1671,7 +1683,7 @@ fn parse_ucs_nested_guard_is_case(
 fn parse_ucs_pattern_guard_branches(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[(SurfaceExpr, SurfaceExpr)], SurfaceExpr?, Int) raise {
+) -> (Array[SurfaceUcsCondCase], SurfaceExpr?, Int) raise {
   let start_i = if i < tokens.length() && token_kind(tokens, i) == PipeTok {
     i + 1
   } else {
@@ -1680,12 +1692,7 @@ fn parse_ucs_pattern_guard_branches(
   if start_i >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end in nested pattern guard cases")
   }
-  let (cond, j) = parse_expr(tokens, start_i)
-  if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
-    syntax_error_at(tokens, j, "expected 'then' in nested pattern guard case")
-  }
-  let (body, k) = parse_expr(tokens, j + 1)
-  let current = (cond, body)
+  let (current, k) = parse_ucs_if_cond_case(tokens, start_i)
   let (rest, fallback, end_i) = parse_ucs_pattern_guard_branches_tail(tokens, k)
   ([current] + rest, fallback, end_i)
 }
@@ -1694,7 +1701,7 @@ fn parse_ucs_pattern_guard_branches(
 fn parse_ucs_pattern_guard_branches_tail(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[(SurfaceExpr, SurfaceExpr)], SurfaceExpr?, Int) raise {
+) -> (Array[SurfaceUcsCondCase], SurfaceExpr?, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(
       tokens, "expected '|' or 'else' or 'end' after nested pattern guard case",

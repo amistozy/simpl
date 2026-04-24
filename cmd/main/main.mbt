@@ -4,9 +4,9 @@
 /// Run with `moon run cmd/main` from the project root.
 fn main {
   let code =
-    #| if
-    #| | 1 > 0 and 
-    #|   | 2 > 1 and 3 > 2 then 42
+    #| if #Some(42) is
+    #| | #Some(x) and
+    #|   | x > 1 and x is 2 then x
     #|   else 41
     #| else 40
 
