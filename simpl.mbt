@@ -478,22 +478,14 @@ fn eval_ucs_cond_cases(
   env : Env,
   i : Int,
 ) -> Value raise {
-  if i >= cases.length() {
-    return eval_with_env(else_expr, env)
-  }
-  let (cond, case_guard) = cases[i]
-  let (passes, base_env) = eval_condition_bindings(cond, env)
-  if !passes {
-    return eval_ucs_cond_cases(cases, else_expr, env, i + 1)
-  }
-  match eval_ucs_guard(case_guard, base_env) {
+  match eval_ucs_cond_cases_with_fallback(cases, Some(else_expr), env, i) {
     Some(result) => result
-    None => eval_ucs_cond_cases(cases, else_expr, env, i + 1)
+    None => eval_with_env(else_expr, env)
   }
 }
 
 ///|
-fn eval_ucs_cond_cases_optional(
+fn eval_ucs_cond_cases_with_fallback(
   cases : Array[(Expr, UcsGuard)],
   fallback : Expr?,
   env : Env,
@@ -508,11 +500,11 @@ fn eval_ucs_cond_cases_optional(
   let (cond, case_guard) = cases[i]
   let (passes, base_env) = eval_condition_bindings(cond, env)
   if !passes {
-    return eval_ucs_cond_cases_optional(cases, fallback, env, i + 1)
+    return eval_ucs_cond_cases_with_fallback(cases, fallback, env, i + 1)
   }
   match eval_ucs_guard(case_guard, base_env) {
     Some(result) => Some(result)
-    None => eval_ucs_cond_cases_optional(cases, fallback, env, i + 1)
+    None => eval_ucs_cond_cases_with_fallback(cases, fallback, env, i + 1)
   }
 }
 
@@ -611,7 +603,7 @@ fn eval_ucs_guard(case_guard : UcsGuard, env : Env) -> Value? raise {
       }
     }
     UcsGuardAndCondBranches(branches, fallback) =>
-      eval_ucs_cond_cases_optional(branches, fallback, env, 0)
+      eval_ucs_cond_cases_with_fallback(branches, fallback, env, 0)
     UcsGuardAndIs(value_expr, cases, fallback) => {
       let value = eval_with_env(value_expr, env)
       match eval_ucs_pattern_cases_optional(value, cases, env, 0) {
