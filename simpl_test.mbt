@@ -1,17 +1,14 @@
 ///|
 /// Blackbox: basic arithmetic and dynamic type checks
 test "int arithmetic" {
-  let expr = @simpl.add(@simpl.int_lit(1), @simpl.int_lit(2))
-  assert_true(@simpl.eval_is_int(expr, 3))
+  assert_true(@simpl.eval_source_is_int("1 + 2", 3))
 }
 
 ///|
 test "string concatenation" {
-  let expr = @simpl.add(
-    @simpl.string_lit("hello "),
-    @simpl.string_lit("moonbit"),
+  assert_true(
+    @simpl.eval_source_is_string("\"hello \" + \"moonbit\"", "hello moonbit"),
   )
-  assert_true(@simpl.eval_is_string(expr, "hello moonbit"))
 }
 
 ///|
@@ -25,47 +22,31 @@ test "string literals support common escape sequences" {
 
 ///|
 test "type error remains runtime error" {
-  let expr = @simpl.add(@simpl.int_lit(1), @simpl.bool_lit(true))
-  assert_true(@simpl.eval_is_error(expr))
+  assert_true(@simpl.eval_source_is_error("1 + true"))
 }
 
 ///|
 test "comparison and logic operators" {
-  let lt_expr = @simpl.lt(@simpl.int_lit(1), @simpl.int_lit(2))
-  let eq_expr = @simpl.eq(@simpl.int_lit(3), @simpl.int_lit(3))
-  let logic_expr = @simpl.logic_and(lt_expr, eq_expr)
-  assert_true(@simpl.eval_is_bool(logic_expr, true))
-  let gt_expr = @simpl.gt(@simpl.int_lit(4), @simpl.int_lit(1))
-  let or_expr = @simpl.logic_or(gt_expr, @simpl.bool_lit(false))
-  assert_true(@simpl.eval_is_bool(or_expr, true))
+  assert_true(@simpl.eval_source_is_bool("1 < 2 && 3 == 3", true))
+  assert_true(@simpl.eval_source_is_bool("4 > 1 || false", true))
 }
 
 ///|
 /// Blackbox: functional closures with lexical environment
 test "closure captures lexical env" {
-  let expr = @simpl.let_in(
-    "x",
-    @simpl.int_lit(10),
-    @simpl.let_in(
-      "f",
-      @simpl.lambda(["y"], @simpl.add(@simpl.var_ref("x"), @simpl.var_ref("y"))),
-      @simpl.let_in(
-        "x",
-        @simpl.int_lit(100),
-        @simpl.call(@simpl.var_ref("f"), [@simpl.int_lit(5)]),
-      ),
-    ),
-  )
-  assert_true(@simpl.eval_is_int(expr, 15))
+  let code =
+    #| let x = 10 in
+    #| let f(y) = x + y in
+    #| let x = 100 in
+    #| f(5)
+  assert_true(@simpl.eval_source_is_int(code, 15))
 }
 
 ///|
 test "higher order function" {
-  let expr = @simpl.call(
-    @simpl.lambda(["f"], @simpl.call(@simpl.var_ref("f"), [@simpl.int_lit(41)])),
-    [@simpl.lambda(["x"], @simpl.add(@simpl.var_ref("x"), @simpl.int_lit(1)))],
-  )
-  assert_true(@simpl.eval_is_int(expr, 42))
+  let code =
+    #| (fn(f) => f(41))(fn(x) => x + 1)
+  assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|

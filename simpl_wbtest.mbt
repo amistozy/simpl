@@ -15,20 +15,41 @@ test "eval_with_env reads env chain" {
 ///|
 test "inner let shadows outer binding" {
   let expr = Let(PBind("x"), IntLit(1), Let(PBind("x"), IntLit(2), Var("x")))
-  assert_true(eval_is_int(expr, 2))
+  assert_true(
+    try eval(expr) catch {
+      _ => false
+    } noraise {
+      VInt(v) => v == 2
+      _ => false
+    },
+  )
 }
 
 ///|
 test "calling non function errors" {
   let expr = Call(IntLit(1), [])
-  assert_true(eval_is_error(expr))
+  assert_true(
+    try {
+      ignore(eval(expr))
+      false
+    } catch {
+      _ => true
+    },
+  )
 }
 
 ///|
 test "record equality" {
   let left = Record([("a", IntLit(1)), ("b", BoolLit(true))])
   let right = Record([("a", IntLit(1)), ("b", BoolLit(true))])
-  assert_true(eval_is_bool(Binary(Eq, left, right), true))
+  assert_true(
+    try eval(Binary(Eq, left, right)) catch {
+      _ => false
+    } noraise {
+      VBool(v) => v
+      _ => false
+    },
+  )
 }
 
 ///|
@@ -104,7 +125,12 @@ test "desugar lowers record shorthand to field variable" {
 test "desugared surface ast evaluates as core ast" {
   let expr = SDo(SRefSet(SVar("r"), SIntLit(42)), SRefGet(SVar("r")))
   assert_true(
-    eval_is_int(Let(PBind("r"), RefNew(IntLit(0)), desugar(expr)), 42),
+    try eval(Let(PBind("r"), RefNew(IntLit(0)), desugar(expr))) catch {
+      _ => false
+    } noraise {
+      VInt(v) => v == 42
+      _ => false
+    },
   )
 }
 

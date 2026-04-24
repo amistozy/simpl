@@ -8,35 +8,7 @@ import {
 }
 
 // Values
-pub fn add(Expr, Expr) -> Expr
-
-pub fn binary(BinOp, Expr, Expr) -> Expr
-
-pub fn bool_lit(Bool) -> Expr
-
-pub fn call(Expr, Array[Expr]) -> Expr
-
-pub fn desugar(SurfaceExpr) -> Expr
-
-pub fn desugar_pattern(SurfacePattern) -> MatchPattern
-
-pub fn div(Expr, Expr) -> Expr
-
-pub fn do_in(Expr, Expr) -> Expr
-
-pub fn eq(Expr, Expr) -> Expr
-
-pub fn eval(Expr) -> Value raise
-
 pub fn eval_error_text(String) -> String?
-
-pub fn eval_is_bool(Expr, Bool) -> Bool
-
-pub fn eval_is_error(Expr) -> Bool
-
-pub fn eval_is_int(Expr, Int) -> Bool
-
-pub fn eval_is_string(Expr, String) -> Bool
 
 pub fn eval_source(String) -> Value raise
 
@@ -48,67 +20,7 @@ pub fn eval_source_is_int(String, Int) -> Bool
 
 pub fn eval_source_is_string(String, String) -> Bool
 
-pub fn eval_with_env(Expr, @hashmap.HashMap[String, Value]) -> Value raise
-
-pub fn field(Expr, String) -> Expr
-
-pub fn format_eval_error(EvalError) -> String
-
 pub fn format_parse_error(ParseError) -> String
-
-pub fn ge(Expr, Expr) -> Expr
-
-pub fn gt(Expr, Expr) -> Expr
-
-pub fn if_then_else(Expr, Expr, Expr) -> Expr
-
-pub fn int_lit(Int) -> Expr
-
-pub fn is_expr(Expr, MatchPattern) -> Expr
-
-pub fn lambda(Array[String], Expr) -> Expr
-
-pub fn lambda_patterns(Array[MatchPattern], Expr) -> Expr
-
-pub fn le(Expr, Expr) -> Expr
-
-pub fn let_fun_in(String, Array[MatchPattern], Expr, Expr) -> Expr
-
-pub fn let_in(String, Expr, Expr) -> Expr
-
-pub fn let_pattern_in(MatchPattern, Expr, Expr) -> Expr
-
-pub fn let_rec_in(String, Array[String], Expr, Expr) -> Expr
-
-pub fn let_rec_patterns_in(String, Array[MatchPattern], Expr, Expr) -> Expr
-
-pub fn let_record_in(Array[(String, String)], Expr, Expr) -> Expr
-
-pub fn list(Array[Expr]) -> Expr
-
-pub fn logic_and(Expr, Expr) -> Expr
-
-pub fn logic_or(Expr, Expr) -> Expr
-
-pub fn lt(Expr, Expr) -> Expr
-
-pub fn match_case_clauses(Expr, Array[(MatchPattern, Expr?, Expr)]) -> Expr
-
-pub fn match_cases(Expr, Array[(MatchPattern, Expr)]) -> Expr
-
-pub fn match_list(Expr, Array[(Array[String], Expr)]) -> Expr
-
-pub fn match_variant(Expr, Array[(String, String, Expr)]) -> Expr
-
-pub fn mul(Expr, Expr) -> Expr
-
-pub fn ne(Expr, Expr) -> Expr
-
-pub fn neg(Expr) -> Expr
-
-pub fn nil_lit() -> Expr
-
-pub fn not(Expr) -> Expr
 
 pub fn parse(String) -> SurfaceExpr raise
 
@@ -117,44 +29,6 @@ pub fn parse_error_text(String) -> String?
 pub fn parse_is_error(String) -> Bool
 
 pub fn parse_is_ok(String) -> Bool
-
-pub fn pbind(String) -> MatchPattern
-
-pub fn pbool(Bool) -> MatchPattern
-
-pub fn pint(Int) -> MatchPattern
-
-pub fn plist(Array[MatchPattern]) -> MatchPattern
-
-pub fn plist_rest(Array[MatchPattern], String, Array[MatchPattern]) -> MatchPattern
-
-pub fn pnil() -> MatchPattern
-
-pub fn por(Array[MatchPattern]) -> MatchPattern
-
-pub fn precord(Array[(String, MatchPattern)]) -> MatchPattern
-
-pub fn pstring(String) -> MatchPattern
-
-pub fn pvariant(String, MatchPattern) -> MatchPattern
-
-pub fn record(Array[(String, Expr)]) -> Expr
-
-pub fn ref_get(Expr) -> Expr
-
-pub fn ref_new(Expr) -> Expr
-
-pub fn ref_set(Expr, Expr) -> Expr
-
-pub fn string_lit(String) -> Expr
-
-pub fn sub(Expr, Expr) -> Expr
-
-pub fn unary(UnOp, Expr) -> Expr
-
-pub fn var_ref(String) -> Expr
-
-pub fn variant(String, Expr) -> Expr
 
 // Errors
 pub suberror EvalError {

@@ -1115,6 +1115,7 @@ fn parse_if_is_multi_tail(
   }
 }
 
+///|
 fn parse_lambda_expr(
   tokens : Array[SpannedToken],
   i : Int,
