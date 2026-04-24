@@ -117,7 +117,7 @@ test "parser keeps if-and as UCS node instead of binary and" {
         [
           SUcsCondAnd(
             SLocated(_, SBoolLit(true)),
-            [(SLocated(_, SBoolLit(true)), SLocated(_, SIntLit(1)))],
+            [SUcsCondCase(SLocated(_, SBoolLit(true)), SLocated(_, SIntLit(1)))],
             None
           ),
         ],
@@ -131,12 +131,18 @@ test "parser keeps if-and as UCS node instead of binary and" {
 ///|
 test "desugar keeps if-and as core UCS node" {
   let surface = SUcsIf(
-    [SUcsCondAnd(SBoolLit(true), [(SBoolLit(true), SIntLit(1))], None)],
+    [
+      SUcsCondAnd(
+        SBoolLit(true),
+        [SUcsCondCase(SBoolLit(true), SIntLit(1))],
+        None,
+      ),
+    ],
     SNilLit,
   )
   match desugar(surface) {
     UcsIf(
-      [UcsCondAnd(BoolLit(true), [(BoolLit(true), IntLit(1))], None)],
+      [UcsCondAnd(BoolLit(true), [UcsCondCase(BoolLit(true), IntLit(1))], None)],
       NilLit
     ) => assert_true(true)
     _ => assert_true(false)

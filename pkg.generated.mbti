@@ -269,7 +269,7 @@ pub enum SurfaceRecordPatternField {
 
 pub enum SurfaceUcsCondCase {
   SUcsCondCase(SurfaceExpr, SurfaceExpr)
-  SUcsCondAnd(SurfaceExpr, Array[(SurfaceExpr, SurfaceExpr)], SurfaceExpr?)
+  SUcsCondAnd(SurfaceExpr, Array[SurfaceUcsCondCase], SurfaceExpr?)
 } derive(@debug.Debug)
 
 pub enum SurfaceUcsPatternGuard {
@@ -281,7 +281,7 @@ pub enum SurfaceUcsPatternGuard {
 
 pub enum UcsCondCase {
   UcsCondCase(Expr, Expr)
-  UcsCondAnd(Expr, Array[(Expr, Expr)], Expr?)
+  UcsCondAnd(Expr, Array[UcsCondCase], Expr?)
 } derive(@debug.Debug)
 
 pub enum UcsPatternGuard {

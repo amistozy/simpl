@@ -847,7 +847,7 @@ fn parse_ucs_if_cond_case(
       syntax_error_at(tokens, k, "expected 'then' in if guard case")
     }
     let (then_expr, m) = parse_expr(tokens, k + 1)
-    (SUcsCondAnd(cond, [(guard_cond, then_expr)], None), m)
+    (SUcsCondAnd(cond, [SUcsCondCase(guard_cond, then_expr)], None), m)
   } else {
     if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
       syntax_error_at(tokens, j, "expected 'then' in if expression")
@@ -885,7 +885,7 @@ fn parse_ucs_if_cases_tail(
 fn parse_ucs_cond_guard_branches(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[(SurfaceExpr, SurfaceExpr)], SurfaceExpr?, Int) raise {
+) -> (Array[SurfaceUcsCondCase], SurfaceExpr?, Int) raise {
   let start_i = if i < tokens.length() && token_kind(tokens, i) == PipeTok {
     i + 1
   } else {
@@ -894,20 +894,16 @@ fn parse_ucs_cond_guard_branches(
   if start_i >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end in nested if guard cases")
   }
-  let (cond, j) = parse_expr(tokens, start_i)
-  if j >= tokens.length() || token_kind(tokens, j) != ThenTok {
-    syntax_error_at(tokens, j, "expected 'then' in nested if guard case")
-  }
-  let (body, k) = parse_expr(tokens, j + 1)
+  let (case_, k) = parse_ucs_if_cond_case(tokens, start_i)
   let (rest, fallback, end_i) = parse_ucs_cond_guard_branches_tail(tokens, k)
-  ([(cond, body)] + rest, fallback, end_i)
+  ([case_] + rest, fallback, end_i)
 }
 
 ///|
 fn parse_ucs_cond_guard_branches_tail(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[(SurfaceExpr, SurfaceExpr)], SurfaceExpr?, Int) raise {
+) -> (Array[SurfaceUcsCondCase], SurfaceExpr?, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(
       tokens, "expected '|' or 'or' or 'else' or 'end' after nested if guard case",

@@ -64,6 +64,17 @@ test "if first-pipe case with and guard works" {
 }
 
 ///|
+test "nested and node inside and node works" {
+  let code =
+    #| if
+    #| | 1 > 0 and 
+    #|   | 2 > 1 and 3 > 2 then 42
+    #|   else 41
+    #| else 40
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 /// Blackbox: functional closures with lexical environment
 test "closure captures lexical env" {
   let expr = @simpl.let_in(

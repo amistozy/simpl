@@ -33,7 +33,7 @@ pub enum SurfaceExpr {
 ///|
 pub enum SurfaceUcsCondCase {
   SUcsCondCase(SurfaceExpr, SurfaceExpr)
-  SUcsCondAnd(SurfaceExpr, Array[(SurfaceExpr, SurfaceExpr)], SurfaceExpr?)
+  SUcsCondAnd(SurfaceExpr, Array[SurfaceUcsCondCase], SurfaceExpr?)
 } derive(Debug)
 
 ///|
@@ -103,7 +103,7 @@ pub enum Expr {
 ///|
 pub enum UcsCondCase {
   UcsCondCase(Expr, Expr)
-  UcsCondAnd(Expr, Array[(Expr, Expr)], Expr?)
+  UcsCondAnd(Expr, Array[UcsCondCase], Expr?)
 } derive(Debug)
 
 ///|
@@ -271,10 +271,7 @@ fn desugar_ucs_cond_case(surface_case : SurfaceUcsCondCase) -> UcsCondCase {
     SUcsCondAnd(base_cond, branches, fallback) =>
       UcsCondAnd(
         desugar(base_cond),
-        branches.map(branch => {
-          let (cond, body) = branch
-          (desugar(cond), desugar(body))
-        }),
+        branches.map(branch => desugar_ucs_cond_case(branch)),
         fallback.map(item => desugar(item)),
       )
   }
@@ -497,7 +494,7 @@ fn eval_ucs_cond_cases(
       if !passes {
         return eval_ucs_cond_cases(cases, else_expr, env, i + 1)
       }
-      match eval_ucs_and_cond_branches(branches, fallback, base_env, 0) {
+      match eval_ucs_cond_cases_optional(branches, fallback, base_env, 0) {
         Some(result) => result
         None => eval_ucs_cond_cases(cases, else_expr, env, i + 1)
       }
@@ -506,24 +503,38 @@ fn eval_ucs_cond_cases(
 }
 
 ///|
-fn eval_ucs_and_cond_branches(
-  branches : Array[(Expr, Expr)],
+fn eval_ucs_cond_cases_optional(
+  cases : Array[UcsCondCase],
   fallback : Expr?,
   env : Env,
   i : Int,
 ) -> Value? raise {
-  if i >= branches.length() {
+  if i >= cases.length() {
     return match fallback {
       Some(default_expr) => Some(eval_with_env(default_expr, env))
       None => None
     }
   }
-  let (cond, body) = branches[i]
-  let (passes, guard_env) = eval_condition_bindings(cond, env)
-  if passes {
-    Some(eval_with_env(body, guard_env))
-  } else {
-    eval_ucs_and_cond_branches(branches, fallback, env, i + 1)
+  match cases[i] {
+    UcsCondCase(cond, body) => {
+      let (passes, guard_env) = eval_condition_bindings(cond, env)
+      if passes {
+        Some(eval_with_env(body, guard_env))
+      } else {
+        eval_ucs_cond_cases_optional(cases, fallback, env, i + 1)
+      }
+    }
+    UcsCondAnd(base_cond, nested_cases, nested_fallback) => {
+      let (passes, base_env) = eval_condition_bindings(base_cond, env)
+      if !passes {
+        return eval_ucs_cond_cases_optional(cases, fallback, env, i + 1)
+      }
+      match
+        eval_ucs_cond_cases_optional(nested_cases, nested_fallback, base_env, 0) {
+        Some(result) => Some(result)
+        None => eval_ucs_cond_cases_optional(cases, fallback, env, i + 1)
+      }
+    }
   }
 }
 
