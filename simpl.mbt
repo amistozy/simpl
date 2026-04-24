@@ -1,6 +1,6 @@
 ///|
 /// Surface syntax AST definitions
-pub enum SurfaceExpr {
+enum SurfaceExpr {
   SLocated(SourceSpan, SurfaceExpr)
   SIntLit(Int)
   SBoolLit(Bool)
@@ -26,30 +26,30 @@ pub enum SurfaceExpr {
 } derive(Debug)
 
 ///|
-pub enum SurfaceIfCondArm {
+enum SurfaceIfCondArm {
   SIfCondArm(SurfaceExpr, SurfaceIfGuard)
 } derive(Debug)
 
 ///|
-pub enum SurfaceIfPatternArm {
+enum SurfaceIfPatternArm {
   SIfPatternArm(SurfacePattern, SurfaceIfGuard)
 } derive(Debug)
 
 ///|
-pub enum SurfaceIfGuard {
+enum SurfaceIfGuard {
   SIfThen(SurfaceExpr)
   SIfAnd(Array[SurfaceIfCondArm])
   SIfIs(SurfaceExpr, Array[SurfaceIfPatternArm])
 } derive(Debug)
 
 ///|
-pub enum SurfaceRecordField {
+enum SurfaceRecordField {
   SRecordField(String, SurfaceExpr)
   SRecordShorthand(String)
 } derive(Debug)
 
 ///|
-pub enum SurfacePattern {
+enum SurfacePattern {
   SPBind(String)
   SPInt(Int)
   SPBool(Bool)
@@ -63,14 +63,14 @@ pub enum SurfacePattern {
 } derive(Debug)
 
 ///|
-pub enum SurfaceRecordPatternField {
+enum SurfaceRecordPatternField {
   SPRecordField(String, SurfacePattern)
   SPRecordShorthand(String)
 } derive(Debug)
 
 ///|
 /// Core AST definitions
-pub enum Expr {
+enum Expr {
   Located(SourceSpan, Expr)
   IntLit(Int)
   BoolLit(Bool)
@@ -94,24 +94,24 @@ pub enum Expr {
 } derive(Debug)
 
 ///|
-pub enum IfCondArm {
+enum IfCondArm {
   IfCondArm(Expr, IfGuard)
 } derive(Debug)
 
 ///|
-pub enum IfPatternArm {
+enum IfPatternArm {
   IfPatternArm(MatchPattern, IfGuard)
 } derive(Debug)
 
 ///|
-pub enum IfGuard {
+enum IfGuard {
   IfThen(Expr)
   IfAnd(Array[IfCondArm])
   IfIs(Expr, Array[IfPatternArm])
 } derive(Debug)
 
 ///|
-pub enum MatchPattern {
+enum MatchPattern {
   PBind(String)
   PInt(Int)
   PBool(Bool)
@@ -125,7 +125,7 @@ pub enum MatchPattern {
 } derive(Debug)
 
 ///|
-pub enum BinOp {
+enum BinOp {
   Add
   Sub
   Mul
@@ -141,14 +141,14 @@ pub enum BinOp {
 } derive(Debug)
 
 ///|
-pub enum UnOp {
+enum UnOp {
   Neg
   Not
 } derive(Debug)
 
 ///|
 /// Dynamic runtime values + environment model
-pub enum Value {
+enum Value {
   VInt(Int)
   VBool(Bool)
   VString(String)
@@ -162,10 +162,10 @@ pub enum Value {
 } derive(Debug)
 
 ///|
-pub type Env = @hashmap.HashMap[String, Value]
+type Env = @hashmap.HashMap[String, Value]
 
 ///|
-pub suberror EvalError {
+suberror EvalError {
   RuntimeErrorAt(String, SourceSpan)
 } derive(Debug)
 

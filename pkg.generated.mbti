@@ -3,8 +3,6 @@ package "amistozy/simpl"
 
 import {
   "moonbitlang/core/debug",
-  "moonbitlang/core/immut/hashmap",
-  "moonbitlang/core/ref",
 }
 
 // Values
@@ -31,163 +29,44 @@ pub fn parse_is_error(String) -> Bool
 pub fn parse_is_ok(String) -> Bool
 
 // Errors
-pub suberror EvalError {
-  RuntimeErrorAt(String, ((Int, Int, Int), (Int, Int, Int)))
-} derive(@debug.Debug)
+type EvalError derive(@debug.Debug)
 
 pub suberror ParseError {
   SyntaxErrorAt(String, ((Int, Int, Int), (Int, Int, Int)))
 } derive(@debug.Debug)
 
 // Types and methods
-pub enum BinOp {
-  Add
-  Sub
-  Mul
-  Div
-  Eq
-  Ne
-  Lt
-  Le
-  Gt
-  Ge
-  And
-  Or
-} derive(@debug.Debug)
+type BinOp derive(@debug.Debug)
 
-pub enum Expr {
-  Located(((Int, Int, Int), (Int, Int, Int)), Expr)
-  IntLit(Int)
-  BoolLit(Bool)
-  StringLit(String)
-  NilLit
-  List(Array[Expr])
-  Var(String)
-  Record(Array[(String, Expr)])
-  Variant(String, Expr)
-  If(Array[IfCondArm], Expr)
-  Let(MatchPattern, Expr, Expr)
-  LetRec(String, Array[MatchPattern], Expr, Expr)
-  Lambda(Array[MatchPattern], Expr)
-  Call(Expr, Array[Expr])
-  RefNew(Expr)
-  RefGet(Expr)
-  RefSet(Expr, Expr)
-  Field(Expr, String)
-  Unary(UnOp, Expr)
-  Binary(BinOp, Expr, Expr)
-} derive(@debug.Debug)
+type Expr derive(@debug.Debug)
 
-pub enum IfCondArm {
-  IfCondArm(Expr, IfGuard)
-} derive(@debug.Debug)
+type IfCondArm derive(@debug.Debug)
 
-pub enum IfGuard {
-  IfThen(Expr)
-  IfAnd(Array[IfCondArm])
-  IfIs(Expr, Array[IfPatternArm])
-} derive(@debug.Debug)
+type IfGuard derive(@debug.Debug)
 
-pub enum IfPatternArm {
-  IfPatternArm(MatchPattern, IfGuard)
-} derive(@debug.Debug)
+type IfPatternArm derive(@debug.Debug)
 
-pub enum MatchPattern {
-  PBind(String)
-  PInt(Int)
-  PBool(Bool)
-  PString(String)
-  PNil
-  POr(Array[MatchPattern])
-  PVariant(String, MatchPattern)
-  PList(Array[MatchPattern])
-  PListRest(Array[MatchPattern], String, Array[MatchPattern])
-  PRecord(Array[(String, MatchPattern)])
-} derive(@debug.Debug)
+type MatchPattern derive(@debug.Debug)
 
-pub enum SurfaceExpr {
-  SLocated(((Int, Int, Int), (Int, Int, Int)), SurfaceExpr)
-  SIntLit(Int)
-  SBoolLit(Bool)
-  SStringLit(String)
-  SNilLit
-  SList(Array[SurfaceExpr])
-  SVar(String)
-  SRecord(Array[SurfaceRecordField])
-  SVariant(String, SurfaceExpr)
-  SIf(Array[SurfaceIfCondArm], SurfaceExpr)
-  SLet(SurfacePattern, SurfaceExpr, SurfaceExpr)
-  SDo(SurfaceExpr, SurfaceExpr)
-  SLetFun(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
-  SLetRec(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
-  SLambda(Array[SurfacePattern], SurfaceExpr)
-  SCall(SurfaceExpr, Array[SurfaceExpr])
-  SRefNew(SurfaceExpr)
-  SRefGet(SurfaceExpr)
-  SRefSet(SurfaceExpr, SurfaceExpr)
-  SField(SurfaceExpr, String)
-  SUnary(UnOp, SurfaceExpr)
-  SBinary(BinOp, SurfaceExpr, SurfaceExpr)
-} derive(@debug.Debug)
+type SurfaceExpr derive(@debug.Debug)
 
-pub enum SurfaceIfCondArm {
-  SIfCondArm(SurfaceExpr, SurfaceIfGuard)
-} derive(@debug.Debug)
+type SurfaceIfCondArm derive(@debug.Debug)
 
-pub enum SurfaceIfGuard {
-  SIfThen(SurfaceExpr)
-  SIfAnd(Array[SurfaceIfCondArm])
-  SIfIs(SurfaceExpr, Array[SurfaceIfPatternArm])
-} derive(@debug.Debug)
+type SurfaceIfGuard derive(@debug.Debug)
 
-pub enum SurfaceIfPatternArm {
-  SIfPatternArm(SurfacePattern, SurfaceIfGuard)
-} derive(@debug.Debug)
+type SurfaceIfPatternArm derive(@debug.Debug)
 
-pub enum SurfacePattern {
-  SPBind(String)
-  SPInt(Int)
-  SPBool(Bool)
-  SPString(String)
-  SPNil
-  SPOr(Array[SurfacePattern])
-  SPVariant(String, SurfacePattern)
-  SPList(Array[SurfacePattern])
-  SPListRest(Array[SurfacePattern], String, Array[SurfacePattern])
-  SPRecord(Array[SurfaceRecordPatternField])
-} derive(@debug.Debug)
+type SurfacePattern derive(@debug.Debug)
 
-pub enum SurfaceRecordField {
-  SRecordField(String, SurfaceExpr)
-  SRecordShorthand(String)
-} derive(@debug.Debug)
+type SurfaceRecordField derive(@debug.Debug)
 
-pub enum SurfaceRecordPatternField {
-  SPRecordField(String, SurfacePattern)
-  SPRecordShorthand(String)
-} derive(@debug.Debug)
+type SurfaceRecordPatternField derive(@debug.Debug)
 
-pub enum UnOp {
-  Neg
-  Not
-} derive(@debug.Debug)
+type UnOp derive(@debug.Debug)
 
-pub enum Value {
-  VInt(Int)
-  VBool(Bool)
-  VString(String)
-  VNil
-  VList(Array[Value])
-  VRecord(@hashmap.HashMap[String, Value])
-  VVariant(String, Value)
-  VRef(@ref.Ref[Value])
-  VClosure(Array[MatchPattern], Expr, @hashmap.HashMap[String, Value])
-  VRecClosure(String, Array[MatchPattern], Expr, @hashmap.HashMap[String, Value])
-} derive(@debug.Debug)
+type Value derive(@debug.Debug)
 
 // Type aliases
-pub type Env = @hashmap.HashMap[String, Value]
-
 pub type SourcePos = (Int, Int, Int)
 
 pub type SourceSpan = ((Int, Int, Int), (Int, Int, Int))
