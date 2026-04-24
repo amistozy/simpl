@@ -4,7 +4,7 @@ This document defines the current `if` syntax in Simpl.
 
 ## Scope
 
-Simpl implements a focused subset of *The Ultimate Conditional Syntax* with exactly three split points:
+Simpl implements a focused subset of [*The Ultimate Conditional Syntax*](https://cse.hkust.edu.hk/~parreaux/publication/oopsla24b/) with exactly three split points:
 
 - `if`
 - `is`
@@ -147,22 +147,31 @@ else 3
 ### Pattern refinement with `and ... is`
 
 ```simpl
-if user is
-| #Some(u) and u.role is 
+if user is #Some(u) and u.role is 
   | #Admin(_) then "admin"
   else u.name
 else "guest"
 ```
 
-### Prefer split-merge over duplicated heads
+### OCaml vs Simpl (split-merge)
+
+OCaml style (same head repeated across guarded cases):
+
+```ocaml
+match input with
+| Some a when a > 10 -> "big"
+| Some a when a = 10 -> "edge"
+| _ -> "small"
+```
+
+Simpl split-merge style (shared head once, inner split for guard branches):
 
 ```simpl
-if input is
-| #Some(a) and
+if input is #Some(a) and
   | a > 10 then "big"
   | a == 10 then "edge"
-  else "small"
-else "none"
+  or
+else "small"
 ```
 
 ### Nested split composition
