@@ -576,17 +576,10 @@ fn eval_ucs_pattern_cases(
   env : Env,
   i : Int,
 ) -> Value raise {
-  if i >= cases.length() {
-    return eval_with_env(else_expr, env)
-  }
-  let (pattern, case_guard) = cases[i]
-  match try_bind_pattern(pattern, value, env) {
-    Some(bound_env) =>
-      match eval_ucs_guard(case_guard, bound_env) {
-        Some(result) => result
-        None => eval_ucs_pattern_cases(value, cases, else_expr, env, i + 1)
-      }
-    None => eval_ucs_pattern_cases(value, cases, else_expr, env, i + 1)
+  match
+    eval_ucs_pattern_cases_with_fallback(value, cases, Some(else_expr), env, i) {
+    Some(result) => result
+    None => eval_with_env(else_expr, env)
   }
 }
 
@@ -606,7 +599,7 @@ fn eval_ucs_guard(case_guard : UcsGuard, env : Env) -> Value? raise {
       eval_ucs_cond_cases_with_fallback(branches, fallback, env, 0)
     UcsGuardAndIs(value_expr, cases, fallback) => {
       let value = eval_with_env(value_expr, env)
-      match eval_ucs_pattern_cases_optional(value, cases, env, 0) {
+      match eval_ucs_pattern_cases_with_fallback(value, cases, None, env, 0) {
         Some(result) => Some(result)
         None =>
           match fallback {
@@ -619,23 +612,35 @@ fn eval_ucs_guard(case_guard : UcsGuard, env : Env) -> Value? raise {
 }
 
 ///|
-fn eval_ucs_pattern_cases_optional(
+fn eval_ucs_pattern_cases_with_fallback(
   value : Value,
   cases : Array[(MatchPattern, UcsGuard)],
+  fallback : Expr?,
   env : Env,
   i : Int,
 ) -> Value? raise {
   if i >= cases.length() {
-    return None
+    return match fallback {
+      Some(default_expr) => Some(eval_with_env(default_expr, env))
+      None => None
+    }
   }
   let (pattern, case_guard) = cases[i]
   match try_bind_pattern(pattern, value, env) {
     Some(bound_env) =>
       match eval_ucs_guard(case_guard, bound_env) {
         Some(result) => Some(result)
-        None => eval_ucs_pattern_cases_optional(value, cases, env, i + 1)
+        None =>
+          eval_ucs_pattern_cases_with_fallback(
+            value,
+            cases,
+            fallback,
+            env,
+            i + 1,
+          )
       }
-    None => eval_ucs_pattern_cases_optional(value, cases, env, i + 1)
+    None =>
+      eval_ucs_pattern_cases_with_fallback(value, cases, fallback, env, i + 1)
   }
 }
 
