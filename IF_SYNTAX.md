@@ -18,7 +18,7 @@ Supported control tokens:
 - fallback sugar: `end` (equivalent to `else nil`)
 - split-closure token: `or`
 
-`or` is **not** a branch. It only closes the current split point.
+`or` is a split-closure token, not a branch.
 
 ## Core model
 
@@ -44,14 +44,12 @@ Each split point can host multiple branches.
 
 ## Branch and fallback sugar
 
-- In an `if` split, `else e` is sugar for an extra branch `| true then e`.
+- In an `if` split, `else e` is sugar for `| true then e`.
 - In an `and` split, `else e` is sugar for `| true then e`.
 - In an `is` split, `else e` is sugar for `| _ then e`.
 - `end` is sugar for `else nil` at the split point it closes.
 
 ## `if` single-route vs multi-route
-
-### Rule
 
 `if` is in **single-route mode** iff all of the following hold:
 
@@ -59,103 +57,126 @@ Each split point can host multiple branches.
 2. that first branch is an `is` split, and
 3. that `is` split is **multi-route** (its first pattern branch starts with `|`).
 
-In all other cases, `if` is **multi-route mode**.
-
-### Consequences
-
-- `if` multi-route mode must be closed by `else` or `end`.
-- `if` single-route mode does not attach later outer `| ...` branches.
+In all other cases, `if` is in **multi-route mode**.
 
 ## `is` split mode
 
 - If the first `is` branch starts with `|`, it is multi-route.
 - Otherwise, it is single-route.
 
-In multi-route `is`, branches attach until the split is closed by one of:
+In multi-route `is`, branches attach until closed by one of:
 
 - `else`
 - `end`
 - `or`
-
-If multi-route `is` is used as the first branch of `if` under the single-route rule above, that closed `is` branch forms the whole `if` body (outer `if` does not continue with additional branches).
 
 ## `and` split mode
 
 - If the first `and` branch starts with `|`, it is multi-route.
 - Otherwise, it is single-route.
 
-In multi-route `and`, branches attach until closed by:
+In multi-route `and`, branches attach until closed by one of:
 
 - `else`
 - `end`
 - `or`
 
-Important: `else` closes only the current `and` split. It does **not** automatically consume the outer `if` closure.
+## Closure and nesting
 
-## Closure precedence and nesting
+`else`, `end`, and `or` always apply to the current open split point.
 
-`else`, `end`, and `or` always apply to the **current open split point**.
+- `or` closes the current split point.
+- `else` and `end` close the current split point with fallback semantics.
+- After an inner split closes, parsing continues at the enclosing split.
 
-- `or` only closes the current split point.
-- `else`/`end` close the current split point with fallback semantics.
-- After closing an inner split, parsing continues at the enclosing split.
+## Examples
 
-## Valid examples
+### Compact one-line style
 
-### `if` multi-route
+```simpl
+if x > 0 then x else -x
+```
+
+### Multi-way `if`
 
 ```simpl
 if
-| true then 1
-| false then 2
-else 0
+| n < 0 then "neg"
+| n == 0 then "zero"
+else "pos"
 ```
 
-### `if` single-route (special case)
+### `if` with first branch as multi-route `is`
 
 ```simpl
-if #Some(1) is
-| #Some(x) then x
+if value is
+| #Left(x) then x
 | _ then 0
 end
 ```
 
-### `and` else closes `and`, `end` closes outer `if`
+### `if` with mixed branch forms
 
 ```simpl
-if true and
-| false then 1
+if
+| #Left(1) is #Left(x) then x
+| true then 0
+else -1
+```
+
+### Single-route `and`
+
+```simpl
+if score > 0 and score < 100 then score else 0
+```
+
+### Multi-route `and` with `or`
+
+```simpl
+if
+| ready and
+  | has_cache then "cache"
+  | has_network then "network"
+  or
+| true then "wait"
+else "idle"
+```
+
+### Multi-route `and` with `else` fallback
+
+```simpl
+if flag and
+| cond_a then 1
 else 2
 end
 ```
 
-### `or` closes current split only
+### Pattern refinement with `and ... is`
+
+```simpl
+if user is
+| #Some(u) and u.role is #Admin(_) then "admin"
+| #Some(u) then u.name
+else "guest"
+```
+
+### Nested split composition
 
 ```simpl
 if
-| true and
-  | false then 1
-  | true then 2
+| #Some(x) is
+  | #Some(y) and
+    | y > 0 then y
+    | y == 0 then 0
+    or
+  | _ then -1
   or
-| true then 3
+| true then 42
 else 0
 ```
-
-## Invalid example
-
-`and` closed, but outer `if` still open:
-
-```simpl
-if true and
-| false then 1
-| true then 2
-end
-```
-
-This is invalid because `end` closes the `and` split here, while the outer `if` (multi-route) still lacks `else/end`.
 
 ## Notes
 
 - Indentation and newlines are formatting only; tokens define syntax.
 - Boolean operators are `&&` and `||`.
-- The word token `or` is reserved for split closure and is not a boolean operator.
+- The word token `or` is reserved for split closure.

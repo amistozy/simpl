@@ -884,7 +884,7 @@ fn close_single_route_if_is(
               arms + [SIfPatternArm(SPBind("_"), SIfThen(body))],
             ),
           ),
-          consume_optional_end(tokens, j),
+          j,
         )
       } else if i < tokens.length() && token_kind(tokens, i) == EndKeywordTok {
         (
@@ -924,7 +924,7 @@ fn parse_if_tail(
     ([arm] + rest, else_expr, end_i)
   } else if token_kind(tokens, i) == ElseTok {
     let (else_expr, j) = parse_expr(tokens, i + 1)
-    ([], else_expr, consume_optional_end(tokens, j))
+    ([], else_expr, j)
   } else if token_kind(tokens, i) == EndKeywordTok {
     ([], located_expr(tokens, i, i + 1, SNilLit), i + 1)
   } else {
@@ -1115,16 +1115,6 @@ fn parse_if_is_multi_tail(
   }
 }
 
-///|
-fn consume_optional_end(tokens : Array[SpannedToken], i : Int) -> Int {
-  if i < tokens.length() && token_kind(tokens, i) == EndKeywordTok {
-    i + 1
-  } else {
-    i
-  }
-}
-
-///|
 fn parse_lambda_expr(
   tokens : Array[SpannedToken],
   i : Int,

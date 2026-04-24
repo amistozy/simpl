@@ -434,6 +434,16 @@ test "and else closes and split and end closes if" {
 }
 
 ///|
+test "if else already closes if and trailing end is rejected" {
+  let code =
+    #| if true and #Some(42) is
+    #|   #Some(42) then 1
+    #|   else 2
+    #| end
+  assert_true(@simpl.parse_is_error(code))
+}
+
+///|
 test "and end does not close outer if multi-route" {
   let code =
     #| if true and
