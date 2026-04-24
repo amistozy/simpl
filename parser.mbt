@@ -1,15 +1,15 @@
 ///|
-pub type SourcePos = (Int, Int, Int)
+type SourcePos = (Int, Int, Int)
 
 ///|
-pub type SourceSpan = (SourcePos, SourcePos)
+type SourceSpan = (SourcePos, SourcePos)
 
 ///|
 type SpannedToken = (Token, SourceSpan)
 
 ///|
 /// Parser error type
-pub suberror ParseError {
+suberror ParseError {
   SyntaxErrorAt(String, SourceSpan)
 } derive(Debug)
 

@@ -26,30 +26,30 @@ enum SurfaceExpr {
 } derive(Debug)
 
 ///|
-enum SurfaceIfCondArm {
+priv enum SurfaceIfCondArm {
   SIfCondArm(SurfaceExpr, SurfaceIfGuard)
 } derive(Debug)
 
 ///|
-enum SurfaceIfPatternArm {
+priv enum SurfaceIfPatternArm {
   SIfPatternArm(SurfacePattern, SurfaceIfGuard)
 } derive(Debug)
 
 ///|
-enum SurfaceIfGuard {
+priv enum SurfaceIfGuard {
   SIfThen(SurfaceExpr)
   SIfAnd(Array[SurfaceIfCondArm])
   SIfIs(SurfaceExpr, Array[SurfaceIfPatternArm])
 } derive(Debug)
 
 ///|
-enum SurfaceRecordField {
+priv enum SurfaceRecordField {
   SRecordField(String, SurfaceExpr)
   SRecordShorthand(String)
 } derive(Debug)
 
 ///|
-enum SurfacePattern {
+priv enum SurfacePattern {
   SPBind(String)
   SPInt(Int)
   SPBool(Bool)
@@ -63,7 +63,7 @@ enum SurfacePattern {
 } derive(Debug)
 
 ///|
-enum SurfaceRecordPatternField {
+priv enum SurfaceRecordPatternField {
   SPRecordField(String, SurfacePattern)
   SPRecordShorthand(String)
 } derive(Debug)
@@ -94,24 +94,24 @@ enum Expr {
 } derive(Debug)
 
 ///|
-enum IfCondArm {
+priv enum IfCondArm {
   IfCondArm(Expr, IfGuard)
 } derive(Debug)
 
 ///|
-enum IfPatternArm {
+priv enum IfPatternArm {
   IfPatternArm(MatchPattern, IfGuard)
 } derive(Debug)
 
 ///|
-enum IfGuard {
+priv enum IfGuard {
   IfThen(Expr)
   IfAnd(Array[IfCondArm])
   IfIs(Expr, Array[IfPatternArm])
 } derive(Debug)
 
 ///|
-enum MatchPattern {
+priv enum MatchPattern {
   PBind(String)
   PInt(Int)
   PBool(Bool)
@@ -125,7 +125,7 @@ enum MatchPattern {
 } derive(Debug)
 
 ///|
-enum BinOp {
+priv enum BinOp {
   Add
   Sub
   Mul
@@ -141,7 +141,7 @@ enum BinOp {
 } derive(Debug)
 
 ///|
-enum UnOp {
+priv enum UnOp {
   Neg
   Not
 } derive(Debug)
@@ -165,7 +165,7 @@ enum Value {
 type Env = @hashmap.HashMap[String, Value]
 
 ///|
-suberror EvalError {
+priv suberror EvalError {
   RuntimeErrorAt(String, SourceSpan)
 } derive(Debug)
 

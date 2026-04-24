@@ -29,47 +29,16 @@ pub fn parse_is_error(String) -> Bool
 pub fn parse_is_ok(String) -> Bool
 
 // Errors
-type EvalError derive(@debug.Debug)
-
-pub suberror ParseError {
-  SyntaxErrorAt(String, ((Int, Int, Int), (Int, Int, Int)))
-} derive(@debug.Debug)
+type ParseError derive(@debug.Debug)
 
 // Types and methods
-type BinOp derive(@debug.Debug)
-
 type Expr derive(@debug.Debug)
 
-type IfCondArm derive(@debug.Debug)
-
-type IfGuard derive(@debug.Debug)
-
-type IfPatternArm derive(@debug.Debug)
-
-type MatchPattern derive(@debug.Debug)
-
 type SurfaceExpr derive(@debug.Debug)
-
-type SurfaceIfCondArm derive(@debug.Debug)
-
-type SurfaceIfGuard derive(@debug.Debug)
-
-type SurfaceIfPatternArm derive(@debug.Debug)
-
-type SurfacePattern derive(@debug.Debug)
-
-type SurfaceRecordField derive(@debug.Debug)
-
-type SurfaceRecordPatternField derive(@debug.Debug)
-
-type UnOp derive(@debug.Debug)
 
 type Value derive(@debug.Debug)
 
 // Type aliases
-pub type SourcePos = (Int, Int, Int)
-
-pub type SourceSpan = ((Int, Int, Int), (Int, Int, Int))
 
 // Traits
 
