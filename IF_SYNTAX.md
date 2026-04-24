@@ -64,6 +64,13 @@ The first branch pipe is optional:
 if value is pattern then expr else fallback
 ```
 
+```simpl
+if value is pattern then 
+  expr 
+else 
+  fallback
+```
+
 `end` is allowed and means `else nil`:
 
 ```simpl
