@@ -35,9 +35,9 @@ test "comparison and logic operators" {
 /// Blackbox: functional closures with lexical environment
 test "closure captures lexical env" {
   let code =
-    #| let x = 10 in
-    #| let f(y) = x + y in
-    #| let x = 100 in
+    #| let x = 10;
+    #| let f(y) = x + y;
+    #| let x = 100;
     #| f(5)
   assert_true(@simpl.eval_source_is_int(code, 15))
 }
@@ -103,8 +103,8 @@ test "unterminated string escape reports source position" {
 ///|
 test "ref basics and assignment expression value" {
   let code =
-    #| let r = ref 1 in
-    #| let x = (r := 3) in
+    #| let r = ref 1;
+    #| let x = (r := 3);
     #| !r + x
   assert_true(@simpl.eval_source_is_int(code, 6))
 }
@@ -167,33 +167,33 @@ test "calling non-function reports actual value" {
 ///|
 test "arity error reports expected and actual argument counts" {
   assert_eq(
-    @simpl.eval_error_text("let f(x) = x in f(1, 2)"),
-    Some("arity error: expected 1 arguments, got 2 at 1:17-24"),
+    @simpl.eval_error_text("let f(x) = x; f(1, 2)"),
+    Some("arity error: expected 1 arguments, got 2 at 1:15-22"),
   )
 }
 
 ///|
 test "pattern match failure reports expected pattern and actual value" {
   assert_eq(
-    @simpl.eval_error_text("let [x, y] = [1] in x"),
-    Some("pattern match failure: expected [x, y], got [1] at 1:5-22"),
+    @simpl.eval_error_text("let [x, y] = [1]; x"),
+    Some("pattern match failure: expected [x, y], got [1] at 1:5-20"),
   )
 }
 
 ///|
 test "let function sugar equals lambda binding" {
   let code =
-    #| let add2(x) = x + 2 in
+    #| let add2(x) = x + 2;
     #| add2(40)
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
-test "do sugar equals let _ = ... in ..." {
+test "do sugar equals let _ = ...; ..." {
   let code =
-    #| let r = ref 0 in
-    #| do r := 1 in
-    #| do r := !r + 41 in
+    #| let r = ref 0;
+    #| do r := 1;
+    #| do r := !r + 41;
     #| !r
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -201,10 +201,10 @@ test "do sugar equals let _ = ... in ..." {
 ///|
 test "do sugar nests like let _ bindings" {
   let code =
-    #| let r = ref 0 in
-    #| do r := 1 in
-    #| do r := !r + 1 in
-    #| do r := !r + 1 in
+    #| let r = ref 0;
+    #| do r := 1;
+    #| do r := !r + 1;
+    #| do r := !r + 1;
     #| !r
   assert_true(@simpl.eval_source_is_int(code, 3))
 }
@@ -212,8 +212,8 @@ test "do sugar nests like let _ bindings" {
 ///|
 test "and short-circuits right-hand side" {
   let code =
-    #| let r = ref 0 in
-    #| do false && (r := 1 == 1) in
+    #| let r = ref 0;
+    #| do false && (r := 1 == 1);
     #| !r
   assert_true(@simpl.eval_source_is_int(code, 0))
 }
@@ -221,8 +221,8 @@ test "and short-circuits right-hand side" {
 ///|
 test "or short-circuits right-hand side" {
   let code =
-    #| let r = ref 0 in
-    #| do true || (r := 1 == 1) in
+    #| let r = ref 0;
+    #| do true || (r := 1 == 1);
     #| !r
   assert_true(@simpl.eval_source_is_int(code, 0))
 }
@@ -261,7 +261,7 @@ test "record literal and field access" {
 ///|
 test "record literal supports field shorthand" {
   let code =
-    #| let x = 42 in {x, y: 43}.x
+    #| let x = 42; {x, y: 43}.x
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -275,7 +275,7 @@ test "nested record fields" {
 ///|
 test "record field access can be used in expressions" {
   let code =
-    #| let p = {x: 10, y: 32} in 
+    #| let p = {x: 10, y: 32};
     #| p.x + p.y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -283,7 +283,7 @@ test "record field access can be used in expressions" {
 ///|
 test "record destructuring binds fields" {
   let code =
-    #| let {x, y} = {x: 10, y: 32} in 
+    #| let {x, y} = {x: 10, y: 32};
     #| x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -291,7 +291,7 @@ test "record destructuring binds fields" {
 ///|
 test "record destructuring supports renaming" {
   let code =
-    #| let {x: left, y: right} = {x: 10, y: 32} in 
+    #| let {x: left, y: right} = {x: 10, y: 32};
     #| left + right
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -299,7 +299,7 @@ test "record destructuring supports renaming" {
 ///|
 test "let supports general patterns" {
   let code =
-    #| let #Pair([x, y]) = #Pair([10, 32]) in
+    #| let #Pair([x, y]) = #Pair([10, 32]);
     #| x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -321,7 +321,7 @@ test "lambda parameters support patterns" {
 ///|
 test "let function sugar supports parameter patterns" {
   let code =
-    #| let add_pair(#Pair(x), [y, z]) = x + y + z in
+    #| let add_pair(#Pair(x), [y, z]) = x + y + z;
     #| add_pair(#Pair(10), [20, 12])
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -384,8 +384,8 @@ test "leading pipe forces if multi-route even with multi-is first branch" {
 test "and else closes and split and end closes if" {
   let code =
     #| if true and
-    #| | false then 1
-    #| else 2
+    #|   | false then 1
+    #|   else 2
     #| end
   assert_true(@simpl.eval_source_is_int(code, 2))
 }

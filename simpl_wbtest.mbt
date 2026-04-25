@@ -54,7 +54,7 @@ test "record equality" {
 
 ///|
 test "parser preserves do sugar before desugar" {
-  match parse("do 1 in 2") {
+  match parse("do 1; 2") {
     SLocated(_, SDo(SLocated(_, SIntLit(1)), SLocated(_, SIntLit(2)))) =>
       assert_true(true)
     _ => assert_true(false)
@@ -71,7 +71,7 @@ test "desugar lowers do to ignored let" {
 
 ///|
 test "parser preserves let function sugar before desugar" {
-  match parse("let add(x) = x + 1 in add(41)") {
+  match parse("let add(x) = x + 1; add(41)") {
     SLocated(_, SLetFun("add", [SPBind("x")], _, _)) => assert_true(true)
     _ => assert_true(false)
   }
@@ -79,7 +79,7 @@ test "parser preserves let function sugar before desugar" {
 
 ///|
 test "parser preserves record pattern shorthand before desugar" {
-  match parse("let {x, y: z} = {x: 1, y: 2} in x + z") {
+  match parse("let {x, y: z} = {x: 1, y: 2}; x + z") {
     SLocated(
       _,
       SLet(

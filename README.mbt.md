@@ -40,7 +40,7 @@ moon info && moon fmt
 
 - primitives: `Int`, `Bool`, `String`, `nil`
 - functions and closures: `fn(x) => ...`, function calls
-- bindings: `let ... in ...`, recursive `let rec`
+- bindings: `let ...; ...`, recursive `let rec`
 - control flow: UCS `if` and `if is`
 - pattern matching in `let`, parameters, and `if is`
 - algebraic variants (for example `#Left(1)`)
@@ -86,9 +86,9 @@ Lexical scoping:
 ///|
 let value = @simpl.eval_source(
   (
-    #| let x = 10 in
-    #| let f(y) = x + y in
-    #| let x = 100 in
+    #| let x = 10;
+    #| let f(y) = x + y;
+    #| let x = 100;
     #| f(5)
   ),
 )
@@ -116,8 +116,8 @@ References:
 ///|
 let value = @simpl.eval_source(
   (
-    #| let r = ref 1 in
-    #| do r := 3 in
+    #| let r = ref 1;
+    #| do r := 3;
     #| !r + 3
   ),
 )

@@ -23,7 +23,6 @@ priv enum Token {
   NilTok
   LetTok
   RecTok
-  InTok
   IfTok
   ThenTok
   ElseTok
@@ -63,6 +62,7 @@ priv enum Token {
   LParenTok
   RParenTok
   CommaTok
+  SemicolonTok
   EndTok
 } derive(Eq)
 
@@ -209,6 +209,7 @@ fn lex_loop(
     '(' => push_single_char_token(source, i, line, column, LParenTok, acc)
     ')' => push_single_char_token(source, i, line, column, RParenTok, acc)
     ',' => push_single_char_token(source, i, line, column, CommaTok, acc)
+    ';' => push_single_char_token(source, i, line, column, SemicolonTok, acc)
     '+' => push_single_char_token(source, i, line, column, PlusTok, acc)
     '-' => push_single_char_token(source, i, line, column, MinusTok, acc)
     '*' => push_single_char_token(source, i, line, column, StarTok, acc)
@@ -592,7 +593,6 @@ fn keyword_or_ident(text : String) -> Token {
     "nil" => NilTok
     "let" => LetTok
     "rec" => RecTok
-    "in" => InTok
     "if" => IfTok
     "then" => ThenTok
     "else" => ElseTok
@@ -619,7 +619,6 @@ fn token_name(tok : Token) -> String {
     NilTok => "nil"
     LetTok => "let"
     RecTok => "rec"
-    InTok => "in"
     IfTok => "if"
     ThenTok => "then"
     ElseTok => "else"
@@ -659,6 +658,7 @@ fn token_name(tok : Token) -> String {
     LParenTok => "("
     RParenTok => ")"
     CommaTok => ","
+    SemicolonTok => ";"
     EndTok => "<eof>"
   }
 }
@@ -722,8 +722,8 @@ fn parse_plain_let_expr(
           syntax_error_at(tokens, j, "expected '=' after let function params")
         }
         let (func_body, k) = parse_expr(tokens, j + 1)
-        if k >= tokens.length() || token_kind(tokens, k) != InTok {
-          syntax_error_at(tokens, k, "expected 'in' after let function binding")
+        if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
+          syntax_error_at(tokens, k, "expected ';' after let function binding")
         }
         let (body, m) = parse_expr(tokens, k + 1)
         (located_expr(tokens, i, m, SLetFun(name, params, func_body, body)), m)
@@ -733,8 +733,8 @@ fn parse_plain_let_expr(
           syntax_error_at(tokens, j, "expected '=' after let pattern")
         }
         let (value_expr, k) = parse_expr(tokens, j + 1)
-        if k >= tokens.length() || token_kind(tokens, k) != InTok {
-          syntax_error_at(tokens, k, "expected 'in' after let binding")
+        if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
+          syntax_error_at(tokens, k, "expected ';' after let binding")
         }
         let (body, m) = parse_expr(tokens, k + 1)
         (located_expr(tokens, i, m, SLet(pattern, value_expr, body)), m)
@@ -745,8 +745,8 @@ fn parse_plain_let_expr(
         syntax_error_at(tokens, j, "expected '=' after let pattern")
       }
       let (value_expr, k) = parse_expr(tokens, j + 1)
-      if k >= tokens.length() || token_kind(tokens, k) != InTok {
-        syntax_error_at(tokens, k, "expected 'in' after let binding")
+      if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
+        syntax_error_at(tokens, k, "expected ';' after let binding")
       }
       let (body, m) = parse_expr(tokens, k + 1)
       (located_expr(tokens, i, m, SLet(pattern, value_expr, body)), m)
@@ -776,8 +776,8 @@ fn parse_let_rec_expr(
         syntax_error_at(tokens, j, "expected '=' after let rec params")
       }
       let (func_body, k) = parse_expr(tokens, j + 1)
-      if k >= tokens.length() || token_kind(tokens, k) != InTok {
-        syntax_error_at(tokens, k, "expected 'in' after let rec binding")
+      if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
+        syntax_error_at(tokens, k, "expected ';' after let rec binding")
       }
       let (body, m) = parse_expr(tokens, k + 1)
       (located_expr(tokens, i, m, SLetRec(name, params, func_body, body)), m)
@@ -795,8 +795,8 @@ fn parse_do_expr(
     syntax_error_eof(tokens, "expected expression after 'do'")
   }
   let (value_expr, j) = parse_expr(tokens, i)
-  if j >= tokens.length() || token_kind(tokens, j) != InTok {
-    syntax_error_at(tokens, j, "expected 'in' after do expression")
+  if j >= tokens.length() || token_kind(tokens, j) != SemicolonTok {
+    syntax_error_at(tokens, j, "expected ';' after do expression")
   }
   let (body, k) = parse_expr(tokens, j + 1)
   (located_expr(tokens, i, k, SDo(value_expr, body)), k)
