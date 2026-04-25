@@ -1,5 +1,7 @@
 import {
   "amistozy/simpl" @lib,
+  "moonbitlang/core/argparse",
+  "moonbitlang/x/fs" @fs,
 }
 
 options(
