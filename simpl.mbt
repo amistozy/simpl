@@ -14,17 +14,28 @@ enum SurfaceExpr {
   SLet(SurfacePattern, SurfaceExpr, SurfaceExpr)
   SLetAnd(Array[(SurfacePattern, SurfaceExpr)], SurfaceExpr)
   SDo(SurfaceExpr, SurfaceExpr)
-  SLetFun(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
-  SLetRec(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
-  SLetRecAnd(Array[(String, Array[SurfacePattern], SurfaceExpr)], SurfaceExpr)
-  SLambda(Array[SurfacePattern], SurfaceExpr)
-  SCall(SurfaceExpr, Array[SurfaceExpr])
+  SLetFun(String, Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
+  SLetRec(String, Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
+  SLetRecAnd(Array[(String, Array[SurfaceParam], SurfaceExpr)], SurfaceExpr)
+  SLambda(Array[SurfaceParam], SurfaceExpr)
+  SCall(SurfaceExpr, Array[SurfaceCallArg])
   SRefGet(SurfaceExpr)
   SRefSet(SurfaceExpr, SurfaceExpr)
   SRefUpdate(BinOp, SurfaceExpr, SurfaceExpr)
   SField(SurfaceExpr, String)
   SUnary(UnOp, SurfaceExpr)
   SBinary(BinOp, SurfaceExpr, SurfaceExpr)
+} derive(Debug)
+
+///|
+priv enum SurfaceParam {
+  SParam(SurfacePattern, SurfaceExpr?)
+} derive(Debug)
+
+///|
+priv enum SurfaceCallArg {
+  SArgPos(SurfaceExpr)
+  SArgNamed(String, SurfaceExpr)
 } derive(Debug)
 
 ///|
@@ -85,16 +96,27 @@ enum Expr {
   If(Array[IfCondArm], Expr)
   Let(MatchPattern, Expr, Expr)
   LetAnd(Array[(MatchPattern, Expr)], Expr)
-  LetRec(String, Array[MatchPattern], Expr, Expr)
-  LetRecAnd(Array[(String, Array[MatchPattern], Expr)], Expr)
-  Lambda(Array[MatchPattern], Expr)
-  Call(Expr, Array[Expr])
+  LetRec(String, Array[Param], Expr, Expr)
+  LetRecAnd(Array[(String, Array[Param], Expr)], Expr)
+  Lambda(Array[Param], Expr)
+  Call(Expr, Array[CallArg])
   RefGet(Expr)
   RefSet(Expr, Expr)
   RefUpdate(BinOp, Expr, Expr)
   Field(Expr, String)
   Unary(UnOp, Expr)
   Binary(BinOp, Expr, Expr)
+} derive(Debug)
+
+///|
+priv enum Param {
+  Param(MatchPattern, Expr?, String?)
+} derive(Debug)
+
+///|
+priv enum CallArg {
+  ArgPos(Expr)
+  ArgNamed(String, Expr)
 } derive(Debug)
 
 ///|
@@ -162,13 +184,14 @@ enum Value {
   VRecord(@hashmap.HashMap[String, Value])
   VVariant(String, Value)
   VRef(@ref.Ref[Value])
-  VClosure(Array[MatchPattern], Expr, Env)
+  VClosure(Array[Param], Expr, Env, Array[Value?])
   VRecClosure(
     String,
-    Array[MatchPattern],
+    Array[Param],
     Expr,
     Env,
-    Array[(String, Array[MatchPattern], Expr)]
+    Array[(String, Array[Param], Expr)],
+    Array[Value?]
   )
   VBuiltinRef
 } derive(Debug)
@@ -228,7 +251,7 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
       "let " +
       name +
       "(" +
-      surface_pattern_list_pretty(params, 0) +
+      surface_param_list_pretty(params, 0) +
       ") = " +
       surface_expr_pretty(func_body) +
       "; " +
@@ -237,7 +260,7 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
       "let rec " +
       name +
       "(" +
-      surface_pattern_list_pretty(params, 0) +
+      surface_param_list_pretty(params, 0) +
       ") = " +
       surface_expr_pretty(func_body) +
       "; " +
@@ -249,13 +272,13 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
       surface_expr_pretty(body)
     SLambda(params, body) =>
       "fn(" +
-      surface_pattern_list_pretty(params, 0) +
+      surface_param_list_pretty(params, 0) +
       ") = " +
       surface_expr_pretty(body)
     SCall(func_expr, arg_exprs) =>
       surface_expr_pretty(func_expr) +
       "(" +
-      surface_expr_list_pretty(arg_exprs, 0) +
+      surface_call_arg_list_pretty(arg_exprs, 0) +
       ")"
     SRefGet(inner) => "!" + surface_expr_pretty(inner)
     SRefSet(ref_expr, value_expr) =>
@@ -289,6 +312,56 @@ fn surface_expr_list_pretty(items : Array[SurfaceExpr], i : Int) -> String {
     current
   } else {
     current + "; " + surface_expr_list_pretty(items, i + 1)
+  }
+}
+
+///|
+fn surface_param_pretty(param : SurfaceParam) -> String {
+  match param {
+    SParam(pattern, default_expr) =>
+      match default_expr {
+        Some(expr) =>
+          surface_pattern_pretty(pattern) + " = " + surface_expr_pretty(expr)
+        None => surface_pattern_pretty(pattern)
+      }
+  }
+}
+
+///|
+fn surface_param_list_pretty(params : Array[SurfaceParam], i : Int) -> String {
+  if i >= params.length() {
+    return ""
+  }
+  let current = surface_param_pretty(params[i])
+  if i + 1 >= params.length() {
+    current
+  } else {
+    current + "; " + surface_param_list_pretty(params, i + 1)
+  }
+}
+
+///|
+fn surface_call_arg_pretty(arg : SurfaceCallArg) -> String {
+  match arg {
+    SArgPos(expr) => surface_expr_pretty(expr)
+    SArgNamed(name, value_expr) =>
+      name + " = " + surface_expr_pretty(value_expr)
+  }
+}
+
+///|
+fn surface_call_arg_list_pretty(
+  args : Array[SurfaceCallArg],
+  i : Int,
+) -> String {
+  if i >= args.length() {
+    return ""
+  }
+  let current = surface_call_arg_pretty(args[i])
+  if i + 1 >= args.length() {
+    current
+  } else {
+    current + "; " + surface_call_arg_list_pretty(args, i + 1)
   }
 }
 
@@ -475,7 +548,7 @@ fn surface_let_bindings_pretty(
 
 ///|
 fn surface_let_rec_defs_pretty(
-  defs : Array[(String, Array[SurfacePattern], SurfaceExpr)],
+  defs : Array[(String, Array[SurfaceParam], SurfaceExpr)],
   i : Int,
 ) -> String {
   if i >= defs.length() {
@@ -484,7 +557,7 @@ fn surface_let_rec_defs_pretty(
   let (name, params, func_body) = defs[i]
   let current = name +
     "(" +
-    surface_pattern_list_pretty(params, 0) +
+    surface_param_list_pretty(params, 0) +
     ") = " +
     surface_expr_pretty(func_body)
   if i + 1 >= defs.length() {
@@ -550,8 +623,8 @@ fn value_pretty(value : Value, depth : Int) -> String {
     VVariant(tag, payload) =>
       "#" + tag + "(" + value_pretty(payload, depth - 1) + ")"
     VRef(cell) => "ref(" + value_pretty(cell.val, depth - 1) + ")"
-    VClosure(_, _, _) => "<fn>"
-    VRecClosure(name, _, _, _, _) => "<rec " + name + ">"
+    VClosure(_, _, _, _) => "<fn>"
+    VRecClosure(name, _, _, _, _, _) => "<rec " + name + ">"
     VBuiltinRef => "<builtin ref>"
   }
 }
@@ -620,22 +693,22 @@ fn desugar(expr : SurfaceExpr) -> Expr {
     SLetFun(name, params, func_body, body) =>
       Let(
         PBind(name),
-        Lambda(params.map(param => desugar_pattern(param)), desugar(func_body)),
+        Lambda(params.map(param => desugar_param(param)), desugar(func_body)),
         desugar(body),
       )
     SLetRec(name, params, func_body, body) =>
       LetRec(
         name,
-        params.map(param => desugar_pattern(param)),
+        params.map(param => desugar_param(param)),
         desugar(func_body),
         desugar(body),
       )
     SLetRecAnd(defs, body) =>
       LetRecAnd(defs.map(def => desugar_let_rec_def(def)), desugar(body))
     SLambda(params, body) =>
-      Lambda(params.map(param => desugar_pattern(param)), desugar(body))
+      Lambda(params.map(param => desugar_param(param)), desugar(body))
     SCall(func_expr, arg_exprs) =>
-      Call(desugar(func_expr), arg_exprs.map(arg => desugar(arg)))
+      Call(desugar(func_expr), arg_exprs.map(arg => desugar_call_arg(arg)))
     SRefGet(inner) => RefGet(desugar(inner))
     SRefSet(ref_expr, value_expr) =>
       RefSet(desugar(ref_expr), desugar(value_expr))
@@ -704,6 +777,32 @@ fn desugar_pattern(pattern : SurfacePattern) -> MatchPattern {
 }
 
 ///|
+fn desugar_param(param : SurfaceParam) -> Param {
+  match param {
+    SParam(pattern, default_expr) => {
+      let core_pattern = desugar_pattern(pattern)
+      let core_default = match default_expr {
+        Some(expr) => Some(desugar(expr))
+        None => None
+      }
+      let name = match core_pattern {
+        PBind(n) => Some(n)
+        _ => None
+      }
+      Param(core_pattern, core_default, name)
+    }
+  }
+}
+
+///|
+fn desugar_call_arg(arg : SurfaceCallArg) -> CallArg {
+  match arg {
+    SArgPos(expr) => ArgPos(desugar(expr))
+    SArgNamed(name, expr) => ArgNamed(name, desugar(expr))
+  }
+}
+
+///|
 fn desugar_record_pattern_field(
   field : SurfaceRecordPatternField,
 ) -> (String, MatchPattern) {
@@ -723,10 +822,10 @@ fn desugar_let_binding(
 
 ///|
 fn desugar_let_rec_def(
-  def : (String, Array[SurfacePattern], SurfaceExpr),
-) -> (String, Array[MatchPattern], Expr) {
+  def : (String, Array[SurfaceParam], SurfaceExpr),
+) -> (String, Array[Param], Expr) {
   let (name, params, func_body) = def
-  (name, params.map(param => desugar_pattern(param)), desugar(func_body))
+  (name, params.map(param => desugar_param(param)), desugar(func_body))
 }
 
 ///|
@@ -771,10 +870,13 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       let rec_env = build_rec_env(defs, env)
       eval_with_env(body, rec_env)
     }
-    Lambda(params, body) => VClosure(params, body, env)
+    Lambda(params, body) => {
+      let defaults = eval_param_defaults(params, env)
+      VClosure(params, body, env, defaults)
+    }
     Call(func_expr, arg_exprs) => {
       let func_value = eval_with_env(func_expr, env)
-      let args = eval_expr_list(arg_exprs, env)
+      let args = eval_call_args(arg_exprs, env)
       apply(func_value, args)
     }
     RefGet(ref_expr) =>
@@ -999,19 +1101,19 @@ fn bind_let_and_values(
 
 ///|
 fn build_rec_env(
-  defs : Array[(String, Array[MatchPattern], Expr)],
+  defs : Array[(String, Array[Param], Expr)],
   closure_env : Env,
-) -> Env {
+) -> Env raise {
   build_rec_env_from(defs, closure_env, closure_env, 0)
 }
 
 ///|
 fn build_rec_env_from(
-  defs : Array[(String, Array[MatchPattern], Expr)],
+  defs : Array[(String, Array[Param], Expr)],
   closure_env : Env,
   env : Env,
   i : Int,
-) -> Env {
+) -> Env raise {
   if i >= defs.length() {
     return env
   }
@@ -1022,57 +1124,197 @@ fn build_rec_env_from(
 
 ///|
 fn rec_closure_from_def(
-  def : (String, Array[MatchPattern], Expr),
+  def : (String, Array[Param], Expr),
   closure_env : Env,
-  defs : Array[(String, Array[MatchPattern], Expr)],
-) -> Value {
+  defs : Array[(String, Array[Param], Expr)],
+) -> Value raise {
   let (name, params, body) = def
-  VRecClosure(name, params, body, closure_env, defs)
+  let defaults = eval_param_defaults(params, closure_env)
+  VRecClosure(name, params, body, closure_env, defs, defaults)
 }
 
 ///|
-fn apply(func_value : Value, args : Array[Value]) -> Value raise {
+priv enum EvaluatedCallArg {
+  EArgPos(Value)
+  EArgNamed(String, Value)
+}
+
+///|
+fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
   match func_value {
-    VClosure(params, body, closure_env) => {
-      let call_env = bind_patterns(params, args, closure_env)
+    VClosure(params, body, closure_env, default_values) => {
+      let call_env = bind_params(params, args, closure_env, default_values)
       eval_with_env(body, call_env)
     }
-    VRecClosure(_, params, body, closure_env, defs) => {
+    VRecClosure(_, params, body, closure_env, defs, default_values) => {
       let call_base_env = build_rec_env(defs, closure_env)
-      let call_env = bind_patterns(params, args, call_base_env)
+      let call_env = bind_params(params, args, call_base_env, default_values)
       eval_with_env(body, call_env)
     }
     VBuiltinRef => {
       if args.length() != 1 {
         raise arity_error(1, args.length())
       }
-      VRef(@ref.new(args[0]))
+      match args[0] {
+        EArgPos(v) => VRef(@ref.new(v))
+        EArgNamed(_, _) =>
+          raise runtime_error("builtin 'ref' does not accept named arguments")
+      }
     }
     _ => raise call_non_function_error(func_value)
   }
 }
 
 ///|
-fn bind_patterns(
-  patterns : Array[MatchPattern],
-  args : Array[Value],
+fn eval_param_defaults(params : Array[Param], env : Env) -> Array[Value?] raise {
+  params.map(param => eval_param_default_at_definition(param, env))
+}
+
+///|
+fn eval_param_default_at_definition(param : Param, env : Env) -> Value? raise {
+  let Param(_pattern, default_expr, _name) = param
+  match default_expr {
+    Some(expr) => Some(eval_with_env(expr, env))
+    None => None
+  }
+}
+
+///|
+fn bind_params(
+  params : Array[Param],
+  args : Array[EvaluatedCallArg],
   base : Env,
+  default_values : Array[Value?],
 ) -> Env raise {
-  if patterns.length() < args.length() {
-    raise arity_error(patterns.length(), args.length())
+  let assigned = params.map(_ => None)
+  bind_named_args(params, args, assigned, 0)
+  bind_positional_args(params, args, assigned, 0, 0)
+  finalize_param_bindings(params, assigned, default_values, base, 0)
+}
+
+///|
+fn bind_named_args(
+  params : Array[Param],
+  args : Array[EvaluatedCallArg],
+  assigned : Array[Value?],
+  i : Int,
+) -> Unit raise {
+  if i >= args.length() {
+    return
   }
-  if patterns.length() > args.length() {
-    raise arity_error(patterns.length(), args.length())
+  match args[i] {
+    EArgPos(_) => bind_named_args(params, args, assigned, i + 1)
+    EArgNamed(name, value) =>
+      match find_param_index_by_name(params, name, 0) {
+        Some(param_i) =>
+          match assigned[param_i] {
+            Some(_) => raise runtime_error("duplicate argument: " + name)
+            None => {
+              assigned[param_i] = Some(value)
+              bind_named_args(params, args, assigned, i + 1)
+            }
+          }
+        None => raise runtime_error("unknown named argument: " + name)
+      }
   }
-  patterns.foldi(init=base, (i, acc_env, pattern) => {
-    bind_pattern(pattern, args[i], acc_env)
-  })
+}
+
+///|
+fn find_param_index_by_name(
+  params : Array[Param],
+  name : String,
+  i : Int,
+) -> Int? {
+  if i >= params.length() {
+    return None
+  }
+  let Param(_, _, param_name) = params[i]
+  match param_name {
+    Some(n) if n == name => Some(i)
+    _ => find_param_index_by_name(params, name, i + 1)
+  }
+}
+
+///|
+fn bind_positional_args(
+  params : Array[Param],
+  args : Array[EvaluatedCallArg],
+  assigned : Array[Value?],
+  i : Int,
+  next_param_i : Int,
+) -> Unit raise {
+  if i >= args.length() {
+    return
+  }
+  match args[i] {
+    EArgNamed(_, _) =>
+      bind_positional_args(params, args, assigned, i + 1, next_param_i)
+    EArgPos(value) =>
+      match find_next_unassigned_param(assigned, next_param_i) {
+        Some(param_i) => {
+          assigned[param_i] = Some(value)
+          bind_positional_args(params, args, assigned, i + 1, param_i + 1)
+        }
+        None => raise arity_error(params.length(), args.length())
+      }
+  }
+}
+
+///|
+fn find_next_unassigned_param(assigned : Array[Value?], i : Int) -> Int? {
+  if i >= assigned.length() {
+    return None
+  }
+  match assigned[i] {
+    Some(_) => find_next_unassigned_param(assigned, i + 1)
+    None => Some(i)
+  }
+}
+
+///|
+fn finalize_param_bindings(
+  params : Array[Param],
+  assigned : Array[Value?],
+  default_values : Array[Value?],
+  env : Env,
+  i : Int,
+) -> Env raise {
+  if i >= params.length() {
+    return env
+  }
+  let Param(pattern, _default_expr, _) = params[i]
+  let value = match assigned[i] {
+    Some(v) => v
+    None =>
+      match default_values[i] {
+        Some(v) => v
+        None => VNil
+      }
+  }
+  let next_env = bind_pattern(pattern, value, env)
+  finalize_param_bindings(params, assigned, default_values, next_env, i + 1)
 }
 
 ///|
 /// Helpers: expression list evaluation
 fn eval_expr_list(exprs : Array[Expr], env : Env) -> Array[Value] raise {
   exprs.map(expr => eval_with_env(expr, env))
+}
+
+///|
+fn eval_call_args(
+  args : Array[CallArg],
+  env : Env,
+) -> Array[EvaluatedCallArg] raise {
+  args.map(arg => eval_call_arg(arg, env))
+}
+
+///|
+fn eval_call_arg(arg : CallArg, env : Env) -> EvaluatedCallArg raise {
+  match arg {
+    ArgPos(expr) => EArgPos(eval_with_env(expr, env))
+    ArgNamed(name, expr) => EArgNamed(name, eval_with_env(expr, env))
+  }
 }
 
 ///|
@@ -1428,8 +1670,8 @@ fn value_summary(value : Value) -> String {
     VRecord(fields) => "record(" + fields.length().to_string() + " fields)"
     VVariant(tag, payload) => "#" + tag + "(" + value_summary(payload) + ")"
     VRef(_) => "ref"
-    VClosure(_, _, _) => "function"
-    VRecClosure(_, _, _, _, _) => "function"
+    VClosure(_, _, _, _) => "function"
+    VRecClosure(_, _, _, _, _, _) => "function"
     VBuiltinRef => "function"
   }
 }
@@ -1446,8 +1688,8 @@ fn typed_value_summary(value : Value) -> String {
     VVariant(tag, payload) =>
       "Variant(" + "#" + tag + "(" + value_summary(payload) + ")" + ")"
     VRef(_) => "Ref"
-    VClosure(_, _, _) => "Function"
-    VRecClosure(_, _, _, _, _) => "Function"
+    VClosure(_, _, _, _) => "Function"
+    VRecClosure(_, _, _, _, _, _) => "Function"
     VBuiltinRef => "Function"
   }
 }

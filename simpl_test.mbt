@@ -50,6 +50,47 @@ test "higher order function" {
 }
 
 ///|
+test "function params without defaults default to nil" {
+  let code =
+    #| (fn(x; y) = if x == nil and y == nil then 1 else 0)()
+  assert_true(@simpl.eval_source_is_int(code, 1))
+}
+
+///|
+test "function supports explicit default values" {
+  let code =
+    #| let f(x = 1; y; z = 3) = x + y + z;
+    #| f(y = 2)
+  assert_true(@simpl.eval_source_is_int(code, 6))
+}
+
+///|
+test "named args are matched before positional args" {
+  let code =
+    #| let f(a; b; c) = a + b + c;
+    #| f(a = 1; 2; c = 3)
+  assert_true(@simpl.eval_source_is_int(code, 6))
+}
+
+///|
+test "default expressions cannot reference params" {
+  let code =
+    #| let f(a = 1; b = a + 1) = b;
+    #| f()
+  assert_true(@simpl.eval_source_is_error(code))
+}
+
+///|
+test "default expressions are evaluated at definition time" {
+  let code =
+    #| let r = ref(1);
+    #| let f(x = !r) = x;
+    #| do r := 2;
+    #| f()
+  assert_true(@simpl.eval_source_is_int(code, 1))
+}
+
+///|
 /// Blackbox: parser + evaluator
 test "eval_source honors operator precedence" {
   assert_true(@simpl.eval_source_is_int("1 + 2 * 3", 7))

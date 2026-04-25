@@ -72,7 +72,8 @@ test "desugar lowers do to ignored let" {
 ///|
 test "parser preserves let function sugar before desugar" {
   match parse("let add(x) = x + 1; add(41)") {
-    SLocated(_, SLetFun("add", [SPBind("x")], _, _)) => assert_true(true)
+    SLocated(_, SLetFun("add", [SParam(SPBind("x"), None)], _, _)) =>
+      assert_true(true)
     _ => assert_true(false)
   }
 }
@@ -160,7 +161,9 @@ test "desugared surface ast evaluates as core ast" {
   let expr = SDo(SRefSet(SVar("r"), SIntLit(42)), SRefGet(SVar("r")))
   assert_true(
     try
-      eval(Let(PBind("r"), Call(Var("ref"), [IntLit(0)]), desugar(expr)))
+      eval(
+        Let(PBind("r"), Call(Var("ref"), [ArgPos(IntLit(0))]), desugar(expr)),
+      )
     catch {
       _ => false
     } noraise {

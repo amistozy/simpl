@@ -79,6 +79,10 @@ moon run cmd/main -- examples/basic.simpl
 
 - primitives: `Int`, `Bool`, `String`, `nil`
 - functions and closures: `fn(x) = ...`
+- default params: `fn(x = 1; y; z = 3) = ...` (`y` defaults to `nil`)
+- named args in calls: `f(a = 1; 2; c = 3)`
+- default expressions are evaluated when the function is defined
+- default expressions cannot reference other parameters
 - bindings: `let`, `let ... and ...`, `let rec`, `let rec ... and ...`
 - binding update sugar: `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`
 - control flow: UCS `if`, `if is`

@@ -844,7 +844,7 @@ fn let_compound_assign_binop(tok : Token) -> BinOp? {
 ///|
 priv enum ParsedLetBinding {
   PLetPattern(SurfacePattern, SurfaceExpr)
-  PLetFun(String, Array[SurfacePattern], SurfaceExpr)
+  PLetFun(String, Array[SurfaceParam], SurfaceExpr)
 }
 
 ///|
@@ -944,7 +944,7 @@ fn parse_plain_let_and_bindings(
 fn parse_let_rec_fun_binding(
   tokens : Array[SpannedToken],
   i : Int,
-) -> ((String, Array[SurfacePattern], SurfaceExpr), Int) raise {
+) -> ((String, Array[SurfaceParam], SurfaceExpr), Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "expected function name after 'let rec'")
   }
@@ -972,8 +972,8 @@ fn parse_let_rec_fun_binding(
 fn parse_let_rec_and_defs(
   tokens : Array[SpannedToken],
   i : Int,
-  acc : Array[(String, Array[SurfacePattern], SurfaceExpr)],
-) -> (Array[(String, Array[SurfacePattern], SurfaceExpr)], Int) raise {
+  acc : Array[(String, Array[SurfaceParam], SurfaceExpr)],
+) -> (Array[(String, Array[SurfaceParam], SurfaceExpr)], Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "expected function name after 'and' in let rec")
   }
@@ -1410,7 +1410,7 @@ fn parse_lambda_expr(
 fn parse_params(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[SurfacePattern], Int) raise {
+) -> (Array[SurfaceParam], Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end in params")
   }
@@ -1425,11 +1425,11 @@ fn parse_params(
 fn parse_params_nonempty(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[SurfacePattern], Int) raise {
+) -> (Array[SurfaceParam], Int) raise {
   let params = []
   for j = i, _pos = 0 {
-    let (pattern, next) = parse_pattern(tokens, j)
-    params.push(pattern)
+    let (param, next) = parse_param(tokens, j)
+    params.push(param)
     if next >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in params")
     }
@@ -1444,6 +1444,20 @@ fn parse_params_nonempty(
       next,
       "unexpected token in params: " + token_name(token_kind(tokens, next)),
     )
+  }
+}
+
+///|
+fn parse_param(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceParam, Int) raise {
+  let (pattern, j) = parse_pattern(tokens, i)
+  if j < tokens.length() && token_kind(tokens, j) == AssignTok {
+    let (default_expr, k) = parse_expr(tokens, j + 1)
+    (SParam(pattern, Some(default_expr)), k)
+  } else {
+    (SParam(pattern, None), j)
   }
 }
 
@@ -1726,7 +1740,7 @@ fn parse_postfix_tail(
 fn parse_args(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[SurfaceExpr], Int) raise {
+) -> (Array[SurfaceCallArg], Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end in args")
   }
@@ -1741,10 +1755,10 @@ fn parse_args(
 fn parse_args_nonempty(
   tokens : Array[SpannedToken],
   i : Int,
-) -> (Array[SurfaceExpr], Int) raise {
+) -> (Array[SurfaceCallArg], Int) raise {
   let args = []
   for j = i, _pos = 0 {
-    let (arg, next_expr) = parse_expr(tokens, j)
+    let (arg, next_expr) = parse_call_arg(tokens, j)
     args.push(arg)
     if next_expr >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in args")
@@ -1761,6 +1775,24 @@ fn parse_args_nonempty(
       "unexpected token in args: " + token_name(token_kind(tokens, next_expr)),
     )
   }
+}
+
+///|
+fn parse_call_arg(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceCallArg, Int) raise {
+  if i + 1 < tokens.length() {
+    match token_kind(tokens, i) {
+      IdentTok(name) if token_kind(tokens, i + 1) == AssignTok => {
+        let (value_expr, j) = parse_expr(tokens, i + 2)
+        return (SArgNamed(name, value_expr), j)
+      }
+      _ => ()
+    }
+  }
+  let (expr, j) = parse_expr(tokens, i)
+  (SArgPos(expr), j)
 }
 
 ///|
