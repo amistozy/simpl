@@ -290,7 +290,7 @@ fn surface_expr_list_pretty(items : Array[SurfaceExpr], i : Int) -> String {
   if i + 1 >= items.length() {
     current
   } else {
-    current + ", " + surface_expr_list_pretty(items, i + 1)
+    current + "; " + surface_expr_list_pretty(items, i + 1)
   }
 }
 
@@ -310,7 +310,7 @@ fn surface_record_fields_pretty(
   if i + 1 >= fields.length() {
     current
   } else {
-    current + ", " + surface_record_fields_pretty(fields, i + 1)
+    current + "; " + surface_record_fields_pretty(fields, i + 1)
   }
 }
 
@@ -413,7 +413,7 @@ fn surface_pattern_list_pretty(
   if i + 1 >= patterns.length() {
     current
   } else {
-    current + ", " + surface_pattern_list_pretty(patterns, i + 1)
+    current + "; " + surface_pattern_list_pretty(patterns, i + 1)
   }
 }
 
@@ -433,7 +433,7 @@ fn surface_record_pattern_fields_pretty(
   if i + 1 >= fields.length() {
     current
   } else {
-    current + ", " + surface_record_pattern_fields_pretty(fields, i + 1)
+    current + "; " + surface_record_pattern_fields_pretty(fields, i + 1)
   }
 }
 
@@ -448,11 +448,11 @@ fn surface_list_rest_pretty(
   if prefix.length() == 0 && suffix.length() == 0 {
     ".." + rest_name
   } else if prefix.length() == 0 {
-    ".." + rest_name + ", " + suffix_text
+    ".." + rest_name + "; " + suffix_text
   } else if suffix.length() == 0 {
-    prefix_text + ", .." + rest_name
+    prefix_text + "; .." + rest_name
   } else {
-    prefix_text + ", .." + rest_name + ", " + suffix_text
+    prefix_text + "; .." + rest_name + "; " + suffix_text
   }
 }
 
@@ -566,7 +566,7 @@ fn value_list_pretty(values : Array[Value], i : Int, depth : Int) -> String {
   if i + 1 >= values.length() {
     current
   } else {
-    current + ", " + value_list_pretty(values, i + 1, depth)
+    current + "; " + value_list_pretty(values, i + 1, depth)
   }
 }
 
@@ -580,7 +580,7 @@ fn value_record_pretty(
     if acc == "" {
       current
     } else {
-      acc + ", " + current
+      acc + "; " + current
     }
   })
 }
@@ -1365,7 +1365,7 @@ fn join_pattern_list(patterns : Array[MatchPattern], i : Int) -> String {
   if i + 1 >= patterns.length() {
     current
   } else {
-    current + ", " + join_pattern_list(patterns, i + 1)
+    current + "; " + join_pattern_list(patterns, i + 1)
   }
 }
 
@@ -1381,11 +1381,11 @@ fn join_list_rest_pattern_parts(
   if prefix.length() == 0 && suffix.length() == 0 {
     rest_text
   } else if prefix.length() == 0 {
-    rest_text + ", " + suffix_text
+    rest_text + "; " + suffix_text
   } else if suffix.length() == 0 {
-    prefix_text + ", " + rest_text
+    prefix_text + "; " + rest_text
   } else {
-    prefix_text + ", " + rest_text + ", " + suffix_text
+    prefix_text + "; " + rest_text + "; " + suffix_text
   }
 }
 
@@ -1405,7 +1405,7 @@ fn join_record_pattern_fields(
   if i + 1 >= fields.length() {
     current
   } else {
-    current + ", " + join_record_pattern_fields(fields, i + 1)
+    current + "; " + join_record_pattern_fields(fields, i + 1)
   }
 }
 
@@ -1451,7 +1451,7 @@ fn join_value_list(values : Array[Value], i : Int) -> String {
   if i + 1 >= values.length() {
     current
   } else {
-    current + ", " + join_value_list(values, i + 1)
+    current + "; " + join_value_list(values, i + 1)
   }
 }
 

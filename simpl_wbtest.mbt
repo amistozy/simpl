@@ -97,7 +97,7 @@ test "parser lowers let x += sugar into let with binary value" {
 
 ///|
 test "parser preserves record pattern shorthand before desugar" {
-  match parse("let {x, y: z} = {x: 1, y: 2}; x + z") {
+  match parse("let {x; y: z} = {x: 1; y: 2}; x + z") {
     SLocated(
       _,
       SLet(
@@ -139,7 +139,7 @@ test "desugar lowers record pattern shorthand to field binding" {
 
 ///|
 test "parser preserves record shorthand before desugar" {
-  match parse("{x, y: 1}") {
+  match parse("{x; y: 1}") {
     SLocated(_, SRecord([SRecordShorthand("x"), SRecordField("y", _)])) =>
       assert_true(true)
     _ => assert_true(false)

@@ -173,7 +173,7 @@ test "calling non-function reports actual value" {
 ///|
 test "arity error reports expected and actual argument counts" {
   assert_eq(
-    @simpl.eval_error_text("let f(x) = x; f(1, 2)"),
+    @simpl.eval_error_text("let f(x) = x; f(1; 2)"),
     Some("arity error: expected 1 arguments, got 2 at 1:15-22"),
   )
 }
@@ -181,8 +181,8 @@ test "arity error reports expected and actual argument counts" {
 ///|
 test "pattern match failure reports expected pattern and actual value" {
   assert_eq(
-    @simpl.eval_error_text("let [x, y] = [1]; x"),
-    Some("pattern match failure: expected [x, y], got [1] at 1:5-20"),
+    @simpl.eval_error_text("let [x; y] = [1]; x"),
+    Some("pattern match failure: expected [x; y], got [1] at 1:5-20"),
   )
 }
 
@@ -301,28 +301,28 @@ test "&& and || also return operand values" {
 ///|
 test "record literal and field access" {
   let code =
-    #| {name: "moon", count: 2}.name
+    #| {name: "moon"; count: 2}.name
   assert_true(@simpl.eval_source_is_string(code, "moon"))
 }
 
 ///|
 test "record literal supports field shorthand" {
   let code =
-    #| let x = 42; {x, y: 43}.x
+    #| let x = 42; {x; y: 43}.x
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "nested record fields" {
   let code =
-    #| {user: {name: "moon", active: true}}.user.name
+    #| {user: {name: "moon"; active: true}}.user.name
   assert_true(@simpl.eval_source_is_string(code, "moon"))
 }
 
 ///|
 test "record field access can be used in expressions" {
   let code =
-    #| let p = {x: 10, y: 32};
+    #| let p = {x: 10; y: 32};
     #| p.x + p.y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -330,7 +330,7 @@ test "record field access can be used in expressions" {
 ///|
 test "record destructuring binds fields" {
   let code =
-    #| let {x, y} = {x: 10, y: 32};
+    #| let {x; y} = {x: 10; y: 32};
     #| x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -338,7 +338,7 @@ test "record destructuring binds fields" {
 ///|
 test "record destructuring supports renaming" {
   let code =
-    #| let {x: left, y: right} = {x: 10, y: 32};
+    #| let {x: left; y: right} = {x: 10; y: 32};
     #| left + right
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -346,7 +346,7 @@ test "record destructuring supports renaming" {
 ///|
 test "let supports general patterns" {
   let code =
-    #| let #Pair([x, y]) = #Pair([10, 32]);
+    #| let #Pair([x; y]) = #Pair([10; 32]);
     #| x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -354,22 +354,22 @@ test "let supports general patterns" {
 ///|
 test "list equality is recursive" {
   let code =
-    #| [1, [2, 3]] == [1, [2, 3]]
+    #| [1; [2; 3]] == [1; [2; 3]]
   assert_true(@simpl.eval_source_is_bool(code, true))
 }
 
 ///|
 test "lambda parameters support patterns" {
   let code =
-    #| (fn(#Pair(x), {y}) => x + y)(#Pair(10), {y: 32})
+    #| (fn(#Pair(x); {y}) => x + y)(#Pair(10); {y: 32})
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "let function sugar supports parameter patterns" {
   let code =
-    #| let add_pair(#Pair(x), [y, z]) = x + y + z;
-    #| add_pair(#Pair(10), [20, 12])
+    #| let add_pair(#Pair(x); [y; z]) = x + y + z;
+    #| add_pair(#Pair(10); [20; 12])
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 

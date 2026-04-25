@@ -68,7 +68,6 @@ priv enum Token {
   RBracketTok
   LParenTok
   RParenTok
-  CommaTok
   SemicolonTok
   EndTok
 } derive(Eq)
@@ -215,7 +214,6 @@ fn lex_loop(
     }
     '(' => push_single_char_token(source, i, line, column, LParenTok, acc)
     ')' => push_single_char_token(source, i, line, column, RParenTok, acc)
-    ',' => push_single_char_token(source, i, line, column, CommaTok, acc)
     ';' => push_single_char_token(source, i, line, column, SemicolonTok, acc)
     '+' =>
       if i + 1 < source.length() &&
@@ -762,7 +760,6 @@ fn token_name(tok : Token) -> String {
     RBracketTok => "]"
     LParenTok => "("
     RParenTok => ")"
-    CommaTok => ","
     SemicolonTok => ";"
     EndTok => "<eof>"
   }
@@ -1428,7 +1425,7 @@ fn parse_params_nonempty(
     if next >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in params")
     }
-    if token_kind(tokens, next) == CommaTok {
+    if token_kind(tokens, next) == SemicolonTok {
       continue next + 1, _pos + 1
     }
     if token_kind(tokens, next) == RParenTok {
@@ -1747,7 +1744,7 @@ fn parse_args_nonempty(
     if next_expr >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in args")
     }
-    if token_kind(tokens, next_expr) == CommaTok {
+    if token_kind(tokens, next_expr) == SemicolonTok {
       continue next_expr + 1, _pos + 1
     }
     if token_kind(tokens, next_expr) == RParenTok {
@@ -1858,7 +1855,7 @@ fn parse_record_literal(
     if next_expr >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in record")
     }
-    if token_kind(tokens, next_expr) == CommaTok {
+    if token_kind(tokens, next_expr) == SemicolonTok {
       continue next_expr + 1, _pos + 1
     }
     if token_kind(tokens, next_expr) == RBraceTok {
@@ -1890,7 +1887,7 @@ fn parse_list_literal(
     if next_expr >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in list")
     }
-    if token_kind(tokens, next_expr) == CommaTok {
+    if token_kind(tokens, next_expr) == SemicolonTok {
       continue next_expr + 1, _pos + 1
     }
     if token_kind(tokens, next_expr) == RBracketTok {
@@ -2135,7 +2132,7 @@ fn parse_list_pattern(
     if next_pattern >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in list pattern")
     }
-    if token_kind(tokens, next_pattern) == CommaTok {
+    if token_kind(tokens, next_pattern) == SemicolonTok {
       continue next_pattern + 1, _pos + 1
     }
     if token_kind(tokens, next_pattern) == RBracketTok {
@@ -2158,18 +2155,18 @@ fn parse_list_pattern_rest(
 ) -> (SurfacePattern, Int) raise {
   if i >= tokens.length() {
     syntax_error_eof(
-      tokens, "expected binding name, ',' or ']' after '..' in list pattern",
+      tokens, "expected binding name, ';' or ']' after '..' in list pattern",
     )
   }
   let (rest_name, next_i) = match token_kind(tokens, i) {
     IdentTok(name) => (name, i + 1)
-    CommaTok => ("_", i)
+    SemicolonTok => ("_", i)
     RBracketTok => ("_", i)
     tok =>
       syntax_error_at(
         tokens,
         i,
-        "expected binding name, ',' or ']' after '..', found: " +
+        "expected binding name, ';' or ']' after '..', found: " +
         token_name(tok),
       )
   }
@@ -2179,11 +2176,11 @@ fn parse_list_pattern_rest(
   if token_kind(tokens, next_i) == RBracketTok {
     return (SPListRest(prefix, rest_name, []), next_i + 1)
   }
-  if token_kind(tokens, next_i) != CommaTok {
+  if token_kind(tokens, next_i) != SemicolonTok {
     syntax_error_at(
       tokens,
       next_i,
-      "expected ',' or ']' after list rest binding, found: " +
+      "expected ';' or ']' after list rest binding, found: " +
       token_name(token_kind(tokens, next_i)),
     )
   }
@@ -2202,7 +2199,7 @@ fn parse_list_pattern_rest(
     if next_pattern >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in list pattern")
     }
-    if token_kind(tokens, next_pattern) == CommaTok {
+    if token_kind(tokens, next_pattern) == SemicolonTok {
       continue next_pattern + 1, _pos + 1
     }
     if token_kind(tokens, next_pattern) == RBracketTok {
@@ -2250,7 +2247,7 @@ fn parse_match_record_pattern(
     if next >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in record pattern")
     }
-    if token_kind(tokens, next) == CommaTok {
+    if token_kind(tokens, next) == SemicolonTok {
       continue next + 1, _pos + 1
     }
     if token_kind(tokens, next) == RBraceTok {
