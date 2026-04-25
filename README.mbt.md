@@ -41,12 +41,12 @@ moon info && moon fmt
 - primitives: `Int`, `Bool`, `String`, `nil`
 - functions and closures: `fn(x) => ...`, function calls
 - bindings: `let ...; ...`, recursive `let rec`
-- binding sugar: `let x += e; ...` (also `-=`, `*=`, `/=`, `&&=`, `||=`)
+- binding sugar: `let x += e; ...` (also `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`)
 - control flow: UCS `if` and `if is`
 - pattern matching in `let`, parameters, and `if is`
 - algebraic variants (for example `#Left(1)`)
 - records and lists (including list rest patterns)
-- mutable references: `ref`, `!`, `=`, `+=`, `-=`, `*=`, `/=`, `&&=`, `||=`
+- mutable references: `ref`, `!`, `=`, `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`
 - arithmetic, comparison, and boolean operators
 
 See [`IF_SYNTAX.md`](IF_SYNTAX.md) for detailed UCS `if` notes.

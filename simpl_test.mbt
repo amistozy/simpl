@@ -110,8 +110,14 @@ test "ref basics and assignment expression value" {
 }
 
 ///|
-test "runtime error includes source position" {
-  assert_eq(@simpl.eval_error_text("1 / 0"), Some("division by zero at 1:1-6"))
+test "division by zero now returns zero" {
+  assert_true(@simpl.eval_source_is_int("1 / 0", 0))
+}
+
+///|
+test "modulo by zero returns dividend" {
+  assert_true(@simpl.eval_source_is_int("7 % 0", 7))
+  assert_true(@simpl.eval_source_is_int("7 % 3", 1))
 }
 
 ///|
@@ -237,14 +243,15 @@ test "ref += updates and returns new value" {
 }
 
 ///|
-test "ref -=, *=, /= chain correctly" {
+test "ref -=, *=, /=, %= chain correctly" {
   let code =
     #| let r = ref 10;
     #| do r -= 3;
     #| do r *= 4;
     #| do r /= 2;
+    #| do r %= 5;
     #| !r
-  assert_true(@simpl.eval_source_is_int(code, 14))
+  assert_true(@simpl.eval_source_is_int(code, 4))
 }
 
 ///|
@@ -376,14 +383,15 @@ test "let x += sugar equals let x = x + ...; ..." {
 }
 
 ///|
-test "let compound sugar supports -=, *=, /=" {
+test "let compound sugar supports -=, *=, /=, %=" {
   let code =
     #| let x = 10;
     #| let x -= 3;
     #| let x *= 4;
     #| let x /= 2;
+    #| let x %= 5;
     #| x
-  assert_true(@simpl.eval_source_is_int(code, 14))
+  assert_true(@simpl.eval_source_is_int(code, 4))
 }
 
 ///|

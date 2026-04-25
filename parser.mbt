@@ -38,6 +38,7 @@ priv enum Token {
   MinusTok
   StarTok
   SlashTok
+  PercentTok
   EqEqTok
   BangEqTok
   LtTok
@@ -51,6 +52,7 @@ priv enum Token {
   MinusAssignTok
   StarAssignTok
   SlashAssignTok
+  PercentAssignTok
   AndAndAssignTok
   OrOrAssignTok
   ArrowTok
@@ -274,6 +276,21 @@ fn lex_loop(
         )
       } else {
         push_single_char_token(source, i, line, column, SlashTok, acc)
+      }
+    '%' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '=' {
+        push_multi_char_token(
+          source,
+          i,
+          i + 2,
+          line,
+          column,
+          PercentAssignTok,
+          acc,
+        )
+      } else {
+        push_single_char_token(source, i, line, column, PercentTok, acc)
       }
     '>' =>
       if i + 1 < source.length() &&
@@ -715,6 +732,7 @@ fn token_name(tok : Token) -> String {
     MinusTok => "-"
     StarTok => "*"
     SlashTok => "/"
+    PercentTok => "%"
     EqEqTok => "=="
     BangEqTok => "!="
     LtTok => "<"
@@ -728,6 +746,7 @@ fn token_name(tok : Token) -> String {
     MinusAssignTok => "-="
     StarAssignTok => "*="
     SlashAssignTok => "/="
+    PercentAssignTok => "%="
     AndAndAssignTok => "&&="
     OrOrAssignTok => "||="
     ArrowTok => "=>"
@@ -787,6 +806,10 @@ fn parse_assign_expr(
       let (right, k) = parse_assign_expr(tokens, j + 1)
       (located_expr(tokens, i, k, SRefUpdate(Div, left, right)), k)
     }
+    PercentAssignTok => {
+      let (right, k) = parse_assign_expr(tokens, j + 1)
+      (located_expr(tokens, i, k, SRefUpdate(Mod, left, right)), k)
+    }
     AndAndAssignTok => {
       let (right, k) = parse_assign_expr(tokens, j + 1)
       (located_expr(tokens, i, k, SRefUpdate(And, left, right)), k)
@@ -806,6 +829,7 @@ fn let_compound_assign_binop(tok : Token) -> BinOp? {
     MinusAssignTok => Some(Sub)
     StarAssignTok => Some(Mul)
     SlashAssignTok => Some(Div)
+    PercentAssignTok => Some(Mod)
     AndAndAssignTok => Some(And)
     OrOrAssignTok => Some(Or)
     _ => None
@@ -1532,6 +1556,13 @@ fn parse_mul_tail(
     let (right, j) = parse_unary_expr(tokens, i + 1)
     parse_mul_tail(
       located_expr_from_left(left, tokens, j, SBinary(Div, left, right)),
+      tokens,
+      j,
+    )
+  } else if i < tokens.length() && token_kind(tokens, i) == PercentTok {
+    let (right, j) = parse_unary_expr(tokens, i + 1)
+    parse_mul_tail(
+      located_expr_from_left(left, tokens, j, SBinary(Mod, left, right)),
       tokens,
       j,
     )

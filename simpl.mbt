@@ -132,6 +132,7 @@ priv enum BinOp {
   Sub
   Mul
   Div
+  Mod
   Eq
   Ne
   Lt
@@ -353,7 +354,7 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
         VRef(cell) => {
           let old_value = cell.val
           let new_value = match op {
-            Add | Sub | Mul | Div => {
+            Add | Sub | Mul | Div | Mod => {
               let right = eval_with_env(value_expr, env)
               eval_binary(op, old_value, right)
             }
@@ -1054,9 +1055,15 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
       }
     Div =>
       match (left, right) {
-        (VInt(_), VInt(0)) => raise runtime_error("division by zero")
+        (VInt(_), VInt(0)) => VInt(0)
         (VInt(a), VInt(b)) => VInt(a / b)
         _ => raise type_error_binary("operator '/'", "(Int, Int)", left, right)
+      }
+    Mod =>
+      match (left, right) {
+        (VInt(a), VInt(0)) => VInt(a)
+        (VInt(a), VInt(b)) => VInt(a % b)
+        _ => raise type_error_binary("operator '%'", "(Int, Int)", left, right)
       }
     Eq => VBool(value_eq(left, right))
     Ne => VBool(!value_eq(left, right))
@@ -1092,6 +1099,7 @@ fn ref_update_operator_text(op : BinOp) -> String {
     Sub => "operator '-='"
     Mul => "operator '*='"
     Div => "operator '/='"
+    Mod => "operator '%='"
     And => "operator '&&='"
     Or => "operator '||='"
     _ => "ref update operator"
