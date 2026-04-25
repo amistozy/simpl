@@ -20,13 +20,13 @@ fn build_command() -> @argparse.Command {
         "eval",
         short='e',
         long="eval",
-        about="evaluate inline source code",
+        about="inline source code string",
       ),
       @argparse.OptionArg(
         "file",
         short='f',
         long="file",
-        about="read and evaluate source file",
+        about="source file path (optional, positional path is preferred)",
       ),
     ],
     flags=[
@@ -39,9 +39,9 @@ fn build_command() -> @argparse.Command {
     ],
     positionals=[
       @argparse.PositionArg(
-        "code",
-        about="inline source code when -e/-f are not used",
-        num_args=@argparse.ValueRange(lower=0),
+        "path",
+        about="source file path",
+        num_args=@argparse.ValueRange(lower=0, upper=1),
       ),
     ],
   )
@@ -80,37 +80,27 @@ fn run_cli(command : @argparse.Command, matches : @argparse.Matches) -> Bool {
 ///|
 fn choose_source(matches : @argparse.Matches) -> SourceInput {
   let eval_source = option_value(matches, "eval")
-  let file_path = option_value(matches, "file")
-  let positional_source = positional_code(matches)
-
-  let mut source_count = 0
-  if eval_source is Some(_) {
-    source_count = source_count + 1
-  }
-  if file_path is Some(_) {
-    source_count = source_count + 1
-  }
-  if positional_source is Some(_) {
-    source_count = source_count + 1
-  }
-
-  if source_count == 0 {
-    return Help
-  }
-  if source_count > 1 {
-    return Error(
-      "provide exactly one source input: --eval, --file, or positional code",
-    )
-  }
+  let option_file_path = option_value(matches, "file")
+  let positional_file_path = positional_path(matches)
 
   match eval_source {
-    Some(source) => Source(source)
+    Some(source) =>
+      if option_file_path is Some(_) || positional_file_path is Some(_) {
+        Error("do not combine --eval with file path input")
+      } else {
+        Source(source)
+      }
     None =>
-      match file_path {
-        Some(path) => read_source_from_file(path)
+      match option_file_path {
+        Some(path) =>
+          if positional_file_path is Some(_) {
+            Error("provide file path only once: positional path or --file")
+          } else {
+            read_source_from_file(path)
+          }
         None =>
-          match positional_source {
-            Some(source) => Source(source)
+          match positional_file_path {
+            Some(path) => read_source_from_file(path)
             None => Help
           }
       }
@@ -143,14 +133,9 @@ fn option_value(matches : @argparse.Matches, name : String) -> String? {
 }
 
 ///|
-fn positional_code(matches : @argparse.Matches) -> String? {
-  match matches.values.get("code") {
-    Some(values) =>
-      if values.length() == 0 {
-        None
-      } else {
-        Some(join_string_array(values, 0))
-      }
+fn positional_path(matches : @argparse.Matches) -> String? {
+  match matches.values.get("path") {
+    Some(values) => if values.length() == 0 { None } else { Some(values[0]) }
     None => None
   }
 }
@@ -162,17 +147,6 @@ fn first_arg_value(values : Array[String]) -> String? {
   } else {
     Some(values[0])
   }
-}
-
-///|
-fn join_string_array(values : Array[String], i : Int) -> String {
-  if i >= values.length() {
-    return ""
-  }
-  if i + 1 >= values.length() {
-    return values[i]
-  }
-  values[i] + " " + join_string_array(values, i + 1)
 }
 
 ///|
