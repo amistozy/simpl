@@ -45,7 +45,7 @@ test "closure captures lexical env" {
 ///|
 test "higher order function" {
   let code =
-    #| (fn(f) => f(41))(fn(x) => x + 1)
+    #| (fn(f) = f(41))(fn(x) = x + 1)
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -361,7 +361,7 @@ test "list equality is recursive" {
 ///|
 test "lambda parameters support patterns" {
   let code =
-    #| (fn(#Pair(x); {y}) => x + y)(#Pair(10); {y = 32})
+    #| (fn(#Pair(x); {y}) = x + y)(#Pair(10); {y = 32})
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 

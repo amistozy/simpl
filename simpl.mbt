@@ -250,7 +250,7 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
     SLambda(params, body) =>
       "fn(" +
       surface_pattern_list_pretty(params, 0) +
-      ") => " +
+      ") = " +
       surface_expr_pretty(body)
     SCall(func_expr, arg_exprs) =>
       surface_expr_pretty(func_expr) +

@@ -55,7 +55,6 @@ priv enum Token {
   PercentAssignTok
   AndAndAssignTok
   OrOrAssignTok
-  ArrowTok
   BangTok
   DotDotTok
   PipeTok
@@ -308,8 +307,6 @@ fn lex_loop(
         let n = source.unsafe_get(i + 1).unsafe_to_char()
         if n == '=' {
           push_multi_char_token(source, i, i + 2, line, column, EqEqTok, acc)
-        } else if n == '>' {
-          push_multi_char_token(source, i, i + 2, line, column, ArrowTok, acc)
         } else {
           push_single_char_token(source, i, line, column, AssignTok, acc)
         }
@@ -760,7 +757,6 @@ fn token_name(tok : Token) -> String {
     PercentAssignTok => "%="
     AndAndAssignTok => "&&="
     OrOrAssignTok => "||="
-    ArrowTok => "=>"
     BangTok => "!"
     DotDotTok => ".."
     PipeTok => "|"
@@ -1400,8 +1396,8 @@ fn parse_lambda_expr(
       syntax_error_at(tokens, i + 1, "expected '(' after 'fn'")
     }
     let (params, j) = parse_params(tokens, i + 2)
-    if j >= tokens.length() || token_kind(tokens, j) != ArrowTok {
-      syntax_error_at(tokens, j, "expected '=>' after lambda params")
+    if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+      syntax_error_at(tokens, j, "expected '=' after lambda params")
     }
     let (body, k) = parse_expr(tokens, j + 1)
     (located_expr(tokens, i, k, SLambda(params, body)), k)

@@ -78,7 +78,7 @@ moon run cmd/main -- examples/basic.simpl
 ## Language Features
 
 - primitives: `Int`, `Bool`, `String`, `nil`
-- functions and closures: `fn(x) => ...`
+- functions and closures: `fn(x) = ...`
 - bindings: `let`, `let ... and ...`, `let rec`, `let rec ... and ...`
 - binding update sugar: `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`
 - control flow: UCS `if`, `if is`
