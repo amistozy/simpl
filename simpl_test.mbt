@@ -367,6 +367,36 @@ test "let function sugar supports parameter patterns" {
 }
 
 ///|
+test "let x += sugar equals let x = x + ...; ..." {
+  let code =
+    #| let x = 1;
+    #| let x += 41;
+    #| x
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "let compound sugar supports -=, *=, /=" {
+  let code =
+    #| let x = 10;
+    #| let x -= 3;
+    #| let x *= 4;
+    #| let x /= 2;
+    #| x
+  assert_true(@simpl.eval_source_is_int(code, 14))
+}
+
+///|
+test "let compound sugar supports &&= and ||=" {
+  let code =
+    #| let x = true;
+    #| let x &&= false;
+    #| let x ||= true;
+    #| x
+  assert_true(@simpl.eval_source_is_bool(code, true))
+}
+
+///|
 /// Blackbox: if syntax (current rules)
 test "if requires closure in multi-route mode" {
   assert_true(@simpl.parse_is_error("if true then 1"))

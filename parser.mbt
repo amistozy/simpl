@@ -800,6 +800,19 @@ fn parse_assign_expr(
 }
 
 ///|
+fn let_compound_assign_binop(tok : Token) -> BinOp? {
+  match tok {
+    PlusAssignTok => Some(Add)
+    MinusAssignTok => Some(Sub)
+    StarAssignTok => Some(Mul)
+    SlashAssignTok => Some(Div)
+    AndAndAssignTok => Some(And)
+    OrOrAssignTok => Some(Or)
+    _ => None
+  }
+}
+
+///|
 fn parse_let_expr(
   tokens : Array[SpannedToken],
   i : Int,
@@ -841,6 +854,39 @@ fn parse_plain_let_expr(
         }
         let (body, m) = parse_expr(tokens, k + 1)
         (located_expr(tokens, i, m, SLetFun(name, params, func_body, body)), m)
+      } else if i + 1 < tokens.length() {
+        match let_compound_assign_binop(token_kind(tokens, i + 1)) {
+          Some(op) => {
+            let (rhs_expr, k) = parse_expr(tokens, i + 2)
+            if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
+              syntax_error_at(tokens, k, "expected ';' after let binding")
+            }
+            let (body, m) = parse_expr(tokens, k + 1)
+            let lhs_var = located_expr(tokens, i, i + 1, SVar(name))
+            let value_expr = located_expr(
+              tokens,
+              i,
+              k,
+              SBinary(op, lhs_var, rhs_expr),
+            )
+            (
+              located_expr(tokens, i, m, SLet(SPBind(name), value_expr, body)),
+              m,
+            )
+          }
+          None => {
+            let (pattern, j) = parse_pattern(tokens, i)
+            if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+              syntax_error_at(tokens, j, "expected '=' after let pattern")
+            }
+            let (value_expr, k) = parse_expr(tokens, j + 1)
+            if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
+              syntax_error_at(tokens, k, "expected ';' after let binding")
+            }
+            let (body, m) = parse_expr(tokens, k + 1)
+            (located_expr(tokens, i, m, SLet(pattern, value_expr, body)), m)
+          }
+        }
       } else {
         let (pattern, j) = parse_pattern(tokens, i)
         if j >= tokens.length() || token_kind(tokens, j) != AssignTok {

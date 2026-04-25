@@ -78,6 +78,24 @@ test "parser preserves let function sugar before desugar" {
 }
 
 ///|
+test "parser lowers let x += sugar into let with binary value" {
+  match parse("let x += 1; x") {
+    SLocated(
+      _,
+      SLet(
+        SPBind("x"),
+        SLocated(
+          _,
+          SBinary(Add, SLocated(_, SVar("x")), SLocated(_, SIntLit(1)))
+        ),
+        _
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "parser preserves record pattern shorthand before desugar" {
   match parse("let {x, y: z} = {x: 1, y: 2}; x + z") {
     SLocated(

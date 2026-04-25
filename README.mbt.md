@@ -41,6 +41,7 @@ moon info && moon fmt
 - primitives: `Int`, `Bool`, `String`, `nil`
 - functions and closures: `fn(x) => ...`, function calls
 - bindings: `let ...; ...`, recursive `let rec`
+- binding sugar: `let x += e; ...` (also `-=`, `*=`, `/=`, `&&=`, `||=`)
 - control flow: UCS `if` and `if is`
 - pattern matching in `let`, parameters, and `if is`
 - algebraic variants (for example `#Left(1)`)
