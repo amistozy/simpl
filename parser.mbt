@@ -28,7 +28,6 @@ priv enum Token {
   ElseTok
   FnTok
   NotTok
-  RefTok
   DoTok
   EndKeywordTok
   IsTok
@@ -694,7 +693,6 @@ fn keyword_or_ident(text : String) -> Token {
     "else" => ElseTok
     "fn" => FnTok
     "not" => NotTok
-    "ref" => RefTok
     "do" => DoTok
     "end" => EndKeywordTok
     "is" => IsTok
@@ -720,7 +718,6 @@ fn token_name(tok : Token) -> String {
     ElseTok => "else"
     FnTok => "fn"
     NotTok => "not"
-    RefTok => "ref"
     DoTok => "do"
     EndKeywordTok => "end"
     IsTok => "is"
@@ -1655,10 +1652,7 @@ fn parse_unary_expr(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  if i < tokens.length() && token_kind(tokens, i) == RefTok {
-    let (expr, j) = parse_unary_expr(tokens, i + 1)
-    (located_expr(tokens, i, j, SRefNew(expr)), j)
-  } else if i < tokens.length() && token_kind(tokens, i) == BangTok {
+  if i < tokens.length() && token_kind(tokens, i) == BangTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (located_expr(tokens, i, j, SRefGet(expr)), j)
   } else if i < tokens.length() && token_kind(tokens, i) == MinusTok {

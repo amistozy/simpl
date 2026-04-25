@@ -103,7 +103,7 @@ test "unterminated string escape reports source position" {
 ///|
 test "ref basics and assignment expression value" {
   let code =
-    #| let r = ref 1;
+    #| let r = ref(1);
     #| let x = r = 3;
     #| !r + x
   assert_true(@simpl.eval_source_is_int(code, 6))
@@ -197,7 +197,7 @@ test "let function sugar equals lambda binding" {
 ///|
 test "do sugar equals let _ = ...; ..." {
   let code =
-    #| let r = ref 0;
+    #| let r = ref(0);
     #| do r = 1;
     #| do r = !r + 41;
     #| !r
@@ -207,7 +207,7 @@ test "do sugar equals let _ = ...; ..." {
 ///|
 test "do sugar nests like let _ bindings" {
   let code =
-    #| let r = ref 0;
+    #| let r = ref(0);
     #| do r = 1;
     #| do r = !r + 1;
     #| do r = !r + 1;
@@ -218,7 +218,7 @@ test "do sugar nests like let _ bindings" {
 ///|
 test "and short-circuits right-hand side" {
   let code =
-    #| let r = ref 0;
+    #| let r = ref(0);
     #| do false && (r = 1 == 1);
     #| !r
   assert_true(@simpl.eval_source_is_int(code, 0))
@@ -227,7 +227,7 @@ test "and short-circuits right-hand side" {
 ///|
 test "or short-circuits right-hand side" {
   let code =
-    #| let r = ref 0;
+    #| let r = ref(0);
     #| do true || (r = 1 == 1);
     #| !r
   assert_true(@simpl.eval_source_is_int(code, 0))
@@ -236,7 +236,7 @@ test "or short-circuits right-hand side" {
 ///|
 test "ref += updates and returns new value" {
   let code =
-    #| let r = ref 1;
+    #| let r = ref(1);
     #| do r += 41;
     #| !r
   assert_true(@simpl.eval_source_is_int(code, 42))
@@ -245,7 +245,7 @@ test "ref += updates and returns new value" {
 ///|
 test "ref -=, *=, /=, %= chain correctly" {
   let code =
-    #| let r = ref 10;
+    #| let r = ref(10);
     #| do r -= 3;
     #| do r *= 4;
     #| do r /= 2;
@@ -257,8 +257,8 @@ test "ref -=, *=, /=, %= chain correctly" {
 ///|
 test "ref &&= short-circuits right-hand side" {
   let code =
-    #| let r = ref false;
-    #| let t = ref 0;
+    #| let r = ref(false);
+    #| let t = ref(0);
     #| do r &&= (do t = 1; true);
     #| !t
   assert_true(@simpl.eval_source_is_int(code, 0))
@@ -267,8 +267,8 @@ test "ref &&= short-circuits right-hand side" {
 ///|
 test "ref ||= short-circuits right-hand side" {
   let code =
-    #| let r = ref true;
-    #| let t = ref 0;
+    #| let r = ref(true);
+    #| let t = ref(0);
     #| do r ||= (do t = 1; false);
     #| !t
   assert_true(@simpl.eval_source_is_int(code, 0))

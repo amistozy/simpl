@@ -19,7 +19,6 @@ enum SurfaceExpr {
   SLetRecAnd(Array[(String, Array[SurfacePattern], SurfaceExpr)], SurfaceExpr)
   SLambda(Array[SurfacePattern], SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceExpr])
-  SRefNew(SurfaceExpr)
   SRefGet(SurfaceExpr)
   SRefSet(SurfaceExpr, SurfaceExpr)
   SRefUpdate(BinOp, SurfaceExpr, SurfaceExpr)
@@ -90,7 +89,6 @@ enum Expr {
   LetRecAnd(Array[(String, Array[MatchPattern], Expr)], Expr)
   Lambda(Array[MatchPattern], Expr)
   Call(Expr, Array[Expr])
-  RefNew(Expr)
   RefGet(Expr)
   RefSet(Expr, Expr)
   RefUpdate(BinOp, Expr, Expr)
@@ -172,6 +170,7 @@ enum Value {
     Env,
     Array[(String, Array[MatchPattern], Expr)]
   )
+  VBuiltinRef
 } derive(Debug)
 
 ///|
@@ -258,7 +257,6 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
       "(" +
       surface_expr_list_pretty(arg_exprs, 0) +
       ")"
-    SRefNew(inner) => "ref " + surface_expr_pretty(inner)
     SRefGet(inner) => "!" + surface_expr_pretty(inner)
     SRefSet(ref_expr, value_expr) =>
       surface_expr_pretty(ref_expr) + " = " + surface_expr_pretty(value_expr)
@@ -554,6 +552,7 @@ fn value_pretty(value : Value, depth : Int) -> String {
     VRef(cell) => "ref(" + value_pretty(cell.val, depth - 1) + ")"
     VClosure(_, _, _) => "<fn>"
     VRecClosure(name, _, _, _, _) => "<rec " + name + ">"
+    VBuiltinRef => "<builtin ref>"
   }
 }
 
@@ -588,7 +587,12 @@ fn value_record_pretty(
 ///|
 /// Public API
 fn eval(expr : Expr) -> Value raise {
-  eval_with_env(expr, @hashmap.new())
+  eval_with_env(expr, initial_env())
+}
+
+///|
+fn initial_env() -> Env {
+  @hashmap.singleton("ref", VBuiltinRef)
 }
 
 ///|
@@ -632,7 +636,6 @@ fn desugar(expr : SurfaceExpr) -> Expr {
       Lambda(params.map(param => desugar_pattern(param)), desugar(body))
     SCall(func_expr, arg_exprs) =>
       Call(desugar(func_expr), arg_exprs.map(arg => desugar(arg)))
-    SRefNew(inner) => RefNew(desugar(inner))
     SRefGet(inner) => RefGet(desugar(inner))
     SRefSet(ref_expr, value_expr) =>
       RefSet(desugar(ref_expr), desugar(value_expr))
@@ -774,7 +777,6 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       let args = eval_expr_list(arg_exprs, env)
       apply(func_value, args)
     }
-    RefNew(inner) => VRef(@ref.new(eval_with_env(inner, env)))
     RefGet(ref_expr) =>
       match eval_with_env(ref_expr, env) {
         VRef(cell) => cell.val
@@ -1039,6 +1041,12 @@ fn apply(func_value : Value, args : Array[Value]) -> Value raise {
       let call_base_env = build_rec_env(defs, closure_env)
       let call_env = bind_patterns(params, args, call_base_env)
       eval_with_env(body, call_env)
+    }
+    VBuiltinRef => {
+      if args.length() != 1 {
+        raise arity_error(1, args.length())
+      }
+      VRef(@ref.new(args[0]))
     }
     _ => raise call_non_function_error(func_value)
   }
@@ -1422,6 +1430,7 @@ fn value_summary(value : Value) -> String {
     VRef(_) => "ref"
     VClosure(_, _, _) => "function"
     VRecClosure(_, _, _, _, _) => "function"
+    VBuiltinRef => "function"
   }
 }
 
@@ -1439,6 +1448,7 @@ fn typed_value_summary(value : Value) -> String {
     VRef(_) => "Ref"
     VClosure(_, _, _) => "Function"
     VRecClosure(_, _, _, _, _) => "Function"
+    VBuiltinRef => "Function"
   }
 }
 

@@ -85,7 +85,7 @@ moon run cmd/main -- examples/basic.simpl
 - patterns in `let`, function parameters, and `if is`
 - variants such as `#Left(1)` and `#Right("ok")`
 - records and lists (using `;` as separator), including list rest patterns
-- references: `ref`, dereference `!`, and assignment/update operators
+- references: `ref(...)`, dereference `!`, and assignment/update operators
 
 For UCS `if` details, see [IF_SYNTAX.md](IF_SYNTAX.md).
 
@@ -161,7 +161,7 @@ References:
 ///|
 let value = @simpl.eval_source(
   (
-    #| let r = ref 1;
+    #| let r = ref(1);
     #| do r = 3;
     #| !r + 3
   ),
