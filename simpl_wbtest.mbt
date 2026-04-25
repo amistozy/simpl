@@ -111,6 +111,22 @@ test "parser preserves record pattern shorthand before desugar" {
 }
 
 ///|
+test "parser preserves let and group before desugar" {
+  match parse("let x = 1 and y = 2; x + y") {
+    SLocated(_, SLetAnd(bindings, _)) => assert_eq(bindings.length(), 2)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser preserves let rec and group before desugar" {
+  match parse("let rec f(x) = x and g(y) = y; f(1)") {
+    SLocated(_, SLetRecAnd(defs, _)) => assert_eq(defs.length(), 2)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "desugar lowers record pattern shorthand to field binding" {
   match
     desugar_pattern(

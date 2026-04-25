@@ -405,6 +405,24 @@ test "let compound sugar supports &&= and ||=" {
 }
 
 ///|
+test "let and evaluates right-hand sides in outer environment" {
+  let code =
+    #| let x = 10;
+    #| let x = 1 and y = x + 1;
+    #| y
+  assert_true(@simpl.eval_source_is_int(code, 11))
+}
+
+///|
+test "let rec and supports mutual recursion" {
+  let code =
+    #| let rec even(n) = if n == 0 then true else odd(n - 1)
+    #| and odd(n) = if n == 0 then false else even(n - 1);
+    #| even(10)
+  assert_true(@simpl.eval_source_is_bool(code, true))
+}
+
+///|
 /// Blackbox: if syntax (current rules)
 test "if requires closure in multi-route mode" {
   assert_true(@simpl.parse_is_error("if true then 1"))

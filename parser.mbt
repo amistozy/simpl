@@ -837,6 +837,150 @@ fn let_compound_assign_binop(tok : Token) -> BinOp? {
 }
 
 ///|
+priv enum ParsedLetBinding {
+  PLetPattern(SurfacePattern, SurfaceExpr)
+  PLetFun(String, Array[SurfacePattern], SurfaceExpr)
+}
+
+///|
+fn parse_plain_let_binding(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (ParsedLetBinding, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected pattern after 'let'")
+  }
+  match token_kind(tokens, i) {
+    IdentTok(name) =>
+      if i + 1 < tokens.length() && token_kind(tokens, i + 1) == LParenTok {
+        let (params, j) = parse_params(tokens, i + 2)
+        if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+          syntax_error_at(tokens, j, "expected '=' after let function params")
+        }
+        let (func_body, k) = parse_expr(tokens, j + 1)
+        (PLetFun(name, params, func_body), k)
+      } else if i + 1 < tokens.length() {
+        match let_compound_assign_binop(token_kind(tokens, i + 1)) {
+          Some(op) => {
+            let (rhs_expr, k) = parse_expr(tokens, i + 2)
+            let lhs_var = located_expr(tokens, i, i + 1, SVar(name))
+            let value_expr = located_expr(
+              tokens,
+              i,
+              k,
+              SBinary(op, lhs_var, rhs_expr),
+            )
+            (PLetPattern(SPBind(name), value_expr), k)
+          }
+          None => {
+            let (pattern, j) = parse_pattern(tokens, i)
+            if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+              syntax_error_at(tokens, j, "expected '=' after let pattern")
+            }
+            let (value_expr, k) = parse_expr(tokens, j + 1)
+            (PLetPattern(pattern, value_expr), k)
+          }
+        }
+      } else {
+        let (pattern, j) = parse_pattern(tokens, i)
+        if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+          syntax_error_at(tokens, j, "expected '=' after let pattern")
+        }
+        let (value_expr, k) = parse_expr(tokens, j + 1)
+        (PLetPattern(pattern, value_expr), k)
+      }
+    _ => {
+      let (pattern, j) = parse_pattern(tokens, i)
+      if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+        syntax_error_at(tokens, j, "expected '=' after let pattern")
+      }
+      let (value_expr, k) = parse_expr(tokens, j + 1)
+      (PLetPattern(pattern, value_expr), k)
+    }
+  }
+}
+
+///|
+fn let_binding_to_pair(
+  binding : ParsedLetBinding,
+  tokens : Array[SpannedToken],
+  start_i : Int,
+  end_i : Int,
+) -> (SurfacePattern, SurfaceExpr) {
+  match binding {
+    PLetPattern(pattern, value_expr) => (pattern, value_expr)
+    PLetFun(name, params, func_body) =>
+      (
+        SPBind(name),
+        located_expr(tokens, start_i, end_i, SLambda(params, func_body)),
+      )
+  }
+}
+
+///|
+fn parse_plain_let_and_bindings(
+  tokens : Array[SpannedToken],
+  i : Int,
+  acc : Array[(SurfacePattern, SurfaceExpr)],
+) -> (Array[(SurfacePattern, SurfaceExpr)], Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected binding after 'and'")
+  }
+  let (binding, j) = parse_plain_let_binding(tokens, i)
+  let pair = let_binding_to_pair(binding, tokens, i, j)
+  if j < tokens.length() && token_kind(tokens, j) == AndWordTok {
+    parse_plain_let_and_bindings(tokens, j + 1, acc + [pair])
+  } else {
+    (acc + [pair], j)
+  }
+}
+
+///|
+fn parse_let_rec_fun_binding(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> ((String, Array[SurfacePattern], SurfaceExpr), Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected function name after 'let rec'")
+  }
+  match token_kind(tokens, i) {
+    IdentTok(name) => {
+      if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
+        syntax_error_at(
+          tokens,
+          i + 1,
+          "expected '(...)' after let rec function name",
+        )
+      }
+      let (params, j) = parse_params(tokens, i + 2)
+      if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+        syntax_error_at(tokens, j, "expected '=' after let rec params")
+      }
+      let (func_body, k) = parse_expr(tokens, j + 1)
+      ((name, params, func_body), k)
+    }
+    _ => syntax_error_at(tokens, i, "expected function name after 'let rec'")
+  }
+}
+
+///|
+fn parse_let_rec_and_defs(
+  tokens : Array[SpannedToken],
+  i : Int,
+  acc : Array[(String, Array[SurfacePattern], SurfaceExpr)],
+) -> (Array[(String, Array[SurfacePattern], SurfaceExpr)], Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected function name after 'and' in let rec")
+  }
+  let (def, j) = parse_let_rec_fun_binding(tokens, i)
+  if j < tokens.length() && token_kind(tokens, j) == AndWordTok {
+    parse_let_rec_and_defs(tokens, j + 1, acc + [def])
+  } else {
+    (acc + [def], j)
+  }
+}
+
+///|
 fn parse_let_expr(
   tokens : Array[SpannedToken],
   i : Int,
@@ -862,78 +1006,25 @@ fn parse_plain_let_expr(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  if i >= tokens.length() {
-    syntax_error_eof(tokens, "expected pattern after 'let'")
-  }
-  match token_kind(tokens, i) {
-    IdentTok(name) =>
-      if i + 1 < tokens.length() && token_kind(tokens, i + 1) == LParenTok {
-        let (params, j) = parse_params(tokens, i + 2)
-        if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-          syntax_error_at(tokens, j, "expected '=' after let function params")
-        }
-        let (func_body, k) = parse_expr(tokens, j + 1)
-        if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
-          syntax_error_at(tokens, k, "expected ';' after let function binding")
-        }
-        let (body, m) = parse_expr(tokens, k + 1)
+  let (first_binding, j) = parse_plain_let_binding(tokens, i)
+  if j < tokens.length() && token_kind(tokens, j) == AndWordTok {
+    let first_pair = let_binding_to_pair(first_binding, tokens, i, j)
+    let (rest_bindings, k) = parse_plain_let_and_bindings(tokens, j + 1, [])
+    if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
+      syntax_error_at(tokens, k, "expected ';' after let binding")
+    }
+    let (body, m) = parse_expr(tokens, k + 1)
+    (located_expr(tokens, i, m, SLetAnd([first_pair] + rest_bindings, body)), m)
+  } else {
+    if j >= tokens.length() || token_kind(tokens, j) != SemicolonTok {
+      syntax_error_at(tokens, j, "expected ';' after let binding")
+    }
+    let (body, m) = parse_expr(tokens, j + 1)
+    match first_binding {
+      PLetFun(name, params, func_body) =>
         (located_expr(tokens, i, m, SLetFun(name, params, func_body, body)), m)
-      } else if i + 1 < tokens.length() {
-        match let_compound_assign_binop(token_kind(tokens, i + 1)) {
-          Some(op) => {
-            let (rhs_expr, k) = parse_expr(tokens, i + 2)
-            if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
-              syntax_error_at(tokens, k, "expected ';' after let binding")
-            }
-            let (body, m) = parse_expr(tokens, k + 1)
-            let lhs_var = located_expr(tokens, i, i + 1, SVar(name))
-            let value_expr = located_expr(
-              tokens,
-              i,
-              k,
-              SBinary(op, lhs_var, rhs_expr),
-            )
-            (
-              located_expr(tokens, i, m, SLet(SPBind(name), value_expr, body)),
-              m,
-            )
-          }
-          None => {
-            let (pattern, j) = parse_pattern(tokens, i)
-            if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-              syntax_error_at(tokens, j, "expected '=' after let pattern")
-            }
-            let (value_expr, k) = parse_expr(tokens, j + 1)
-            if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
-              syntax_error_at(tokens, k, "expected ';' after let binding")
-            }
-            let (body, m) = parse_expr(tokens, k + 1)
-            (located_expr(tokens, i, m, SLet(pattern, value_expr, body)), m)
-          }
-        }
-      } else {
-        let (pattern, j) = parse_pattern(tokens, i)
-        if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-          syntax_error_at(tokens, j, "expected '=' after let pattern")
-        }
-        let (value_expr, k) = parse_expr(tokens, j + 1)
-        if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
-          syntax_error_at(tokens, k, "expected ';' after let binding")
-        }
-        let (body, m) = parse_expr(tokens, k + 1)
+      PLetPattern(pattern, value_expr) =>
         (located_expr(tokens, i, m, SLet(pattern, value_expr, body)), m)
-      }
-    _ => {
-      let (pattern, j) = parse_pattern(tokens, i)
-      if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-        syntax_error_at(tokens, j, "expected '=' after let pattern")
-      }
-      let (value_expr, k) = parse_expr(tokens, j + 1)
-      if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
-        syntax_error_at(tokens, k, "expected ';' after let binding")
-      }
-      let (body, m) = parse_expr(tokens, k + 1)
-      (located_expr(tokens, i, m, SLet(pattern, value_expr, body)), m)
     }
   }
 }
@@ -943,30 +1034,21 @@ fn parse_let_rec_expr(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  if i >= tokens.length() {
-    syntax_error_eof(tokens, "expected function name after 'let rec'")
-  }
-  match token_kind(tokens, i) {
-    IdentTok(name) => {
-      if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
-        syntax_error_at(
-          tokens,
-          i + 1,
-          "expected '(...)' after let rec function name",
-        )
-      }
-      let (params, j) = parse_params(tokens, i + 2)
-      if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-        syntax_error_at(tokens, j, "expected '=' after let rec params")
-      }
-      let (func_body, k) = parse_expr(tokens, j + 1)
-      if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
-        syntax_error_at(tokens, k, "expected ';' after let rec binding")
-      }
-      let (body, m) = parse_expr(tokens, k + 1)
-      (located_expr(tokens, i, m, SLetRec(name, params, func_body, body)), m)
+  let (first_def, j) = parse_let_rec_fun_binding(tokens, i)
+  if j < tokens.length() && token_kind(tokens, j) == AndWordTok {
+    let (rest_defs, k) = parse_let_rec_and_defs(tokens, j + 1, [])
+    if k >= tokens.length() || token_kind(tokens, k) != SemicolonTok {
+      syntax_error_at(tokens, k, "expected ';' after let rec binding")
     }
-    _ => syntax_error_at(tokens, i, "expected function name after 'let rec'")
+    let (body, m) = parse_expr(tokens, k + 1)
+    (located_expr(tokens, i, m, SLetRecAnd([first_def] + rest_defs, body)), m)
+  } else {
+    let (name, params, func_body) = first_def
+    if j >= tokens.length() || token_kind(tokens, j) != SemicolonTok {
+      syntax_error_at(tokens, j, "expected ';' after let rec binding")
+    }
+    let (body, m) = parse_expr(tokens, j + 1)
+    (located_expr(tokens, i, m, SLetRec(name, params, func_body, body)), m)
   }
 }
 

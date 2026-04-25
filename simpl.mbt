@@ -12,9 +12,11 @@ enum SurfaceExpr {
   SVariant(String, SurfaceExpr)
   SIf(Array[SurfaceIfCondArm], SurfaceExpr)
   SLet(SurfacePattern, SurfaceExpr, SurfaceExpr)
+  SLetAnd(Array[(SurfacePattern, SurfaceExpr)], SurfaceExpr)
   SDo(SurfaceExpr, SurfaceExpr)
   SLetFun(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
   SLetRec(String, Array[SurfacePattern], SurfaceExpr, SurfaceExpr)
+  SLetRecAnd(Array[(String, Array[SurfacePattern], SurfaceExpr)], SurfaceExpr)
   SLambda(Array[SurfacePattern], SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceExpr])
   SRefNew(SurfaceExpr)
@@ -83,7 +85,9 @@ enum Expr {
   Variant(String, Expr)
   If(Array[IfCondArm], Expr)
   Let(MatchPattern, Expr, Expr)
+  LetAnd(Array[(MatchPattern, Expr)], Expr)
   LetRec(String, Array[MatchPattern], Expr, Expr)
+  LetRecAnd(Array[(String, Array[MatchPattern], Expr)], Expr)
   Lambda(Array[MatchPattern], Expr)
   Call(Expr, Array[Expr])
   RefNew(Expr)
@@ -161,7 +165,13 @@ enum Value {
   VVariant(String, Value)
   VRef(@ref.Ref[Value])
   VClosure(Array[MatchPattern], Expr, Env)
-  VRecClosure(String, Array[MatchPattern], Expr, Env)
+  VRecClosure(
+    String,
+    Array[MatchPattern],
+    Expr,
+    Env,
+    Array[(String, Array[MatchPattern], Expr)]
+  )
 } derive(Debug)
 
 ///|
@@ -194,6 +204,11 @@ fn desugar(expr : SurfaceExpr) -> Expr {
       If(cases.map(case => desugar_if_cond_arm(case)), desugar(else_expr))
     SLet(pattern, value_expr, body) =>
       Let(desugar_pattern(pattern), desugar(value_expr), desugar(body))
+    SLetAnd(bindings, body) =>
+      LetAnd(
+        bindings.map(binding => desugar_let_binding(binding)),
+        desugar(body),
+      )
     SDo(value_expr, body) => Let(PBind("_"), desugar(value_expr), desugar(body))
     SLetFun(name, params, func_body, body) =>
       Let(
@@ -208,6 +223,8 @@ fn desugar(expr : SurfaceExpr) -> Expr {
         desugar(func_body),
         desugar(body),
       )
+    SLetRecAnd(defs, body) =>
+      LetRecAnd(defs.map(def => desugar_let_rec_def(def)), desugar(body))
     SLambda(params, body) =>
       Lambda(params.map(param => desugar_pattern(param)), desugar(body))
     SCall(func_expr, arg_exprs) =>
@@ -291,6 +308,22 @@ fn desugar_record_pattern_field(
 }
 
 ///|
+fn desugar_let_binding(
+  binding : (SurfacePattern, SurfaceExpr),
+) -> (MatchPattern, Expr) {
+  let (pattern, value_expr) = binding
+  (desugar_pattern(pattern), desugar(value_expr))
+}
+
+///|
+fn desugar_let_rec_def(
+  def : (String, Array[SurfacePattern], SurfaceExpr),
+) -> (String, Array[MatchPattern], Expr) {
+  let (name, params, func_body) = def
+  (name, params.map(param => desugar_pattern(param)), desugar(func_body))
+}
+
+///|
 fn eval_with_env(expr : Expr, env : Env) -> Value raise {
   match expr {
     Located(span, inner) =>
@@ -320,9 +353,17 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       let bound_env = bind_pattern(pattern, v, env)
       eval_with_env(body, bound_env)
     }
+    LetAnd(bindings, body) => {
+      let bound_env = eval_let_and_bindings(bindings, env)
+      eval_with_env(body, bound_env)
+    }
     LetRec(name, params, func_body, body) => {
-      let rec_closure = VRecClosure(name, params, func_body, env)
-      eval_with_env(body, env.add(name, rec_closure))
+      let rec_env = build_rec_env([(name, params, func_body)], env)
+      eval_with_env(body, rec_env)
+    }
+    LetRecAnd(defs, body) => {
+      let rec_env = build_rec_env(defs, env)
+      eval_with_env(body, rec_env)
     }
     Lambda(params, body) => VClosure(params, body, env)
     Call(func_expr, arg_exprs) => {
@@ -514,16 +555,86 @@ fn lookup(env : Env, name : String) -> Value raise {
 }
 
 ///|
+fn eval_let_and_bindings(
+  bindings : Array[(MatchPattern, Expr)],
+  env : Env,
+) -> Env raise {
+  let evaluated = eval_let_and_values(bindings, env, 0, [])
+  bind_let_and_values(evaluated, env, 0)
+}
+
+///|
+fn eval_let_and_values(
+  bindings : Array[(MatchPattern, Expr)],
+  env : Env,
+  i : Int,
+  acc : Array[(MatchPattern, Value)],
+) -> Array[(MatchPattern, Value)] raise {
+  if i >= bindings.length() {
+    return acc
+  }
+  let (pattern, value_expr) = bindings[i]
+  acc.push((pattern, eval_with_env(value_expr, env)))
+  eval_let_and_values(bindings, env, i + 1, acc)
+}
+
+///|
+fn bind_let_and_values(
+  evaluated : Array[(MatchPattern, Value)],
+  env : Env,
+  i : Int,
+) -> Env raise {
+  if i >= evaluated.length() {
+    return env
+  }
+  let (pattern, value) = evaluated[i]
+  let next_env = bind_pattern(pattern, value, env)
+  bind_let_and_values(evaluated, next_env, i + 1)
+}
+
+///|
+fn build_rec_env(
+  defs : Array[(String, Array[MatchPattern], Expr)],
+  closure_env : Env,
+) -> Env {
+  build_rec_env_from(defs, closure_env, closure_env, 0)
+}
+
+///|
+fn build_rec_env_from(
+  defs : Array[(String, Array[MatchPattern], Expr)],
+  closure_env : Env,
+  env : Env,
+  i : Int,
+) -> Env {
+  if i >= defs.length() {
+    return env
+  }
+  let (name, _, _) = defs[i]
+  let closure = rec_closure_from_def(defs[i], closure_env, defs)
+  build_rec_env_from(defs, closure_env, env.add(name, closure), i + 1)
+}
+
+///|
+fn rec_closure_from_def(
+  def : (String, Array[MatchPattern], Expr),
+  closure_env : Env,
+  defs : Array[(String, Array[MatchPattern], Expr)],
+) -> Value {
+  let (name, params, body) = def
+  VRecClosure(name, params, body, closure_env, defs)
+}
+
+///|
 fn apply(func_value : Value, args : Array[Value]) -> Value raise {
   match func_value {
     VClosure(params, body, closure_env) => {
       let call_env = bind_patterns(params, args, closure_env)
       eval_with_env(body, call_env)
     }
-    VRecClosure(name, params, body, closure_env) => {
-      let call_env = bind_patterns(params, args, closure_env).add(
-        name, func_value,
-      )
+    VRecClosure(_, params, body, closure_env, defs) => {
+      let call_base_env = build_rec_env(defs, closure_env)
+      let call_env = bind_patterns(params, args, call_base_env)
       eval_with_env(body, call_env)
     }
     _ => raise call_non_function_error(func_value)
@@ -907,7 +1018,7 @@ fn value_summary(value : Value) -> String {
     VVariant(tag, payload) => "#" + tag + "(" + value_summary(payload) + ")"
     VRef(_) => "ref"
     VClosure(_, _, _) => "function"
-    VRecClosure(_, _, _, _) => "function"
+    VRecClosure(_, _, _, _, _) => "function"
   }
 }
 
@@ -924,7 +1035,7 @@ fn typed_value_summary(value : Value) -> String {
       "Variant(" + "#" + tag + "(" + value_summary(payload) + ")" + ")"
     VRef(_) => "Ref"
     VClosure(_, _, _) => "Function"
-    VRecClosure(_, _, _, _) => "Function"
+    VRecClosure(_, _, _, _, _) => "Function"
   }
 }
 
