@@ -35,8 +35,10 @@ type ParseError derive(@debug.Debug)
 type Expr derive(@debug.Debug)
 
 type SurfaceExpr derive(@debug.Debug)
+pub impl Show for SurfaceExpr
 
 type Value derive(@debug.Debug)
+pub impl Show for Value
 
 // Type aliases
 

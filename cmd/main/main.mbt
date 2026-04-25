@@ -187,7 +187,7 @@ fn run_parse(source : String) -> Bool {
     }
   } noraise {
     expr => {
-      debug(expr)
+      println("=> " + expr.to_string())
       true
     }
   }
@@ -209,7 +209,7 @@ fn run_eval(source : String) -> Bool {
     }
   } noraise {
     value => {
-      debug(value)
+      println("=> " + value.to_string())
       true
     }
   }
