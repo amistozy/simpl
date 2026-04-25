@@ -157,8 +157,8 @@ test "undefined variable reports missing binding name" {
 ///|
 test "missing field reports field name and record summary" {
   assert_eq(
-    @simpl.eval_error_text("{x: 1}.y"),
-    Some("missing field: record has no field 'y' in Record(1 fields) at 1:1-9"),
+    @simpl.eval_error_text("{x = 1}.y"),
+    Some("missing field: record has no field 'y' in Record(1 fields) at 1:1-10"),
   )
 }
 
@@ -301,28 +301,28 @@ test "&& and || also return operand values" {
 ///|
 test "record literal and field access" {
   let code =
-    #| {name: "moon"; count: 2}.name
+    #| {name = "moon"; count = 2}.name
   assert_true(@simpl.eval_source_is_string(code, "moon"))
 }
 
 ///|
 test "record literal supports field shorthand" {
   let code =
-    #| let x = 42; {x; y: 43}.x
+    #| let x = 42; {x; y = 43}.x
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "nested record fields" {
   let code =
-    #| {user: {name: "moon"; active: true}}.user.name
+    #| {user = {name = "moon"; active = true}}.user.name
   assert_true(@simpl.eval_source_is_string(code, "moon"))
 }
 
 ///|
 test "record field access can be used in expressions" {
   let code =
-    #| let p = {x: 10; y: 32};
+    #| let p = {x = 10; y = 32};
     #| p.x + p.y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -330,7 +330,7 @@ test "record field access can be used in expressions" {
 ///|
 test "record destructuring binds fields" {
   let code =
-    #| let {x; y} = {x: 10; y: 32};
+    #| let {x; y} = {x = 10; y = 32};
     #| x + y
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -338,7 +338,7 @@ test "record destructuring binds fields" {
 ///|
 test "record destructuring supports renaming" {
   let code =
-    #| let {x: left; y: right} = {x: 10; y: 32};
+    #| let {x = left; y = right} = {x = 10; y = 32};
     #| left + right
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -361,7 +361,7 @@ test "list equality is recursive" {
 ///|
 test "lambda parameters support patterns" {
   let code =
-    #| (fn(#Pair(x); {y}) => x + y)(#Pair(10); {y: 32})
+    #| (fn(#Pair(x); {y}) => x + y)(#Pair(10); {y = 32})
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 

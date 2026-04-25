@@ -56,7 +56,6 @@ priv enum Token {
   OrOrAssignTok
   ArrowTok
   BangTok
-  ColonTok
   DotDotTok
   PipeTok
   DotTok
@@ -323,7 +322,6 @@ fn lex_loop(
       } else {
         push_single_char_token(source, i, line, column, BangTok, acc)
       }
-    ':' => push_single_char_token(source, i, line, column, ColonTok, acc)
     '.' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '.' {
@@ -746,7 +744,6 @@ fn token_name(tok : Token) -> String {
     OrOrAssignTok => "||="
     ArrowTok => "=>"
     BangTok => "!"
-    ColonTok => ":"
     DotDotTok => ".."
     PipeTok => "|"
     DotTok => "."
@@ -1839,7 +1836,7 @@ fn parse_record_literal(
         )
     }
     let (field, next_expr) = if j + 1 < tokens.length() &&
-      token_kind(tokens, j + 1) == ColonTok {
+      token_kind(tokens, j + 1) == AssignTok {
       let (value_expr, next_expr) = parse_expr(tokens, j + 2)
       (SRecordField(name, value_expr), next_expr)
     } else {
@@ -2231,7 +2228,7 @@ fn parse_match_record_pattern(
         )
     }
     let (field, next) = if j + 1 < tokens.length() &&
-      token_kind(tokens, j + 1) == ColonTok {
+      token_kind(tokens, j + 1) == AssignTok {
       let (pattern, k) = parse_pattern(tokens, j + 2)
       (SPRecordField(field_name, pattern), k)
     } else {

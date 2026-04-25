@@ -302,7 +302,7 @@ fn surface_record_fields_pretty(
   }
   let current = match fields[i] {
     SRecordField(name, value_expr) =>
-      name + ": " + surface_expr_pretty(value_expr)
+      name + " = " + surface_expr_pretty(value_expr)
     SRecordShorthand(name) => name
   }
   if i + 1 >= fields.length() {
@@ -425,7 +425,7 @@ fn surface_record_pattern_fields_pretty(
   }
   let current = match fields[i] {
     SPRecordField(name, pattern) =>
-      name + ": " + surface_pattern_pretty(pattern)
+      name + " = " + surface_pattern_pretty(pattern)
     SPRecordShorthand(name) => name
   }
   if i + 1 >= fields.length() {
@@ -575,7 +575,7 @@ fn value_record_pretty(
   depth : Int,
 ) -> String {
   fields.fold(init="", (acc, name, value) => {
-    let current = name + ": " + value_pretty(value, depth)
+    let current = name + " = " + value_pretty(value, depth)
     if acc == "" {
       current
     } else {
@@ -1408,7 +1408,7 @@ fn join_record_pattern_fields(
   let (field_name, field_pattern) = fields[i]
   let current = match field_pattern {
     PBind(name) if name == field_name => field_name
-    _ => field_name + ": " + pattern_summary(field_pattern)
+    _ => field_name + " = " + pattern_summary(field_pattern)
   }
   if i + 1 >= fields.length() {
     current
