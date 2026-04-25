@@ -175,7 +175,7 @@ fn run_eval(source : String) -> Bool {
         Some(message) => println("parse error: " + message)
         None =>
           match @lib.eval_error_text(source) {
-            Some(message) => println("runtime error: " + message)
+            Some(message) => println(message)
             None => println("evaluation failed")
           }
       }
