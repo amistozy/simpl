@@ -45,7 +45,7 @@ moon info && moon fmt
 - pattern matching in `let`, parameters, and `if is`
 - algebraic variants (for example `#Left(1)`)
 - records and lists (including list rest patterns)
-- mutable references: `ref`, `!`, `=`
+- mutable references: `ref`, `!`, `=`, `+=`, `-=`, `*=`, `/=`, `&&=`, `||=`
 - arithmetic, comparison, and boolean operators
 
 See [`IF_SYNTAX.md`](IF_SYNTAX.md) for detailed UCS `if` notes.

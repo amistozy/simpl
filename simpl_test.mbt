@@ -228,6 +228,46 @@ test "or short-circuits right-hand side" {
 }
 
 ///|
+test "ref += updates and returns new value" {
+  let code =
+    #| let r = ref 1;
+    #| do r += 41;
+    #| !r
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "ref -=, *=, /= chain correctly" {
+  let code =
+    #| let r = ref 10;
+    #| do r -= 3;
+    #| do r *= 4;
+    #| do r /= 2;
+    #| !r
+  assert_true(@simpl.eval_source_is_int(code, 14))
+}
+
+///|
+test "ref &&= short-circuits right-hand side" {
+  let code =
+    #| let r = ref false;
+    #| let t = ref 0;
+    #| do r &&= (do t = 1; true);
+    #| !t
+  assert_true(@simpl.eval_source_is_int(code, 0))
+}
+
+///|
+test "ref ||= short-circuits right-hand side" {
+  let code =
+    #| let r = ref true;
+    #| let t = ref 0;
+    #| do r ||= (do t = 1; false);
+    #| !t
+  assert_true(@simpl.eval_source_is_int(code, 0))
+}
+
+///|
 test "and returns the actual operand value" {
   let code =
     #| "left" && "right"

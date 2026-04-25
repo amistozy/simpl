@@ -47,6 +47,12 @@ priv enum Token {
   AndAndTok
   OrOrTok
   AssignTok
+  PlusAssignTok
+  MinusAssignTok
+  StarAssignTok
+  SlashAssignTok
+  AndAndAssignTok
+  OrOrAssignTok
   ArrowTok
   BangTok
   ColonTok
@@ -209,10 +215,66 @@ fn lex_loop(
     ')' => push_single_char_token(source, i, line, column, RParenTok, acc)
     ',' => push_single_char_token(source, i, line, column, CommaTok, acc)
     ';' => push_single_char_token(source, i, line, column, SemicolonTok, acc)
-    '+' => push_single_char_token(source, i, line, column, PlusTok, acc)
-    '-' => push_single_char_token(source, i, line, column, MinusTok, acc)
-    '*' => push_single_char_token(source, i, line, column, StarTok, acc)
-    '/' => push_single_char_token(source, i, line, column, SlashTok, acc)
+    '+' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '=' {
+        push_multi_char_token(
+          source,
+          i,
+          i + 2,
+          line,
+          column,
+          PlusAssignTok,
+          acc,
+        )
+      } else {
+        push_single_char_token(source, i, line, column, PlusTok, acc)
+      }
+    '-' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '=' {
+        push_multi_char_token(
+          source,
+          i,
+          i + 2,
+          line,
+          column,
+          MinusAssignTok,
+          acc,
+        )
+      } else {
+        push_single_char_token(source, i, line, column, MinusTok, acc)
+      }
+    '*' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '=' {
+        push_multi_char_token(
+          source,
+          i,
+          i + 2,
+          line,
+          column,
+          StarAssignTok,
+          acc,
+        )
+      } else {
+        push_single_char_token(source, i, line, column, StarTok, acc)
+      }
+    '/' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '=' {
+        push_multi_char_token(
+          source,
+          i,
+          i + 2,
+          line,
+          column,
+          SlashAssignTok,
+          acc,
+        )
+      } else {
+        push_single_char_token(source, i, line, column, SlashTok, acc)
+      }
     '>' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '=' {
@@ -258,7 +320,20 @@ fn lex_loop(
     '|' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '|' {
-        push_multi_char_token(source, i, i + 2, line, column, OrOrTok, acc)
+        if i + 2 < source.length() &&
+          source.unsafe_get(i + 2).unsafe_to_char() == '=' {
+          push_multi_char_token(
+            source,
+            i,
+            i + 3,
+            line,
+            column,
+            OrOrAssignTok,
+            acc,
+          )
+        } else {
+          push_multi_char_token(source, i, i + 2, line, column, OrOrTok, acc)
+        }
       } else {
         push_single_char_token(source, i, line, column, PipeTok, acc)
       }
@@ -270,7 +345,20 @@ fn lex_loop(
     '&' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '&' {
-        push_multi_char_token(source, i, i + 2, line, column, AndAndTok, acc)
+        if i + 2 < source.length() &&
+          source.unsafe_get(i + 2).unsafe_to_char() == '=' {
+          push_multi_char_token(
+            source,
+            i,
+            i + 3,
+            line,
+            column,
+            AndAndAssignTok,
+            acc,
+          )
+        } else {
+          push_multi_char_token(source, i, i + 2, line, column, AndAndTok, acc)
+        }
       } else {
         raise SyntaxErrorAt(
           "unexpected token '&'",
@@ -636,6 +724,12 @@ fn token_name(tok : Token) -> String {
     AndAndTok => "&&"
     OrOrTok => "||"
     AssignTok => "="
+    PlusAssignTok => "+="
+    MinusAssignTok => "-="
+    StarAssignTok => "*="
+    SlashAssignTok => "/="
+    AndAndAssignTok => "&&="
+    OrOrAssignTok => "||="
     ArrowTok => "=>"
     BangTok => "!"
     ColonTok => ":"
@@ -669,11 +763,39 @@ fn parse_assign_expr(
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
   let (left, j) = parse_let_expr(tokens, i)
-  if j < tokens.length() && token_kind(tokens, j) == AssignTok {
-    let (right, k) = parse_assign_expr(tokens, j + 1)
-    (located_expr(tokens, i, k, SRefSet(left, right)), k)
-  } else {
-    (left, j)
+  if j >= tokens.length() {
+    return (left, j)
+  }
+  match token_kind(tokens, j) {
+    AssignTok => {
+      let (right, k) = parse_assign_expr(tokens, j + 1)
+      (located_expr(tokens, i, k, SRefSet(left, right)), k)
+    }
+    PlusAssignTok => {
+      let (right, k) = parse_assign_expr(tokens, j + 1)
+      (located_expr(tokens, i, k, SRefUpdate(Add, left, right)), k)
+    }
+    MinusAssignTok => {
+      let (right, k) = parse_assign_expr(tokens, j + 1)
+      (located_expr(tokens, i, k, SRefUpdate(Sub, left, right)), k)
+    }
+    StarAssignTok => {
+      let (right, k) = parse_assign_expr(tokens, j + 1)
+      (located_expr(tokens, i, k, SRefUpdate(Mul, left, right)), k)
+    }
+    SlashAssignTok => {
+      let (right, k) = parse_assign_expr(tokens, j + 1)
+      (located_expr(tokens, i, k, SRefUpdate(Div, left, right)), k)
+    }
+    AndAndAssignTok => {
+      let (right, k) = parse_assign_expr(tokens, j + 1)
+      (located_expr(tokens, i, k, SRefUpdate(And, left, right)), k)
+    }
+    OrOrAssignTok => {
+      let (right, k) = parse_assign_expr(tokens, j + 1)
+      (located_expr(tokens, i, k, SRefUpdate(Or, left, right)), k)
+    }
+    _ => (left, j)
   }
 }
 

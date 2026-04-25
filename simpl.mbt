@@ -20,6 +20,7 @@ enum SurfaceExpr {
   SRefNew(SurfaceExpr)
   SRefGet(SurfaceExpr)
   SRefSet(SurfaceExpr, SurfaceExpr)
+  SRefUpdate(BinOp, SurfaceExpr, SurfaceExpr)
   SField(SurfaceExpr, String)
   SUnary(UnOp, SurfaceExpr)
   SBinary(BinOp, SurfaceExpr, SurfaceExpr)
@@ -88,6 +89,7 @@ enum Expr {
   RefNew(Expr)
   RefGet(Expr)
   RefSet(Expr, Expr)
+  RefUpdate(BinOp, Expr, Expr)
   Field(Expr, String)
   Unary(UnOp, Expr)
   Binary(BinOp, Expr, Expr)
@@ -213,6 +215,8 @@ fn desugar(expr : SurfaceExpr) -> Expr {
     SRefGet(inner) => RefGet(desugar(inner))
     SRefSet(ref_expr, value_expr) =>
       RefSet(desugar(ref_expr), desugar(value_expr))
+    SRefUpdate(op, ref_expr, value_expr) =>
+      RefUpdate(op, desugar(ref_expr), desugar(value_expr))
     SField(target, name) => Field(desugar(target), name)
     SUnary(op, one) => Unary(op, desugar(one))
     SBinary(op, left, right) => Binary(op, desugar(left), desugar(right))
@@ -341,6 +345,41 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
         }
         value =>
           raise type_error_unary("operator '='", "Ref on left side", value)
+      }
+    }
+    RefUpdate(op, ref_expr, value_expr) => {
+      let ref_value = eval_with_env(ref_expr, env)
+      match ref_value {
+        VRef(cell) => {
+          let old_value = cell.val
+          let new_value = match op {
+            Add | Sub | Mul | Div => {
+              let right = eval_with_env(value_expr, env)
+              eval_binary(op, old_value, right)
+            }
+            And =>
+              if truthy(old_value) {
+                eval_with_env(value_expr, env)
+              } else {
+                old_value
+              }
+            Or =>
+              if truthy(old_value) {
+                old_value
+              } else {
+                eval_with_env(value_expr, env)
+              }
+            _ => raise runtime_error("invalid operator for ref update")
+          }
+          cell.val = new_value
+          new_value
+        }
+        value =>
+          raise type_error_unary(
+            ref_update_operator_text(op),
+            "Ref on left side",
+            value,
+          )
       }
     }
     Field(target, name) => {
@@ -1043,6 +1082,19 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
       }
     And => if truthy(left) { right } else { left }
     Or => if truthy(left) { left } else { right }
+  }
+}
+
+///|
+fn ref_update_operator_text(op : BinOp) -> String {
+  match op {
+    Add => "operator '+='"
+    Sub => "operator '-='"
+    Mul => "operator '*='"
+    Div => "operator '/='"
+    And => "operator '&&='"
+    Or => "operator '||='"
+    _ => "ref update operator"
   }
 }
 
