@@ -1,30 +1,50 @@
 # simpl
 
-`simpl` is a small expression language implemented in MoonBit.
+`simpl` is a compact expression language implemented in MoonBit.
 
-It is both:
+This repository serves two purposes:
 
-- a runnable language playground
-- a reusable library for parsing and evaluating source strings
+- a reusable library for parsing and evaluating source code strings
+- a small CLI interpreter for running or parsing simpl programs
 
-The implementation includes a recursive-descent parser, surface-to-core lowering, lexical scoping, pattern matching, algebraic variants, records, lists, references, and UCS-style `if` syntax.
+The language implementation includes:
 
-## Module
+- recursive-descent parsing
+- surface-to-core lowering
+- lexical scoping and closures
+- pattern matching
+- algebraic variants, records, and lists
+- mutable references
+- UCS-style `if` / `if is` syntax
 
-- MoonBit module: `amistozy/simpl`
+## Module Metadata
+
+- Module: `amistozy/simpl`
 - Canonical README: `README.mbt.md`
-- `README.md` is a symbolic link to this file
+- `README.md` is a symbolic link to `README.mbt.md`
 
 ## Quick Start
 
-Run from project root:
+From the repository root:
 
 ```powershell
 moon test
-moon run cmd/main
+moon run cmd/main -- --eval "1 + 2 * 3"
 ```
 
-When snapshots need refresh:
+Parse only:
+
+```powershell
+moon run cmd/main -- --parse --eval "let x = 1; x"
+```
+
+Run from a file:
+
+```powershell
+moon run cmd/main -- path/to/program.simpl
+```
+
+Refresh snapshots when needed:
 
 ```powershell
 moon test --update
@@ -36,33 +56,57 @@ Before finishing a change:
 moon info && moon fmt
 ```
 
-## Language Highlights
+## CLI Usage
+
+The CLI entry point is `cmd/main/main.mbt`.
+
+Supported input modes:
+
+- `--eval` / `-e`: evaluate inline source
+- `--file` / `-f`: read source from file
+- positional `path`: read source from file (preferred over `--file`)
+- `--parse` / `-p`: parse only and print the surface AST
+
+Examples:
+
+```powershell
+moon run cmd/main -- -e "let x = 10; x + 1"
+moon run cmd/main -- -p -e "if true then 1 else 2"
+moon run cmd/main -- examples/basic.simpl
+```
+
+## Language Features
 
 - primitives: `Int`, `Bool`, `String`, `nil`
-- functions and closures: `fn(x) => ...`, function calls
-- bindings: `let ...; ...`, `let ... and ...; ...`, recursive `let rec`, and `let rec ... and ...; ...`
-- binding sugar: `let x += e; ...` (also `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`)
-- control flow: UCS `if` and `if is`
-- pattern matching in `let`, parameters, and `if is`
-- algebraic variants (for example `#Left(1)`)
-- records and lists (including list rest patterns)
-- mutable references: `ref`, `!`, `=`, `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`
-- arithmetic, comparison, and boolean operators
+- functions and closures: `fn(x) => ...`
+- bindings: `let`, `let ... and ...`, `let rec`, `let rec ... and ...`
+- binding update sugar: `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`
+- control flow: UCS `if`, `if is`
+- patterns in `let`, function parameters, and `if is`
+- variants such as `#Left(1)` and `#Right("ok")`
+- records and lists, including list rest patterns
+- references: `ref`, dereference `!`, and assignment/update operators
 
-See [`IF_SYNTAX.md`](IF_SYNTAX.md) for detailed UCS `if` notes.
+For UCS `if` details, see [IF_SYNTAX.md](IF_SYNTAX.md).
 
 ## Public API
 
-Public entry points are intentionally compact:
+Main public functions:
 
-- `parse(source : String) -> SurfaceExpr raise`
-- `eval_source(source : String) -> Value raise`
-- `format_parse_error(error : ParseError) -> String`
-- `parse_error_text(source : String) -> String?`
-- `eval_error_text(source : String) -> String?`
-- test helpers:
-  - `parse_is_ok`, `parse_is_error`
-  - `eval_source_is_int`, `eval_source_is_string`, `eval_source_is_bool`, `eval_source_is_error`
+- `parse(String) -> SurfaceExpr raise`
+- `eval_source(String) -> Value raise`
+- `format_parse_error(ParseError) -> String`
+- `parse_error_text(String) -> String?`
+- `eval_error_text(String) -> String?`
+
+Test helper functions:
+
+- `parse_is_ok(String) -> Bool`
+- `parse_is_error(String) -> Bool`
+- `eval_source_is_int(String, Int) -> Bool`
+- `eval_source_is_string(String, String) -> Bool`
+- `eval_source_is_bool(String, Bool) -> Bool`
+- `eval_source_is_error(String) -> Bool`
 
 Public types:
 
@@ -71,9 +115,9 @@ Public types:
 - `Value`
 - `ParseError`
 
-## Examples
+## Library Examples
 
-Evaluate source:
+Evaluate a source string:
 
 ```moonbit nocheck
 ///|
@@ -96,7 +140,7 @@ let value = @simpl.eval_source(
 // => VInt(15)
 ```
 
-Pattern split with UCS `if is`:
+Pattern split with `if is`:
 
 ```moonbit nocheck
 ///|
@@ -127,16 +171,16 @@ let value = @simpl.eval_source(
 
 ## Repository Layout
 
-- `parser.mbt`: lexer/parser and parse diagnostics
-- `simpl.mbt`: core AST, lowering, evaluator, runtime helpers
+- `parser.mbt`: lexer, parser, and parse diagnostics
+- `simpl.mbt`: AST definitions, lowering, evaluator, runtime helpers
 - `simpl_test.mbt`: black-box tests
 - `simpl_wbtest.mbt`: white-box tests
-- `cmd/main/main.mbt`: runnable entry point
-- `IF_SYNTAX.md`: UCS `if` design notes
+- `cmd/main/main.mbt`: CLI entry point
+- `IF_SYNTAX.md`: UCS `if` syntax notes
 
 ## Development Notes
 
 - Keep MoonBit files block-structured with `///|`.
 - Prefer deterministic assertions (`assert_eq`, `assert_true`) for stable behavior.
-- Use snapshot tests when broad structured output is expected to evolve.
-- Put deprecated blocks in `deprecated.mbt` when needed.
+- Use snapshot tests for broad structured outputs that may evolve.
+- Move deprecated blocks into `deprecated.mbt` when applicable.
