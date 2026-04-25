@@ -47,6 +47,7 @@ priv enum Token {
   AndAndTok
   OrOrTok
   AssignTok
+  ColonAssignTok
   PlusAssignTok
   MinusAssignTok
   StarAssignTok
@@ -314,6 +315,22 @@ fn lex_loop(
         }
       } else {
         push_single_char_token(source, i, line, column, AssignTok, acc)
+      }
+    ':' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '=' {
+        push_multi_char_token(
+          source,
+          i,
+          i + 2,
+          line,
+          column,
+          ColonAssignTok,
+          acc,
+        )
+      } else {
+        let span = make_span(source, i, i + 1, line, column)
+        raise SyntaxErrorAt("unexpected character: " + c.to_string(), span)
       }
     '!' =>
       if i + 1 < source.length() &&
@@ -735,6 +752,7 @@ fn token_name(tok : Token) -> String {
     AndAndTok => "&&"
     OrOrTok => "||"
     AssignTok => "="
+    ColonAssignTok => ":="
     PlusAssignTok => "+="
     MinusAssignTok => "-="
     StarAssignTok => "*="
@@ -777,7 +795,7 @@ fn parse_assign_expr(
     return (left, j)
   }
   match token_kind(tokens, j) {
-    AssignTok => {
+    ColonAssignTok => {
       let (right, k) = parse_assign_expr(tokens, j + 1)
       (located_expr(tokens, i, k, SRefSet(left, right)), k)
     }

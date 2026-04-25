@@ -259,7 +259,7 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
       ")"
     SRefGet(inner) => "!" + surface_expr_pretty(inner)
     SRefSet(ref_expr, value_expr) =>
-      surface_expr_pretty(ref_expr) + " = " + surface_expr_pretty(value_expr)
+      surface_expr_pretty(ref_expr) + " := " + surface_expr_pretty(value_expr)
     SRefUpdate(op, ref_expr, value_expr) =>
       surface_expr_pretty(ref_expr) +
       " " +
@@ -791,7 +791,7 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
           new_value
         }
         value =>
-          raise type_error_unary("operator '='", "Ref on left side", value)
+          raise type_error_unary("operator ':='", "Ref on left side", value)
       }
     }
     RefUpdate(op, ref_expr, value_expr) => {

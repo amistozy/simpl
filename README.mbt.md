@@ -162,7 +162,7 @@ References:
 let value = @simpl.eval_source(
   (
     #| let r = ref(1);
-    #| do r = 3;
+    #| do r := 3;
     #| !r + 3
   ),
 )
