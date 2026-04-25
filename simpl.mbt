@@ -340,7 +340,7 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
           new_value
         }
         value =>
-          raise type_error_unary("operator ':='", "Ref on left side", value)
+          raise type_error_unary("operator '='", "Ref on left side", value)
       }
     }
     Field(target, name) => {

@@ -45,7 +45,7 @@ moon info && moon fmt
 - pattern matching in `let`, parameters, and `if is`
 - algebraic variants (for example `#Left(1)`)
 - records and lists (including list rest patterns)
-- mutable references: `ref`, `!`, `:=`
+- mutable references: `ref`, `!`, `=`
 - arithmetic, comparison, and boolean operators
 
 See [`IF_SYNTAX.md`](IF_SYNTAX.md) for detailed UCS `if` notes.
@@ -117,7 +117,7 @@ References:
 let value = @simpl.eval_source(
   (
     #| let r = ref 1;
-    #| do r := 3;
+    #| do r = 3;
     #| !r + 3
   ),
 )
