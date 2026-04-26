@@ -193,11 +193,18 @@ enum Value {
     Array[(String, Array[Param], Expr)],
     Array[Value?]
   )
-  VBuiltinRef
+  VBuiltin(Builtin)
 } derive(Debug)
 
 ///|
 type Env = @hashmap.HashMap[String, Value]
+
+///|
+priv enum Builtin {
+  BRef
+  BPrint
+  BSay
+} derive(Debug)
 
 ///|
 priv suberror EvalError {
@@ -625,7 +632,7 @@ fn value_pretty(value : Value, depth : Int) -> String {
     VRef(cell) => "ref(" + value_pretty(cell.val, depth - 1) + ")"
     VClosure(_, _, _, _) => "<fn>"
     VRecClosure(name, _, _, _, _, _) => "<rec " + name + ">"
-    VBuiltinRef => "<builtin ref>"
+    VBuiltin(builtin) => "<builtin " + builtin_name(builtin) + ">"
   }
 }
 
@@ -665,7 +672,15 @@ fn eval(expr : Expr) -> Value raise {
 
 ///|
 fn initial_env() -> Env {
-  @hashmap.singleton("ref", VBuiltinRef)
+  builtin_bindings().fold(init=@hashmap.new(), (env, binding) => {
+    let (name, builtin) = binding
+    env.add(name, VBuiltin(builtin))
+  })
+}
+
+///|
+fn builtin_bindings() -> Array[(String, Builtin)] {
+  [("ref", BRef), ("print", BPrint), ("say", BSay)]
 }
 
 ///|
@@ -846,7 +861,7 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       }
     IntLit(v) => VInt(v)
     BoolLit(v) => VBool(v)
-    StringLit(v) => VString(v)
+    StringLit(v) => VString(eval_string_literal(v, env))
     NilLit => VNil
     List(items) => VList(eval_expr_list(items, env))
     Var(name) => lookup(env, name)
@@ -1152,17 +1167,214 @@ fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
       let call_env = bind_params(params, args, call_base_env, default_values)
       eval_with_env(body, call_env)
     }
-    VBuiltinRef => {
-      if args.length() != 1 {
-        raise arity_error(1, args.length())
-      }
-      match args[0] {
-        EArgPos(v) => VRef(@ref.new(v))
-        EArgNamed(_, _) =>
-          raise runtime_error("builtin 'ref' does not accept named arguments")
-      }
-    }
+    VBuiltin(builtin) => apply_builtin(builtin, args)
     _ => raise call_non_function_error(func_value)
+  }
+}
+
+///|
+fn apply_builtin(
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  if args.length() != 1 {
+    raise arity_error(1, args.length())
+  }
+  match args[0] {
+    EArgNamed(_, _) => raise builtin_named_arg_error(builtin)
+    EArgPos(v) =>
+      match builtin {
+        BRef => VRef(@ref.new(v))
+        BPrint => {
+          println(value_pretty(v, 6))
+          VNil
+        }
+        BSay =>
+          match v {
+            VString(text) => {
+              println(text)
+              VNil
+            }
+            _ => raise builtin_type_error("say", "String", v)
+          }
+      }
+  }
+}
+
+///|
+fn[T] builtin_named_arg_error(builtin : Builtin) -> T raise {
+  raise runtime_error(
+    "builtin '" + builtin_name(builtin) + "' does not accept named arguments",
+  )
+}
+
+///|
+fn builtin_name(builtin : Builtin) -> String {
+  match builtin {
+    BRef => "ref"
+    BPrint => "print"
+    BSay => "say"
+  }
+}
+
+///|
+fn[T] builtin_type_error(
+  name : String,
+  expected : String,
+  actual : Value,
+) -> T raise {
+  raise runtime_error(
+    "builtin '" +
+    name +
+    "' expected " +
+    expected +
+    ", got " +
+    typed_value_summary(actual),
+  )
+}
+
+///|
+fn eval_string_literal(template : String, env : Env) -> String raise {
+  if !string_has_interpolation(template, 0) {
+    return template
+  }
+  eval_string_literal_from(template, env, 0, "")
+}
+
+///|
+fn string_has_interpolation(template : String, i : Int) -> Bool {
+  if i >= template.length() {
+    return false
+  }
+  let c = template.unsafe_get(i).unsafe_to_char()
+  if c == '$' {
+    true
+  } else {
+    string_has_interpolation(template, i + 1)
+  }
+}
+
+///|
+fn eval_string_literal_from(
+  template : String,
+  env : Env,
+  i : Int,
+  acc : String,
+) -> String raise {
+  match find_interpolation_start(template, i) {
+    None => acc + template[i:template.length()].to_string()
+    Some(start_i) => {
+      let literal_part = template[i:start_i].to_string()
+      let (value, next_i) = eval_interpolation_at(template, start_i + 1, env)
+      eval_string_literal_from(
+        template,
+        env,
+        next_i,
+        acc + literal_part + interpolation_value_text(value),
+      )
+    }
+  }
+}
+
+///|
+fn find_interpolation_start(template : String, i : Int) -> Int? {
+  if i >= template.length() {
+    return None
+  }
+  let c = template.unsafe_get(i).unsafe_to_char()
+  if c == '$' {
+    Some(i)
+  } else {
+    find_interpolation_start(template, i + 1)
+  }
+}
+
+///|
+fn eval_interpolation_at(
+  template : String,
+  expr_start : Int,
+  env : Env,
+) -> (Value, Int) raise {
+  match
+    find_interpolation_expr_end(template, expr_start, expr_start + 1, None) {
+    Some(end_i) =>
+      (
+        eval_interpolation_expr(template[expr_start:end_i].to_string(), env),
+        end_i,
+      )
+    None =>
+      raise runtime_error("invalid string interpolation expression after '$'")
+  }
+}
+
+///|
+fn find_interpolation_expr_end(
+  template : String,
+  expr_start : Int,
+  i : Int,
+  best_end : Int?,
+) -> Int? {
+  if i > template.length() {
+    return best_end
+  }
+  let source = template[expr_start:i].to_string()
+  let next_best = if interpolation_expr_is_valid(source) &&
+    interpolation_expr_last_char_ok(template, expr_start, i) {
+    Some(i)
+  } else {
+    best_end
+  }
+  find_interpolation_expr_end(template, expr_start, i + 1, next_best)
+}
+
+///|
+fn interpolation_expr_last_char_ok(
+  template : String,
+  expr_start : Int,
+  expr_end : Int,
+) -> Bool {
+  if expr_end <= expr_start {
+    return false
+  }
+  !template[expr_end - 1:expr_end]
+  .to_string()
+  .unsafe_get(0)
+  .unsafe_to_char()
+  .is_ascii_whitespace()
+}
+
+///|
+fn interpolation_expr_is_valid(source : String) -> Bool {
+  try {
+    ignore(parse(source))
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn eval_interpolation_expr(source : String, env : Env) -> Value raise {
+  let expr = try parse(source) catch {
+    SyntaxErrorAt(message, span) =>
+      raise runtime_error(
+        "invalid string interpolation expression: " +
+        message +
+        " at " +
+        format_source_span(span),
+      )
+    _ => raise runtime_error("invalid string interpolation expression")
+  } noraise {
+    parsed => parsed
+  }
+  eval_with_env(desugar(expr), env)
+}
+
+///|
+fn interpolation_value_text(value : Value) -> String {
+  match value {
+    VString(text) => text
+    _ => value_pretty(value, 6)
   }
 }
 
@@ -1415,7 +1627,7 @@ fn value_is_callable(value : Value) -> Bool {
   match value {
     VClosure(_, _, _, _) => true
     VRecClosure(_, _, _, _, _, _) => true
-    VBuiltinRef => true
+    VBuiltin(_) => true
     _ => false
   }
 }
@@ -1786,7 +1998,7 @@ fn value_summary(value : Value) -> String {
     VRef(_) => "ref"
     VClosure(_, _, _, _) => "function"
     VRecClosure(_, _, _, _, _, _) => "function"
-    VBuiltinRef => "function"
+    VBuiltin(_) => "function"
   }
 }
 
@@ -1804,7 +2016,7 @@ fn typed_value_summary(value : Value) -> String {
     VRef(_) => "Ref"
     VClosure(_, _, _, _) => "Function"
     VRecClosure(_, _, _, _, _, _) => "Function"
-    VBuiltinRef => "Function"
+    VBuiltin(_) => "Function"
   }
 }
 

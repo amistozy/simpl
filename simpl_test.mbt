@@ -197,6 +197,66 @@ test "ref basics and assignment expression value" {
 }
 
 ///|
+test "print is available as builtin and returns nil" {
+  let code =
+    #| do print(1);
+    #| 42
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "say outputs string and returns nil" {
+  let code =
+    #| do say("hello");
+    #| 42
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "say only accepts string" {
+  assert_eq(
+    @simpl.eval_error_text("say(1)"),
+    Some("builtin 'say' expected String, got Int(1) at 1:1-7"),
+  )
+}
+
+///|
+test "print does not accept named arguments" {
+  assert_true(@simpl.eval_source_is_error("print(x = 1)"))
+}
+
+///|
+test "string interpolation supports variables and expressions" {
+  let code =
+    #| let name = "moonbit";
+    #| "hello $name, $1 + 1"
+  assert_true(@simpl.eval_source_is_string(code, "hello moonbit, 2"))
+}
+
+///|
+test "string interpolation supports nested braces in expressions" {
+  let code =
+    #| "x=$({x = 1}.x)"
+  assert_true(@simpl.eval_source_is_string(code, "x=1"))
+}
+
+///|
+test "string interpolation supports ${name} as record expression" {
+  let code =
+    #| let name = 42;
+    #| "v=${name}"
+  assert_true(@simpl.eval_source_is_string(code, "v={name = 42}"))
+}
+
+///|
+test "string interpolation parse errors become runtime errors" {
+  assert_eq(
+    @simpl.eval_error_text("\"bad $}\""),
+    Some("invalid string interpolation expression after '$' at 1:1-9"),
+  )
+}
+
+///|
 test "division by zero now returns zero" {
   assert_true(@simpl.eval_source_is_int("1 / 0", 0))
 }
