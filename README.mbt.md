@@ -135,6 +135,7 @@ Supported in `let`, function params, and `if is` arms:
 - `ref(value)` -> reference cell
 - `print(value)` -> prints value, returns `nil`
 - `say(string)` -> prints string text, returns `nil`
+- `map(list; f)` -> applies `f` to each list item and returns a new list
 
 Builtins do not accept named arguments.
 

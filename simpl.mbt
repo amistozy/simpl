@@ -206,6 +206,7 @@ priv enum Builtin {
   BRef
   BPrint
   BSay
+  BMap
 } derive(Debug)
 
 ///|
@@ -620,7 +621,7 @@ fn initial_env() -> Env {
 
 ///|
 fn builtin_bindings() -> Array[(String, Builtin)] {
-  [("ref", BRef), ("print", BPrint), ("say", BSay)]
+  [("ref", BRef), ("print", BPrint), ("say", BSay), ("map", BMap)]
 }
 
 ///|
@@ -1164,28 +1165,69 @@ fn apply_builtin(
   builtin : Builtin,
   args : Array[EvaluatedCallArg],
 ) -> Value raise {
-  if args.length() != 1 {
-    raise arity_error(1, args.length())
-  }
-  match args[0] {
-    EArgNamed(_, _) => raise builtin_named_arg_error(builtin)
-    EArgPos(v) =>
-      match builtin {
-        BRef => VRef(@ref.new(v))
-        BPrint => {
-          println(value_pretty(v, 6))
-          VNil
-        }
-        BSay =>
-          match v {
-            VString(text) => {
-              println(text)
-              VNil
-            }
-            _ => raise builtin_type_error("say", "String", v)
+  match builtin {
+    BMap => {
+      if args.length() != 2 {
+        raise arity_error(2, args.length())
+      }
+      match (args[0], args[1]) {
+        (EArgNamed(_, _), _) | (_, EArgNamed(_, _)) =>
+          raise builtin_named_arg_error(builtin)
+        (EArgPos(list_value), EArgPos(func_value)) =>
+          match list_value {
+            VList(items) =>
+              match func_value {
+                VClosure(_, _, _, _)
+                | VRecClosure(_, _, _, _, _, _)
+                | VBuiltin(_) =>
+                  VList(map_list_with_func(items, func_value, 0, []))
+                _ => raise builtin_type_error("map", "Function", func_value)
+              }
+            _ => raise builtin_type_error("map", "List", list_value)
           }
       }
+    }
+    _ => {
+      if args.length() != 1 {
+        raise arity_error(1, args.length())
+      }
+      match args[0] {
+        EArgNamed(_, _) => raise builtin_named_arg_error(builtin)
+        EArgPos(v) =>
+          match builtin {
+            BRef => VRef(@ref.new(v))
+            BPrint => {
+              println(value_pretty(v, 6))
+              VNil
+            }
+            BSay =>
+              match v {
+                VString(text) => {
+                  println(text)
+                  VNil
+                }
+                _ => raise builtin_type_error("say", "String", v)
+              }
+            _ => raise runtime_error("unknown builtin")
+          }
+      }
+    }
   }
+}
+
+///|
+fn map_list_with_func(
+  items : Array[Value],
+  func_value : Value,
+  i : Int,
+  acc : Array[Value],
+) -> Array[Value] raise {
+  if i >= items.length() {
+    return acc
+  }
+  let mapped = apply(func_value, [EArgPos(items[i])])
+  acc.push(mapped)
+  map_list_with_func(items, func_value, i + 1, acc)
 }
 
 ///|
@@ -1201,6 +1243,7 @@ fn builtin_name(builtin : Builtin) -> String {
     BRef => "ref"
     BPrint => "print"
     BSay => "say"
+    BMap => "map"
   }
 }
 

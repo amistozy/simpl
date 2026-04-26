@@ -297,6 +297,25 @@ test "say only accepts string" {
 }
 
 ///|
+test "map applies function to each list element" {
+  let code =
+    #| map([1; 2; 3]; fn(x) = x + 1) == [2; 3; 4]
+  assert_true(@simpl.eval_source_is_bool(code, true))
+}
+
+///|
+test "map validates argument types" {
+  assert_eq(
+    @simpl.eval_error_text("map(1; fn(x) = x)"),
+    Some("builtin 'map' expected List, got Int(1) at 1:1-18"),
+  )
+  assert_eq(
+    @simpl.eval_error_text("map([1]; 1)"),
+    Some("builtin 'map' expected Function, got Int(1) at 1:1-12"),
+  )
+}
+
+///|
 test "print does not accept named arguments" {
   assert_true(@simpl.eval_source_is_error("print(x = 1)"))
 }
