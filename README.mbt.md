@@ -214,6 +214,7 @@ let value = @simpl.eval_source(
 - `IF_SYNTAX.md`: detailed UCS `if` syntax notes
 - `FUNCTION_SYNTAX.md`: detailed function syntax notes
 - `SEMICOLON_SYNTAX.md`: detailed semicolon syntax notes
+- `EQUALS_SYNTAX.md`: detailed `=` syntax notes
 
 ## Development Notes
 
