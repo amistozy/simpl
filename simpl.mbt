@@ -222,6 +222,14 @@ pub impl Show for Value with output(self : Value, logger : &Logger) -> Unit {
 }
 
 ///|
+impl Show for EvalError with output(self : EvalError, logger : &Logger) -> Unit {
+  match self {
+    RuntimeErrorAt(message, span) =>
+      logger.write_string("\{message} at \{format_source_span(span)}")
+  }
+}
+
+///|
 fn surface_expr_pretty(expr : SurfaceExpr) -> String {
   match expr {
     SLocated(_, inner) => surface_expr_pretty(inner)

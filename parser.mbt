@@ -71,6 +71,16 @@ priv enum Token {
 } derive(Eq)
 
 ///|
+impl Show for ParseError with output(self : ParseError, logger : &Logger) -> Unit {
+  match self {
+    SyntaxErrorAt(message, span) =>
+      logger.write_string(
+        "parse error: \{message} at \{format_source_span(span)}",
+      )
+  }
+}
+
+///|
 pub fn parse(source : String) -> SurfaceExpr raise {
   let tokens = lex(source)
   let (expr, i) = parse_expr(tokens, 0)

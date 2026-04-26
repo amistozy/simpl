@@ -159,15 +159,7 @@ fn run_parse(source : String) -> Unit {
 ///|
 fn run_eval(source : String) -> Unit {
   try @lib.eval_source(source) catch {
-    _ =>
-      match @lib.parse_error_text(source) {
-        Some(message) => println("parse error: \{message}")
-        None =>
-          match @lib.eval_error_text(source) {
-            Some(message) => println(message)
-            None => println("evaluation failed")
-          }
-      }
+    e => println(e)
   } noraise {
     value => println("=> \{value}")
   }
