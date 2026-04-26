@@ -27,7 +27,6 @@ priv enum Token {
   ThenTok
   ElseTok
   FnTok
-  NotTok
   DoTok
   EndKeywordTok
   IsTok
@@ -714,7 +713,6 @@ fn keyword_or_ident(text : String) -> Token {
     "then" => ThenTok
     "else" => ElseTok
     "fn" => FnTok
-    "not" => NotTok
     "do" => DoTok
     "end" => EndKeywordTok
     "is" => IsTok
@@ -739,7 +737,6 @@ fn token_name(tok : Token) -> String {
     ThenTok => "then"
     ElseTok => "else"
     FnTok => "fn"
-    NotTok => "not"
     DoTok => "do"
     EndKeywordTok => "end"
     IsTok => "is"
@@ -801,40 +798,27 @@ fn parse_assign_expr(
   if j >= tokens.length() {
     return (left, j)
   }
-  match token_kind(tokens, j) {
-    ColonAssignTok => {
+  match assign_token_to_binop(token_kind(tokens, j)) {
+    Some(op) => {
       let (right, k) = parse_assign_expr(tokens, j + 1)
-      (located_expr(tokens, i, k, SRefSet(left, right)), k)
+      (located_expr(tokens, i, k, SBinary(op, left, right)), k)
     }
-    PlusAssignTok => {
-      let (right, k) = parse_assign_expr(tokens, j + 1)
-      (located_expr(tokens, i, k, SRefUpdate(Add, left, right)), k)
-    }
-    MinusAssignTok => {
-      let (right, k) = parse_assign_expr(tokens, j + 1)
-      (located_expr(tokens, i, k, SRefUpdate(Sub, left, right)), k)
-    }
-    StarAssignTok => {
-      let (right, k) = parse_assign_expr(tokens, j + 1)
-      (located_expr(tokens, i, k, SRefUpdate(Mul, left, right)), k)
-    }
-    SlashAssignTok => {
-      let (right, k) = parse_assign_expr(tokens, j + 1)
-      (located_expr(tokens, i, k, SRefUpdate(Div, left, right)), k)
-    }
-    PercentAssignTok => {
-      let (right, k) = parse_assign_expr(tokens, j + 1)
-      (located_expr(tokens, i, k, SRefUpdate(Mod, left, right)), k)
-    }
-    AndAndAssignTok => {
-      let (right, k) = parse_assign_expr(tokens, j + 1)
-      (located_expr(tokens, i, k, SRefUpdate(And, left, right)), k)
-    }
-    OrOrAssignTok => {
-      let (right, k) = parse_assign_expr(tokens, j + 1)
-      (located_expr(tokens, i, k, SRefUpdate(Or, left, right)), k)
-    }
-    _ => (left, j)
+    None => (left, j)
+  }
+}
+
+///|
+fn assign_token_to_binop(tok : Token) -> BinOp? {
+  match tok {
+    ColonAssignTok => Some(RefSet)
+    PlusAssignTok => Some(RefUpdateAdd)
+    MinusAssignTok => Some(RefUpdateSub)
+    StarAssignTok => Some(RefUpdateMul)
+    SlashAssignTok => Some(RefUpdateDiv)
+    PercentAssignTok => Some(RefUpdateMod)
+    AndAndAssignTok => Some(RefUpdateAnd)
+    OrOrAssignTok => Some(RefUpdateOr)
+    _ => None
   }
 }
 
@@ -1737,13 +1721,10 @@ fn parse_unary_expr(
 ) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == BangTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
-    (located_expr(tokens, i, j, SRefGet(expr)), j)
+    (located_expr(tokens, i, j, SUnary(Bang, expr)), j)
   } else if i < tokens.length() && token_kind(tokens, i) == MinusTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (located_expr(tokens, i, j, SUnary(Neg, expr)), j)
-  } else if i < tokens.length() && token_kind(tokens, i) == NotTok {
-    let (expr, j) = parse_unary_expr(tokens, i + 1)
-    (located_expr(tokens, i, j, SUnary(Not, expr)), j)
   } else {
     parse_postfix_expr(tokens, i)
   }
@@ -1779,7 +1760,6 @@ fn is_trailing_arg_start(tokens : Array[SpannedToken], i : Int) -> Bool {
     | DoTok
     | BangTok
     | MinusTok
-    | NotTok
     | IntTok(_)
     | StrTok(_)
     | TrueTok

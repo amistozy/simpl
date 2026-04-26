@@ -10,7 +10,7 @@ Language support for `.simpl` files.
 
 ## Included Grammar Coverage
 
-- Keywords: `let`, `rec`, `if`, `then`, `else`, `fn`, `do`, `end`, `is`, `and`, `or`, `not`
+- Keywords: `let`, `rec`, `if`, `then`, `else`, `fn`, `do`, `end`, `is`, `and`, `or`
 - Literals: integers, strings, `true`, `false`, `nil`
 - Operators: arithmetic, comparison, logical, assignment, reference updates
 - Variant tags: `#Tag`

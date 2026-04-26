@@ -72,10 +72,6 @@
         {
           "name": "keyword.control.simpl",
           "match": "\\b(?:if|then|else|do|end|is|and|or|let|rec|fn)\\b"
-        },
-        {
-          "name": "keyword.operator.logical.word.simpl",
-          "match": "\\bnot\\b"
         }
       ]
     },

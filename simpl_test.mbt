@@ -538,6 +538,21 @@ test "&& and || also return operand values" {
 }
 
 ///|
+test "! works as logical not for non-reference values" {
+  assert_true(@simpl.eval_source_is_bool("!false", true))
+  assert_true(@simpl.eval_source_is_bool("!nil", true))
+  assert_true(@simpl.eval_source_is_bool("!1", false))
+}
+
+///|
+test "not is no longer a keyword" {
+  assert_eq(
+    @simpl.eval_error_text("not true"),
+    Some("undefined variable: name 'not' is not bound at 1:1-4"),
+  )
+}
+
+///|
 test "record literal and field access" {
   let code =
     #| {name = "moon"; count = 2}.name

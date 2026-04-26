@@ -235,7 +235,10 @@ test "desugar lowers record shorthand to field variable" {
 
 ///|
 test "desugared surface ast evaluates as core ast" {
-  let expr = SDo(SRefSet(SVar("r"), SIntLit(42)), SRefGet(SVar("r")))
+  let expr = SDo(
+    SBinary(RefSet, SVar("r"), SIntLit(42)),
+    SUnary(Bang, SVar("r")),
+  )
   assert_true(
     try
       eval(

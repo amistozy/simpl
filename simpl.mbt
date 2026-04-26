@@ -19,9 +19,6 @@ enum SurfaceExpr {
   SLetRecAnd(Array[(String, Array[SurfaceParam], SurfaceExpr)], SurfaceExpr)
   SLambda(Array[SurfaceParam], SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceCallArg])
-  SRefGet(SurfaceExpr)
-  SRefSet(SurfaceExpr, SurfaceExpr)
-  SRefUpdate(BinOp, SurfaceExpr, SurfaceExpr)
   SField(SurfaceExpr, String)
   SUnary(UnOp, SurfaceExpr)
   SBinary(BinOp, SurfaceExpr, SurfaceExpr)
@@ -100,9 +97,6 @@ enum Expr {
   LetRecAnd(Array[(String, Array[Param], Expr)], Expr)
   Lambda(Array[Param], Expr)
   Call(Expr, Array[CallArg])
-  RefGet(Expr)
-  RefSet(Expr, Expr)
-  RefUpdate(BinOp, Expr, Expr)
   Field(Expr, String)
   Unary(UnOp, Expr)
   Binary(BinOp, Expr, Expr)
@@ -165,12 +159,20 @@ priv enum BinOp {
   Ge
   And
   Or
+  RefSet
+  RefUpdateAdd
+  RefUpdateSub
+  RefUpdateMul
+  RefUpdateDiv
+  RefUpdateMod
+  RefUpdateAnd
+  RefUpdateOr
 } derive(Debug)
 
 ///|
 priv enum UnOp {
   Neg
-  Not
+  Bang
 } derive(Debug)
 
 ///|
@@ -259,11 +261,6 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
       "fn(\{surface_param_list_pretty(params, 0)}) = \{surface_expr_pretty(body)}"
     SCall(func_expr, arg_exprs) =>
       "\{surface_expr_pretty(func_expr)}(\{surface_call_arg_list_pretty(arg_exprs, 0)})"
-    SRefGet(inner) => "!\{surface_expr_pretty(inner)}"
-    SRefSet(ref_expr, value_expr) =>
-      "\{surface_expr_pretty(ref_expr)} := \{surface_expr_pretty(value_expr)}"
-    SRefUpdate(op, ref_expr, value_expr) =>
-      "\{surface_expr_pretty(ref_expr)} \{surface_ref_update_op_text(op)} \{surface_expr_pretty(value_expr)}"
     SField(target, name) => "\{surface_expr_pretty(target)}.\{name}"
     SUnary(op, one) => "\{surface_unary_op_text(op)}\{surface_expr_pretty(one)}"
     SBinary(op, left, right) =>
@@ -540,20 +537,14 @@ fn surface_bin_op_text(op : BinOp) -> String {
     Ge => ">="
     And => "&&"
     Or => "||"
-  }
-}
-
-///|
-fn surface_ref_update_op_text(op : BinOp) -> String {
-  match op {
-    Add => "+="
-    Sub => "-="
-    Mul => "*="
-    Div => "/="
-    Mod => "%="
-    And => "&&="
-    Or => "||="
-    _ => "\{surface_bin_op_text(op)}="
+    RefSet => ":="
+    RefUpdateAdd => "+="
+    RefUpdateSub => "-="
+    RefUpdateMul => "*="
+    RefUpdateDiv => "/="
+    RefUpdateMod => "%="
+    RefUpdateAnd => "&&="
+    RefUpdateOr => "||="
   }
 }
 
@@ -561,7 +552,7 @@ fn surface_ref_update_op_text(op : BinOp) -> String {
 fn surface_unary_op_text(op : UnOp) -> String {
   match op {
     Neg => "-"
-    Not => "!"
+    Bang => "!"
   }
 }
 
@@ -673,11 +664,6 @@ fn desugar(expr : SurfaceExpr) -> Expr {
       Lambda(params.map(param => desugar_param(param)), desugar(body))
     SCall(func_expr, arg_exprs) =>
       Call(desugar(func_expr), arg_exprs.map(arg => desugar_call_arg(arg)))
-    SRefGet(inner) => RefGet(desugar(inner))
-    SRefSet(ref_expr, value_expr) =>
-      RefSet(desugar(ref_expr), desugar(value_expr))
-    SRefUpdate(op, ref_expr, value_expr) =>
-      RefUpdate(op, desugar(ref_expr), desugar(value_expr))
     SField(target, name) => Field(desugar(target), name)
     SUnary(op, one) => Unary(op, desugar(one))
     SBinary(op, left, right) => Binary(op, desugar(left), desugar(right))
@@ -851,58 +837,6 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
           apply(func_value, args)
         }
       }
-    RefGet(ref_expr) =>
-      match eval_with_env(ref_expr, env) {
-        VRef(cell) => cell.val
-        value => raise type_error_unary("operator '!'", "Ref", value)
-      }
-    RefSet(ref_expr, value_expr) => {
-      let ref_value = eval_with_env(ref_expr, env)
-      let new_value = eval_with_env(value_expr, env)
-      match ref_value {
-        VRef(cell) => {
-          cell.val = new_value
-          new_value
-        }
-        value =>
-          raise type_error_unary("operator ':='", "Ref on left side", value)
-      }
-    }
-    RefUpdate(op, ref_expr, value_expr) => {
-      let ref_value = eval_with_env(ref_expr, env)
-      match ref_value {
-        VRef(cell) => {
-          let old_value = cell.val
-          let new_value = match op {
-            Add | Sub | Mul | Div | Mod => {
-              let right = eval_with_env(value_expr, env)
-              eval_binary(op, old_value, right)
-            }
-            And =>
-              if truthy(old_value) {
-                eval_with_env(value_expr, env)
-              } else {
-                old_value
-              }
-            Or =>
-              if truthy(old_value) {
-                old_value
-              } else {
-                eval_with_env(value_expr, env)
-              }
-            _ => raise runtime_error("invalid operator for ref update")
-          }
-          cell.val = new_value
-          new_value
-        }
-        value =>
-          raise type_error_unary(
-            ref_update_operator_text(op),
-            "Ref on left side",
-            value,
-          )
-      }
-    }
     Field(target, name) => {
       let target_value = eval_with_env(target, env)
       eval_field_value_or_ufcs(target_value, name, env)
@@ -919,6 +853,14 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
             left_value
           }
         }
+        RefSet
+        | RefUpdateAdd
+        | RefUpdateSub
+        | RefUpdateMul
+        | RefUpdateDiv
+        | RefUpdateMod
+        | RefUpdateAnd
+        | RefUpdateOr => eval_ref_binop(op, left, right, env)
         Or => {
           let (left_value, left_env) = eval_with_env_and_bindings(left, env)
           if truthy(left_value) {
@@ -931,6 +873,53 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
         _ =>
           eval_binary(op, eval_with_env(left, env), eval_with_env(right, env))
       }
+  }
+}
+
+///|
+fn eval_ref_binop(
+  op : BinOp,
+  left : Expr,
+  right : Expr,
+  env : Env,
+) -> Value raise {
+  let left_value = eval_with_env(left, env)
+  match left_value {
+    VRef(cell) => {
+      let old_value = cell.val
+      let new_value = match op {
+        RefSet => eval_with_env(right, env)
+        RefUpdateAdd
+        | RefUpdateSub
+        | RefUpdateMul
+        | RefUpdateDiv
+        | RefUpdateMod => {
+          let right_value = eval_with_env(right, env)
+          eval_binary(ref_update_to_base_binop(op), old_value, right_value)
+        }
+        RefUpdateAnd =>
+          if truthy(old_value) {
+            eval_with_env(right, env)
+          } else {
+            old_value
+          }
+        RefUpdateOr =>
+          if truthy(old_value) {
+            old_value
+          } else {
+            eval_with_env(right, env)
+          }
+        _ => raise runtime_error("invalid ref binary operator")
+      }
+      cell.val = new_value
+      new_value
+    }
+    value =>
+      raise type_error_unary(
+        ref_binary_operator_text(op),
+        "Ref on left side",
+        value,
+      )
   }
 }
 
@@ -2119,7 +2108,11 @@ fn eval_unary(op : UnOp, value : Value) -> Value raise {
         VInt(v) => VInt(-v)
         _ => raise type_error_unary("unary '-'", "Int", value)
       }
-    Not => VBool(!truthy(value))
+    Bang =>
+      match value {
+        VRef(cell) => cell.val
+        _ => VBool(!truthy(value))
+      }
   }
 }
 
@@ -2181,20 +2174,42 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
       }
     And => if truthy(left) { right } else { left }
     Or => if truthy(left) { left } else { right }
+    RefSet
+    | RefUpdateAdd
+    | RefUpdateSub
+    | RefUpdateMul
+    | RefUpdateDiv
+    | RefUpdateMod
+    | RefUpdateAnd
+    | RefUpdateOr =>
+      raise runtime_error("internal: ref binary op in eval_binary")
   }
 }
 
 ///|
-fn ref_update_operator_text(op : BinOp) -> String {
+fn ref_update_to_base_binop(op : BinOp) -> BinOp raise {
   match op {
-    Add => "operator '+='"
-    Sub => "operator '-='"
-    Mul => "operator '*='"
-    Div => "operator '/='"
-    Mod => "operator '%='"
-    And => "operator '&&='"
-    Or => "operator '||='"
-    _ => "ref update operator"
+    RefUpdateAdd => Add
+    RefUpdateSub => Sub
+    RefUpdateMul => Mul
+    RefUpdateDiv => Div
+    RefUpdateMod => Mod
+    _ => raise runtime_error("invalid numeric ref update operator")
+  }
+}
+
+///|
+fn ref_binary_operator_text(op : BinOp) -> String {
+  match op {
+    RefSet => "operator ':='"
+    RefUpdateAdd => "operator '+='"
+    RefUpdateSub => "operator '-='"
+    RefUpdateMul => "operator '*='"
+    RefUpdateDiv => "operator '/='"
+    RefUpdateMod => "operator '%='"
+    RefUpdateAnd => "operator '&&='"
+    RefUpdateOr => "operator '||='"
+    _ => "ref binary operator"
   }
 }
 
