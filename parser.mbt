@@ -778,7 +778,8 @@ fn parse_expr(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  parse_assign_expr(tokens, i)
+  let (expr, j) = parse_assign_expr(tokens, i)
+  parse_trailing_apply_tail(expr, tokens, j)
 }
 
 ///|
@@ -1716,6 +1717,83 @@ fn parse_unary_expr(
     (located_expr(tokens, i, j, SUnary(Not, expr)), j)
   } else {
     parse_postfix_expr(tokens, i)
+  }
+}
+
+///|
+fn parse_trailing_apply_tail(
+  expr : SurfaceExpr,
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
+  if is_trailing_arg_start(tokens, i) {
+    let (arg_expr, j) = parse_assign_expr(tokens, i)
+    parse_trailing_apply_tail(
+      append_trailing_arg(expr, arg_expr, tokens, j),
+      tokens,
+      j,
+    )
+  } else {
+    (expr, i)
+  }
+}
+
+///|
+fn is_trailing_arg_start(tokens : Array[SpannedToken], i : Int) -> Bool {
+  if i >= tokens.length() {
+    return false
+  }
+  match token_kind(tokens, i) {
+    LetTok
+    | IfTok
+    | FnTok
+    | DoTok
+    | BangTok
+    | MinusTok
+    | NotTok
+    | IntTok(_)
+    | StrTok(_)
+    | TrueTok
+    | FalseTok
+    | NilTok
+    | IdentTok(_)
+    | HashTok
+    | LBraceTok
+    | LBracketTok
+    | LParenTok => true
+    _ => false
+  }
+}
+
+///|
+fn append_trailing_arg(
+  expr : SurfaceExpr,
+  arg_expr : SurfaceExpr,
+  tokens : Array[SpannedToken],
+  end_i : Int,
+) -> SurfaceExpr {
+  match expr {
+    SLocated(_, SCall(func_expr, args)) =>
+      located_expr_from_left(
+        expr,
+        tokens,
+        end_i,
+        SCall(func_expr, args + [SArgPos(arg_expr)]),
+      )
+    SCall(func_expr, args) =>
+      located_expr_from_left(
+        expr,
+        tokens,
+        end_i,
+        SCall(func_expr, args + [SArgPos(arg_expr)]),
+      )
+    _ =>
+      located_expr_from_left(
+        expr,
+        tokens,
+        end_i,
+        SCall(expr, [SArgPos(arg_expr)]),
+      )
   }
 }
 

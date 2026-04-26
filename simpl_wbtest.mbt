@@ -79,6 +79,46 @@ test "parser preserves let function sugar before desugar" {
 }
 
 ///|
+test "parser rewrites trailing arg sugar into positional call arg" {
+  match parse("f x") {
+    SLocated(
+      _,
+      SCall(SLocated(_, SVar("f")), [SArgPos(SLocated(_, SVar("x")))])
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser appends trailing arg after parenthesized call" {
+  match parse("f(1; 2) 3") {
+    SLocated(
+      _,
+      SCall(
+        SLocated(_, SVar("f")),
+        [
+          SArgPos(SLocated(_, SIntLit(1))),
+          SArgPos(SLocated(_, SIntLit(2))),
+          SArgPos(SLocated(_, SIntLit(3))),
+        ]
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser binds trailing lambda as a single lowest-precedence arg" {
+  match parse("foo fn(x) = x + 1") {
+    SLocated(
+      _,
+      SCall(SLocated(_, SVar("foo")), [SArgPos(SLocated(_, SLambda(_, _)))])
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "parser lowers let x += sugar into let with binary value" {
   match parse("let x += 1; x") {
     SLocated(

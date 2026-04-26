@@ -50,6 +50,38 @@ test "higher order function" {
 }
 
 ///|
+test "trailing arg sugar rewrites f x to f(x)" {
+  let code =
+    #| let inc(x) = x + 1;
+    #| inc 41
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "trailing arg sugar appends to existing arg list" {
+  let code =
+    #| let add3(a; b; c) = a + b + c;
+    #| add3(1; 2) 3
+  assert_true(@simpl.eval_source_is_int(code, 6))
+}
+
+///|
+test "trailing arg has lowest precedence over infix operators" {
+  let code =
+    #| let f(x) = x + 1;
+    #| f 1 * 2
+  assert_true(@simpl.eval_source_is_int(code, 3))
+}
+
+///|
+test "trailing lambda works with lowest precedence application" {
+  let code =
+    #| let foo(f) = f 42;
+    #| foo fn(x) = x + 1
+  assert_true(@simpl.eval_source_is_int(code, 43))
+}
+
+///|
 test "named arg supports f(...) = ... sugar" {
   let code =
     #| let apply(f) = f(41);
@@ -166,8 +198,8 @@ test "is expression is removed" {
 ///|
 test "parse error includes source position" {
   assert_eq(
-    @simpl.parse_error_text("1 2"),
-    Some("unexpected token after expression: int at 1:3-4"),
+    @simpl.parse_error_text("1 )"),
+    Some("unexpected token after expression: ) at 1:3-4"),
   )
 }
 
