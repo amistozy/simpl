@@ -95,6 +95,7 @@ moon run cmd/main -- examples/basic.simpl
 - references: `ref(...)`, dereference `!`, and assignment/update operators
 
 For UCS `if` details, see [IF_SYNTAX.md](IF_SYNTAX.md).
+For function syntax details, see [FUNCTION_SYNTAX.md](FUNCTION_SYNTAX.md).
 
 ## Public API
 
@@ -184,6 +185,7 @@ let value = @simpl.eval_source(
 - `simpl_wbtest.mbt`: white-box tests
 - `cmd/main/main.mbt`: CLI entry point
 - `IF_SYNTAX.md`: UCS `if` syntax notes
+- `FUNCTION_SYNTAX.md`: function syntax notes
 
 ## Development Notes
 
