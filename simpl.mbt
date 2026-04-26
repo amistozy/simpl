@@ -1158,6 +1158,7 @@ priv enum EvaluatedCallArg {
 ///|
 fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
   match func_value {
+    VRecord(fields) => apply_record_with_named_args(fields, args)
     VClosure(params, body, closure_env, default_values) => {
       let call_env = bind_params(params, args, closure_env, default_values)
       eval_with_env(body, call_env)
@@ -1169,6 +1170,54 @@ fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
     }
     VBuiltin(builtin) => apply_builtin(builtin, args)
     _ => raise call_non_function_error(func_value)
+  }
+}
+
+///|
+fn apply_record_with_named_args(
+  fields : @hashmap.HashMap[String, Value],
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  VRecord(apply_record_with_named_args_from(fields, args, 0))
+}
+
+///|
+fn apply_record_with_named_args_from(
+  fields : @hashmap.HashMap[String, Value],
+  args : Array[EvaluatedCallArg],
+  i : Int,
+) -> @hashmap.HashMap[String, Value] raise {
+  if i >= args.length() {
+    return fields
+  }
+  match args[i] {
+    EArgPos(_) =>
+      raise runtime_error("record call only accepts named arguments")
+    EArgNamed(name, value) =>
+      if record_call_has_duplicate_named_arg(args, name, i, 0) {
+        raise runtime_error("duplicate argument: " + name)
+      } else {
+        apply_record_with_named_args_from(fields.add(name, value), args, i + 1)
+      }
+  }
+}
+
+///|
+fn record_call_has_duplicate_named_arg(
+  args : Array[EvaluatedCallArg],
+  name : String,
+  limit_i : Int,
+  j : Int,
+) -> Bool {
+  if j >= limit_i {
+    return false
+  }
+  match args[j] {
+    EArgPos(_) =>
+      record_call_has_duplicate_named_arg(args, name, limit_i, j + 1)
+    EArgNamed(n, _) if n == name => true
+    EArgNamed(_, _) =>
+      record_call_has_duplicate_named_arg(args, name, limit_i, j + 1)
   }
 }
 

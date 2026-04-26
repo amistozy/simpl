@@ -133,6 +133,32 @@ test "record field lookup has priority over ufcs fallback" {
 }
 
 ///|
+test "record is callable with named args to create updated record" {
+  let code =
+    #| let foo = {x = 1; y = 2};
+    #| let bar = foo(x = 3; z = 4);
+    #| bar.x + bar.y + bar.z
+  assert_true(@simpl.eval_source_is_int(code, 9))
+}
+
+///|
+test "record call does not mutate original record" {
+  let code =
+    #| let foo = {x = 1; y = 2};
+    #| let _ = foo(x = 3; z = 4);
+    #| foo.x + foo.y
+  assert_true(@simpl.eval_source_is_int(code, 3))
+}
+
+///|
+test "record call rejects positional arguments" {
+  let code =
+    #| let foo = {x = 1};
+    #| foo(1)
+  assert_true(@simpl.eval_source_is_error(code))
+}
+
+///|
 test "function params without defaults are required" {
   let code =
     #| (fn(x; y) = x)()
