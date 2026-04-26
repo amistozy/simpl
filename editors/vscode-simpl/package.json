@@ -5,7 +5,6 @@
   "version": "0.1.0",
   "publisher": "amistozy",
   "license": "MIT",
-  "main": "./extension.js",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -20,16 +19,9 @@
   "scripts": {
     "package": "vsce package"
   },
-  "dependencies": {
-    "vscode-languageclient": "^9.0.1"
-  },
   "devDependencies": {
     "@vscode/vsce": "^3.7.0"
   },
-  "activationEvents": [
-    "onLanguage:simpl",
-    "onCommand:simpl.restartLanguageServer"
-  ],
   "contributes": {
     "languages": [
       {
@@ -50,59 +42,6 @@
         "scopeName": "source.simpl",
         "path": "./syntaxes/simpl.tmLanguage.json"
       }
-    ],
-    "commands": [
-      {
-        "command": "simpl.restartLanguageServer",
-        "title": "Simpl: Restart Language Server",
-        "category": "Simpl"
-      }
-    ],
-    "configuration": {
-      "title": "Simpl",
-      "properties": {
-        "simpl.languageServer.command": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Language server executable command. Example: `moon` or `simpl-lsp`."
-        },
-        "simpl.languageServer.args": {
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "markdownDescription": "Arguments passed to the language server command."
-        },
-        "simpl.languageServer.cwd": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Working directory used to start the language server. Empty means the first workspace folder."
-        },
-        "simpl.languageServer.env": {
-          "type": "object",
-          "default": {},
-          "markdownDescription": "Extra environment variables passed to the language server process."
-        },
-        "simpl.languageServer.trace.server": {
-          "type": "string",
-          "default": "off",
-          "enum": [
-            "off",
-            "messages",
-            "verbose"
-          ],
-          "markdownDescription": "Controls LSP trace logging level."
-        }
-      }
-    }
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/amistozy/simpl"
-  },
-  "homepage": "https://github.com/amistozy/simpl",
-  "bugs": {
-    "url": "https://github.com/amistozy/simpl/issues"
+    ]
   }
 }
