@@ -215,6 +215,7 @@ let value = @simpl.eval_source(
 - `FUNCTION_SYNTAX.md`: detailed function syntax notes
 - `SEMICOLON_SYNTAX.md`: detailed semicolon syntax notes
 - `EQUALS_SYNTAX.md`: detailed `=` syntax notes
+- `editors/vscode-simpl`: VS Code syntax-highlighting extension for `.simpl`
 
 ## Development Notes
 

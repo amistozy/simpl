@@ -302,10 +302,10 @@ test "print does not accept named arguments" {
 }
 
 ///|
-test "string interpolation supports variables and expressions" {
+test "string interpolation supports $name and $(...)" {
   let code =
     #| let name = "moonbit";
-    #| "hello $name, $1 + 1"
+    #| "hello $name, $(1 + 1)"
   assert_true(@simpl.eval_source_is_string(code, "hello moonbit, 2"))
 }
 
@@ -317,11 +317,27 @@ test "string interpolation supports nested braces in expressions" {
 }
 
 ///|
-test "string interpolation supports ${name} as record expression" {
+test "string interpolation supports $(...) as record expression" {
   let code =
     #| let name = 42;
-    #| "v=${name}"
+    #| "v=$({name})"
   assert_true(@simpl.eval_source_is_string(code, "v={name = 42}"))
+}
+
+///|
+test "string interpolation rejects legacy $expr without parentheses" {
+  assert_eq(
+    @simpl.eval_error_text("\"bad $1 + 1\""),
+    Some("invalid string interpolation expression after '$' at 1:1-13"),
+  )
+}
+
+///|
+test "string interpolation rejects legacy ${...} form" {
+  assert_eq(
+    @simpl.eval_error_text("\"bad ${name}\""),
+    Some("invalid string interpolation expression after '$' at 1:1-14"),
+  )
 }
 
 ///|

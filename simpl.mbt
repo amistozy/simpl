@@ -1344,61 +1344,94 @@ fn eval_interpolation_at(
   expr_start : Int,
   env : Env,
 ) -> (Value, Int) raise {
-  match
-    find_interpolation_expr_end(template, expr_start, expr_start + 1, None) {
-    Some(end_i) =>
-      (
-        eval_interpolation_expr(template[expr_start:end_i].to_string(), env),
-        end_i,
-      )
-    None =>
-      raise runtime_error("invalid string interpolation expression after '$'")
+  if expr_start >= template.length() {
+    raise runtime_error("invalid string interpolation expression after '$'")
   }
-}
-
-///|
-fn find_interpolation_expr_end(
-  template : String,
-  expr_start : Int,
-  i : Int,
-  best_end : Int?,
-) -> Int? {
-  if i > template.length() {
-    return best_end
-  }
-  let source = template[expr_start:i].to_string()
-  let next_best = if interpolation_expr_is_valid(source) &&
-    interpolation_expr_last_char_ok(template, expr_start, i) {
-    Some(i)
+  let first = template[expr_start:expr_start + 1]
+    .to_string()
+    .unsafe_get(0)
+    .unsafe_to_char()
+  if first == '(' {
+    match
+      find_interpolation_paren_end(template, expr_start + 1, 1, false, false) {
+      Some(close_i) =>
+        (
+          eval_interpolation_expr(
+            template[expr_start + 1:close_i].to_string(),
+            env,
+          ),
+          close_i + 1,
+        )
+      None =>
+        raise runtime_error("invalid string interpolation expression after '$'")
+    }
+  } else if is_interpolation_ident_start(first) {
+    let end_i = interpolation_ident_end(template, expr_start + 1)
+    let name = template[expr_start:end_i].to_string()
+    (lookup(env, name), end_i)
   } else {
-    best_end
+    raise runtime_error("invalid string interpolation expression after '$'")
   }
-  find_interpolation_expr_end(template, expr_start, i + 1, next_best)
 }
 
 ///|
-fn interpolation_expr_last_char_ok(
+fn find_interpolation_paren_end(
   template : String,
-  expr_start : Int,
-  expr_end : Int,
-) -> Bool {
-  if expr_end <= expr_start {
-    return false
+  i : Int,
+  depth : Int,
+  in_string : Bool,
+  escaped : Bool,
+) -> Int? {
+  if i >= template.length() {
+    return None
   }
-  !template[expr_end - 1:expr_end]
-  .to_string()
-  .unsafe_get(0)
-  .unsafe_to_char()
-  .is_ascii_whitespace()
+  let c = template[i:i + 1].to_string().unsafe_get(0).unsafe_to_char()
+  if in_string {
+    if escaped {
+      return find_interpolation_paren_end(template, i + 1, depth, true, false)
+    }
+    if c == '\\' {
+      return find_interpolation_paren_end(template, i + 1, depth, true, true)
+    }
+    if c == '"' {
+      return find_interpolation_paren_end(template, i + 1, depth, false, false)
+    }
+    find_interpolation_paren_end(template, i + 1, depth, true, false)
+  } else if c == '"' {
+    find_interpolation_paren_end(template, i + 1, depth, true, false)
+  } else if c == '(' {
+    find_interpolation_paren_end(template, i + 1, depth + 1, false, false)
+  } else if c == ')' {
+    if depth == 1 {
+      Some(i)
+    } else {
+      find_interpolation_paren_end(template, i + 1, depth - 1, false, false)
+    }
+  } else {
+    find_interpolation_paren_end(template, i + 1, depth, false, false)
+  }
 }
 
 ///|
-fn interpolation_expr_is_valid(source : String) -> Bool {
-  try {
-    ignore(parse(source))
-    true
-  } catch {
-    _ => false
+fn is_interpolation_ident_start(c : Char) -> Bool {
+  c.is_ascii_alphabetic() || c == '_'
+}
+
+///|
+fn is_interpolation_ident_continue(c : Char) -> Bool {
+  c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '_'
+}
+
+///|
+fn interpolation_ident_end(template : String, i : Int) -> Int {
+  if i >= template.length() {
+    return i
+  }
+  let c = template[i:i + 1].to_string().unsafe_get(0).unsafe_to_char()
+  if is_interpolation_ident_continue(c) {
+    interpolation_ident_end(template, i + 1)
+  } else {
+    i
   }
 }
 
