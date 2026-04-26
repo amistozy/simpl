@@ -1426,19 +1426,36 @@ fn parse_params_nonempty(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (Array[SurfaceParam], Int) raise {
-  let params = []
-  for j = i, _pos = 0 {
-    let (param, next) = parse_param(tokens, j)
-    params.push(param)
-    if next >= tokens.length() {
-      syntax_error_eof(tokens, "unexpected end in params")
-    }
-    if token_kind(tokens, next) == SemicolonTok {
-      continue next + 1, _pos + 1
-    }
-    if token_kind(tokens, next) == RParenTok {
-      break (params, next + 1)
-    }
+  parse_params_nonempty_from(tokens, i, false, [])
+}
+
+///|
+fn parse_params_nonempty_from(
+  tokens : Array[SpannedToken],
+  i : Int,
+  seen_default : Bool,
+  acc : Array[SurfaceParam],
+) -> (Array[SurfaceParam], Int) raise {
+  let (param, next) = parse_param(tokens, i)
+  let has_default = surface_param_has_default(param)
+  if seen_default && !has_default {
+    syntax_error_at(
+      tokens, i, "required params must appear before default params",
+    )
+  }
+  if next >= tokens.length() {
+    syntax_error_eof(tokens, "unexpected end in params")
+  }
+  if token_kind(tokens, next) == SemicolonTok {
+    parse_params_nonempty_from(
+      tokens,
+      next + 1,
+      seen_default || has_default,
+      acc + [param],
+    )
+  } else if token_kind(tokens, next) == RParenTok {
+    (acc + [param], next + 1)
+  } else {
     syntax_error_at(
       tokens,
       next,
@@ -1458,6 +1475,17 @@ fn parse_param(
     (SParam(pattern, Some(default_expr)), k)
   } else {
     (SParam(pattern, None), j)
+  }
+}
+
+///|
+fn surface_param_has_default(param : SurfaceParam) -> Bool {
+  match param {
+    SParam(_, default_expr) =>
+      match default_expr {
+        Some(_) => true
+        None => false
+      }
   }
 }
 

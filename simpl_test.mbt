@@ -50,16 +50,16 @@ test "higher order function" {
 }
 
 ///|
-test "function params without defaults default to nil" {
+test "function params without defaults are required" {
   let code =
-    #| (fn(x; y) = if x == nil and y == nil then 1 else 0)()
-  assert_true(@simpl.eval_source_is_int(code, 1))
+    #| (fn(x; y) = x)()
+  assert_true(@simpl.eval_source_is_error(code))
 }
 
 ///|
 test "function supports explicit default values" {
   let code =
-    #| let f(x = 1; y; z = 3) = x + y + z;
+    #| let f(y; x = 1; z = 3) = x + y + z;
     #| f(y = 2)
   assert_true(@simpl.eval_source_is_int(code, 6))
 }
@@ -88,6 +88,11 @@ test "default expressions are evaluated at definition time" {
     #| do r := 2;
     #| f()
   assert_true(@simpl.eval_source_is_int(code, 1))
+}
+
+///|
+test "params must place required ones before defaulted ones" {
+  assert_true(@simpl.parse_is_error("fn(x = 1; y) = x + y"))
 }
 
 ///|

@@ -1189,7 +1189,11 @@ fn bind_params(
   let assigned = params.map(_ => None)
   bind_named_args(params, args, assigned, 0)
   bind_positional_args(params, args, assigned, 0, 0)
-  finalize_param_bindings(params, assigned, default_values, base, 0)
+  let provided_count = count_assigned_values(assigned, 0, 0)
+  let required_count = count_required_params(default_values, 0, 0)
+  finalize_param_bindings(
+    params, assigned, default_values, provided_count, required_count, base, 0,
+  )
 }
 
 ///|
@@ -1276,6 +1280,8 @@ fn finalize_param_bindings(
   params : Array[Param],
   assigned : Array[Value?],
   default_values : Array[Value?],
+  provided_count : Int,
+  required_count : Int,
   env : Env,
   i : Int,
 ) -> Env raise {
@@ -1288,11 +1294,45 @@ fn finalize_param_bindings(
     None =>
       match default_values[i] {
         Some(v) => v
-        None => VNil
+        None => raise arity_error(required_count, provided_count)
       }
   }
   let next_env = bind_pattern(pattern, value, env)
-  finalize_param_bindings(params, assigned, default_values, next_env, i + 1)
+  finalize_param_bindings(
+    params,
+    assigned,
+    default_values,
+    provided_count,
+    required_count,
+    next_env,
+    i + 1,
+  )
+}
+
+///|
+fn count_assigned_values(assigned : Array[Value?], i : Int, acc : Int) -> Int {
+  if i >= assigned.length() {
+    return acc
+  }
+  match assigned[i] {
+    Some(_) => count_assigned_values(assigned, i + 1, acc + 1)
+    None => count_assigned_values(assigned, i + 1, acc)
+  }
+}
+
+///|
+fn count_required_params(
+  default_values : Array[Value?],
+  i : Int,
+  acc : Int,
+) -> Int {
+  if i >= default_values.length() {
+    return acc
+  }
+  match default_values[i] {
+    Some(_) => count_required_params(default_values, i + 1, acc)
+    None => count_required_params(default_values, i + 1, acc + 1)
+  }
 }
 
 ///|
