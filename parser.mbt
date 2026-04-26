@@ -1810,17 +1810,72 @@ fn parse_call_arg(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceCallArg, Int) raise {
-  if i + 1 < tokens.length() {
+  if i + 1 < tokens.length() && token_kind(tokens, i + 1) == AssignTok {
     match token_kind(tokens, i) {
-      IdentTok(name) if token_kind(tokens, i + 1) == AssignTok => {
+      IdentTok(name) => {
         let (value_expr, j) = parse_expr(tokens, i + 2)
         return (SArgNamed(name, value_expr), j)
       }
       _ => ()
     }
   }
+  if i + 1 < tokens.length() && token_kind(tokens, i + 1) == LParenTok {
+    match token_kind(tokens, i) {
+      IdentTok(name) =>
+        match find_matching_rparen(tokens, i + 1, 0) {
+          Some(close_i) if close_i + 1 < tokens.length() &&
+            token_kind(tokens, close_i + 1) == AssignTok => {
+            let (lambda_expr, j) = parse_named_lambda_sugar(
+              tokens,
+              name,
+              i + 1,
+              i,
+            )
+            return (SArgNamed(name, lambda_expr), j)
+          }
+          _ => ()
+        }
+      _ => ()
+    }
+  }
   let (expr, j) = parse_expr(tokens, i)
   (SArgPos(expr), j)
+}
+
+///|
+fn find_matching_rparen(
+  tokens : Array[SpannedToken],
+  i : Int,
+  depth : Int,
+) -> Int? {
+  if i >= tokens.length() {
+    return None
+  }
+  let next_depth = match token_kind(tokens, i) {
+    LParenTok => depth + 1
+    RParenTok => depth - 1
+    _ => depth
+  }
+  if next_depth == 0 {
+    Some(i)
+  } else {
+    find_matching_rparen(tokens, i + 1, next_depth)
+  }
+}
+
+///|
+fn parse_named_lambda_sugar(
+  tokens : Array[SpannedToken],
+  _name : String,
+  lparen_i : Int,
+  start_i : Int,
+) -> (SurfaceExpr, Int) raise {
+  let (params, j) = parse_params(tokens, lparen_i + 1)
+  if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+    syntax_error_at(tokens, j, "expected '=' after function params")
+  }
+  let (func_body, k) = parse_expr(tokens, j + 1)
+  (located_expr(tokens, start_i, k, SLambda(params, func_body)), k)
 }
 
 ///|
@@ -1910,7 +1965,15 @@ fn parse_record_literal(
         )
     }
     let (field, next_expr) = if j + 1 < tokens.length() &&
-      token_kind(tokens, j + 1) == AssignTok {
+      token_kind(tokens, j + 1) == LParenTok {
+      let (value_expr, next_expr) = parse_named_lambda_sugar(
+        tokens,
+        name,
+        j + 1,
+        j,
+      )
+      (SRecordField(name, value_expr), next_expr)
+    } else if j + 1 < tokens.length() && token_kind(tokens, j + 1) == AssignTok {
       let (value_expr, next_expr) = parse_expr(tokens, j + 2)
       (SRecordField(name, value_expr), next_expr)
     } else {

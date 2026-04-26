@@ -82,6 +82,7 @@ moon run cmd/main -- examples/basic.simpl
 - default params: `fn(x; y = 2; z = 3) = ...`
 - required params must appear before defaulted params
 - named args in calls: `f(a = 1; 2; c = 3)`
+- function sugar where assignment is allowed: `f(x) = ...` (same as `f = fn(x) = ...`)
 - default expressions are evaluated when the function is defined
 - default expressions cannot reference other parameters
 - bindings: `let`, `let ... and ...`, `let rec`, `let rec ... and ...`

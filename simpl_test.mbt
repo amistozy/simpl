@@ -50,6 +50,22 @@ test "higher order function" {
 }
 
 ///|
+test "named arg supports f(...) = ... sugar" {
+  let code =
+    #| let apply(f) = f(41);
+    #| apply(f(x) = x + 1)
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "record field supports f(...) = ... sugar" {
+  let code =
+    #| let r = {inc(x) = x + 1};
+    #| r.inc(41)
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 test "function params without defaults are required" {
   let code =
     #| (fn(x; y) = x)()
