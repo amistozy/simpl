@@ -213,6 +213,7 @@ let value = @simpl.eval_source(
 - `cmd/main/main.mbt`: CLI implementation
 - `IF_SYNTAX.md`: detailed UCS `if` syntax notes
 - `FUNCTION_SYNTAX.md`: detailed function syntax notes
+- `SEMICOLON_SYNTAX.md`: detailed semicolon syntax notes
 
 ## Development Notes
 
