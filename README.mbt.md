@@ -89,6 +89,7 @@ moon run cmd/main -- examples/basic.simpl
 - binding update sugar: `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`
 - control flow: UCS `if`, `if is`
 - patterns in `let`, function parameters, and `if is`
+- UFCS: `x.foo` -> `foo(x)`, `x.foo(y; z)` -> `foo(x; y; z)` when `foo` is not a record field
 - variants such as `#Left(1)` and `#Right("ok")`
 - records and lists (using `;` as separator, and `=` in record fields), including list rest patterns
 - references: `ref(...)`, dereference `!`, and assignment/update operators

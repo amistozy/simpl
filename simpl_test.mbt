@@ -66,6 +66,31 @@ test "record field supports f(...) = ... sugar" {
 }
 
 ///|
+test "ufcs rewrites x.foo to foo(x) when no record field exists" {
+  let code =
+    #| let inc(x) = x + 1;
+    #| 41.inc
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "ufcs rewrites x.foo(y; z) to foo(x; y; z)" {
+  let code =
+    #| let add3(x; y; z) = x + y + z;
+    #| 1.add3(2; 3)
+  assert_true(@simpl.eval_source_is_int(code, 6))
+}
+
+///|
+test "record field lookup has priority over ufcs fallback" {
+  let code =
+    #| let foo(x) = x + 100;
+    #| let r = {foo(v) = v + 1};
+    #| r.foo(41)
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 test "function params without defaults are required" {
   let code =
     #| (fn(x; y) = x)()
@@ -201,10 +226,10 @@ test "binary type error reports expected and actual values" {
 }
 
 ///|
-test "field access type error reports expected and actual value" {
+test "field access falls back to ufcs and reports missing function" {
   assert_eq(
     @simpl.eval_error_text("1.x"),
-    Some("type error: operator '.' expected Record, got Int(1) at 1:1-4"),
+    Some("undefined variable: name 'x' is not bound at 1:1-4"),
   )
 }
 

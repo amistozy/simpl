@@ -874,11 +874,19 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       let defaults = eval_param_defaults(params, env)
       VClosure(params, body, env, defaults)
     }
-    Call(func_expr, arg_exprs) => {
-      let func_value = eval_with_env(func_expr, env)
-      let args = eval_call_args(arg_exprs, env)
-      apply(func_value, args)
-    }
+    Call(func_expr, arg_exprs) =>
+      match as_ufcs_field_callee(func_expr) {
+        Some((target, name)) => {
+          let target_value = eval_with_env(target, env)
+          let args = eval_call_args(arg_exprs, env)
+          eval_field_call_or_ufcs(target_value, name, args, env)
+        }
+        None => {
+          let func_value = eval_with_env(func_expr, env)
+          let args = eval_call_args(arg_exprs, env)
+          apply(func_value, args)
+        }
+      }
     RefGet(ref_expr) =>
       match eval_with_env(ref_expr, env) {
         VRef(cell) => cell.val
@@ -933,14 +941,7 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     }
     Field(target, name) => {
       let target_value = eval_with_env(target, env)
-      match target_value {
-        VRecord(fields) =>
-          match fields.get(name) {
-            Some(value) => value
-            None => raise missing_field_error(name, target_value)
-          }
-        value => raise type_error_unary("operator '.'", "Record", value)
-      }
+      eval_field_value_or_ufcs(target_value, name, env)
     }
     Unary(op, one) => eval_unary(op, eval_with_env(one, env))
     Binary(op, left, right) =>
@@ -1355,6 +1356,79 @@ fn eval_call_arg(arg : CallArg, env : Env) -> EvaluatedCallArg raise {
     ArgPos(expr) => EArgPos(eval_with_env(expr, env))
     ArgNamed(name, expr) => EArgNamed(name, eval_with_env(expr, env))
   }
+}
+
+///|
+fn as_ufcs_field_callee(expr : Expr) -> (Expr, String)? {
+  match expr {
+    Field(target, name) => Some((target, name))
+    Located(_, inner) => as_ufcs_field_callee(inner)
+    _ => None
+  }
+}
+
+///|
+fn eval_field_value_or_ufcs(
+  target_value : Value,
+  name : String,
+  env : Env,
+) -> Value raise {
+  match target_value {
+    VRecord(fields) =>
+      match fields.get(name) {
+        Some(value) => value
+        None =>
+          match env.get(name) {
+            Some(func_value) if value_is_callable(func_value) =>
+              apply(func_value, [EArgPos(target_value)])
+            _ => raise missing_field_error(name, target_value)
+          }
+      }
+    _ => apply_ufcs(name, target_value, [], env)
+  }
+}
+
+///|
+fn eval_field_call_or_ufcs(
+  target_value : Value,
+  name : String,
+  args : Array[EvaluatedCallArg],
+  env : Env,
+) -> Value raise {
+  match target_value {
+    VRecord(fields) =>
+      match fields.get(name) {
+        Some(value) => apply(value, args)
+        None =>
+          match env.get(name) {
+            Some(func_value) if value_is_callable(func_value) =>
+              apply(func_value, [EArgPos(target_value)] + args)
+            _ => raise missing_field_error(name, target_value)
+          }
+      }
+    _ => apply_ufcs(name, target_value, args, env)
+  }
+}
+
+///|
+fn value_is_callable(value : Value) -> Bool {
+  match value {
+    VClosure(_, _, _, _) => true
+    VRecClosure(_, _, _, _, _, _) => true
+    VBuiltinRef => true
+    _ => false
+  }
+}
+
+///|
+fn apply_ufcs(
+  name : String,
+  target_value : Value,
+  args : Array[EvaluatedCallArg],
+  env : Env,
+) -> Value raise {
+  let func_value = lookup(env, name)
+  apply(func_value, [EArgPos(target_value)] + args)
 }
 
 ///|
