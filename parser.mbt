@@ -1727,7 +1727,7 @@ fn parse_trailing_apply_tail(
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
   if is_trailing_arg_start(tokens, i) {
-    let (arg_expr, j) = parse_assign_expr(tokens, i)
+    let (arg_expr, j) = parse_expr(tokens, i)
     parse_trailing_apply_tail(
       append_trailing_arg(expr, arg_expr, tokens, j),
       tokens,

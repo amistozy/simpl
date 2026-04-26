@@ -82,6 +82,16 @@ test "trailing lambda works with lowest precedence application" {
 }
 
 ///|
+test "trailing application is right-associative" {
+  let code =
+    #| let f(v) = v * 10;
+    #| let g(x) = x + 2;
+    #| let x = 3;
+    #| f g x
+  assert_true(@simpl.eval_source_is_int(code, 50))
+}
+
+///|
 test "named arg supports f(...) = ... sugar" {
   let code =
     #| let apply(f) = f(41);

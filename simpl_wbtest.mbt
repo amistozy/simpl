@@ -119,6 +119,27 @@ test "parser binds trailing lambda as a single lowest-precedence arg" {
 }
 
 ///|
+test "parser makes trailing application right-associative" {
+  match parse("f g x") {
+    SLocated(
+      _,
+      SCall(
+        SLocated(_, SVar("f")),
+        [
+          SArgPos(
+            SLocated(
+              _,
+              SCall(SLocated(_, SVar("g")), [SArgPos(SLocated(_, SVar("x")))])
+            )
+          ),
+        ]
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "parser lowers let x += sugar into let with binary value" {
   match parse("let x += 1; x") {
     SLocated(
