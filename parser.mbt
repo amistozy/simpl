@@ -1470,6 +1470,25 @@ fn parse_param(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceParam, Int) raise {
+  if i + 1 < tokens.length() && token_kind(tokens, i + 1) == LParenTok {
+    match token_kind(tokens, i) {
+      IdentTok(name) =>
+        match find_matching_rparen(tokens, i + 1, 0) {
+          Some(close_i) if close_i + 1 < tokens.length() &&
+            token_kind(tokens, close_i + 1) == AssignTok => {
+            let (lambda_expr, j) = parse_named_lambda_sugar(
+              tokens,
+              name,
+              i + 1,
+              i,
+            )
+            return (SParam(SPBind(name), Some(lambda_expr)), j)
+          }
+          _ => ()
+        }
+      _ => ()
+    }
+  }
   let (pattern, j) = parse_pattern(tokens, i)
   if j < tokens.length() && token_kind(tokens, j) == AssignTok {
     let (default_expr, k) = parse_expr(tokens, j + 1)

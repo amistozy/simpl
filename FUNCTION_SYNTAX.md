@@ -1,28 +1,31 @@
 # Simpl Function Syntax
 
-This document describes function definition and call syntax in Simpl.
+This document is the canonical reference for function-related syntax in **Simpl**.
 
-## Function Forms
+## 1. Function Definition Forms
 
-Simpl supports these equivalent ways to define functions:
+Simpl supports two equivalent forms for named functions:
 
 ```simpl
-let f = fn(x) = x + 1; f(41)
-let f(x) = x + 1; f(41)
-let box = { inc(x) = x + 1 }; box.inc(41)
+let inc = fn(x) = x + 1;
+let inc(x) = x + 1;
 ```
 
-`name(params) = body` is sugar for `name = fn(params) = body`.
+`name(params) = body` is syntax sugar for `name = fn(params) = body`.
 
-This sugar is available where assigning to a named slot is valid, including:
+The same sugar is available in any assignment-like slot:
 
-- `let` bindings
-- record fields
-- named call arguments
+```simpl
+let box = { inc(x) = x + 1 };
+let apply(f(x) = x + 1) = f(41);
+apply()
+```
 
-## Lambda Syntax
+In the second example, `f(x) = x + 1` means `f = fn(x) = x + 1`.
 
-Anonymous functions use:
+## 2. Lambda Syntax
+
+Anonymous functions always use:
 
 ```simpl
 fn(params) = body
@@ -36,22 +39,23 @@ fn(x; y) = x + y
 fn(a; b = 2; c = 3) = a + b + c
 ```
 
-## Parameters
+## 3. Parameters
 
 Parameters are separated by `;`.
 
 - Required parameter: `x`
 - Defaulted parameter: `x = expr`
+- Pattern parameter: any valid pattern, for example `#Pair(x)` or `{name}`
 
 Example:
 
 ```simpl
-fn(y; x = 1; z = 3) = x + y + z
+fn(#Pair(x); {y}; z = 3) = x + y + z
 ```
 
-### Ordering Rule
+### Parameter Ordering Rule
 
-All required parameters must come before all defaulted parameters.
+All required parameters must appear before any defaulted parameter.
 
 Valid:
 
@@ -67,26 +71,26 @@ fn(a = 1; b) = ...
 
 ### Default Evaluation Time
 
-Default expressions are evaluated when the function is defined (not when called).
+Default expressions are evaluated when the function is defined, not when it is called.
 
 ```simpl
 let r = ref(1);
 let f(x = !r) = x;
 do r := 2;
-f()        // still uses 1
+f()   // => 1
 ```
 
-Because defaults are evaluated at definition time, they cannot reference parameter names:
+Because defaults are pre-evaluated, defaults cannot depend on parameter names:
 
 ```simpl
-fn(a = 1; b = a + 1) = b    // runtime error
+fn(a = 1; b = a + 1) = b   // runtime error when called
 ```
 
-## Call Syntax
+## 4. Call Syntax
 
 ### Parenthesized Calls
 
-Standard calls use:
+Standard call form:
 
 ```simpl
 f(args...)
@@ -96,8 +100,9 @@ Arguments are separated by `;`.
 
 Supported argument forms:
 
-- positional: `expr`
-- named: `name = expr`
+- Positional: `expr`
+- Named: `name = expr`
+- Named lambda sugar: `name(params) = body` (same as `name = fn(params) = body`)
 
 Examples:
 
@@ -105,11 +110,12 @@ Examples:
 f(1; 2)
 f(a = 1; c = 3)
 f(a = 1; 2; c = 3)
+apply(f(x) = x + 1)
 ```
 
 ### Trailing-Argument Calls
 
-Simpl also supports trailing-argument call sugar:
+Simpl also supports trailing application:
 
 - `func expr` means `func(expr)`
 - `func(...) expr` means `func(...; expr)`
@@ -117,16 +123,13 @@ Simpl also supports trailing-argument call sugar:
 Examples:
 
 ```simpl
-inc 41            // inc(41)
-add3(1; 2) 3      // add3(1; 2; 3)
+inc 41           // inc(41)
+add3(1; 2) 3     // add3(1; 2; 3)
 ```
 
-### Precedence and Associativity of Trailing Calls
+### Precedence and Associativity
 
-Trailing-argument calls are:
-
-- lowest precedence among expression forms
-- right-associative
+Trailing application has the lowest precedence among expression forms and is right-associative.
 
 So:
 
@@ -140,37 +143,46 @@ is parsed as:
 f(g(x))
 ```
 
-This also enables trailing lambda style:
+This enables trailing-lambda style:
 
 ```simpl
 let foo(f) = f 42;
 foo fn(x) = x + 1
 ```
 
-which behaves like:
+## 5. Argument Binding Semantics
 
-```simpl
-foo(fn(x) = x + 1)
-```
+At runtime, argument-to-parameter binding happens in this order:
 
-## Argument Matching
+1. Bind all named arguments by parameter name.
+2. Bind positional arguments from left to right to remaining unbound parameters.
+3. Fill any still-unbound parameters using stored default values.
+4. If a required parameter is still unbound, raise an arity error.
 
-When calling a function, Simpl binds arguments in this order:
+Runtime errors are raised for:
 
-1. Bind named arguments first.
-2. Bind positional arguments left-to-right to remaining unbound parameters.
-3. Fill remaining parameters from stored defaults.
-4. If any required parameter is still unbound, raise an arity error.
+- unknown named argument
+- duplicate assignment to the same parameter
+- too many provided arguments
 
-## UFCS Interaction
+## 6. UFCS and Function Calls
 
-Simpl supports UFCS fallback:
+Simpl supports UFCS-style fallback:
 
-- `x.foo` behaves like `foo(x)` when UFCS fallback applies.
-- `x.foo(y; z)` behaves like `foo(x; y; z)` when UFCS fallback applies.
+- `x.foo` may evaluate as `foo(x)`
+- `x.foo(y; z)` may evaluate as `foo(x; y; z)`
 
-For records, direct field access has priority:
+For records, direct field access takes priority:
 
-- If record `x` has field `foo`, use that field.
-- Otherwise, if environment contains callable `foo`, use UFCS fallback.
-- Otherwise, report a missing-field error.
+1. If record `x` has field `foo`, use the field.
+2. Otherwise, if callable `foo` exists in scope, use UFCS fallback.
+3. Otherwise, report a missing field / undefined function error.
+
+## 7. Summary
+
+- Use `fn(params) = body` for lambdas.
+- Use `name(params) = body` where assignment sugar is allowed.
+- Put required parameters before defaulted ones.
+- Defaults are captured at definition time.
+- Calls support positional + named arguments, plus trailing application.
+- UFCS provides method-like call style without changing core function semantics.

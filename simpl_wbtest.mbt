@@ -79,6 +79,22 @@ test "parser preserves let function sugar before desugar" {
 }
 
 ///|
+test "parser lowers param default lambda sugar to default lambda expr" {
+  match parse("let foo(f(x) = x) = f(42); foo()") {
+    SLocated(
+      _,
+      SLetFun(
+        "foo",
+        [SParam(SPBind("f"), Some(SLocated(_, SLambda(_, _))))],
+        _,
+        _
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "parser rewrites trailing arg sugar into positional call arg" {
   match parse("f x") {
     SLocated(

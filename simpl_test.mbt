@@ -164,6 +164,14 @@ test "default expressions cannot reference params" {
 }
 
 ///|
+test "param default lambda sugar f(x)=... works as f = fn(x)=..." {
+  let code =
+    #| let foo(f(x) = x) = f(42);
+    #| foo()
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 test "default expressions are evaluated at definition time" {
   let code =
     #| let r = ref(1);

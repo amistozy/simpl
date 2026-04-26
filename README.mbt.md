@@ -2,26 +2,27 @@
 
 `simpl` is a compact expression language implemented in MoonBit.
 
-This repository serves two purposes:
+This repository provides:
 
-- a reusable library for parsing and evaluating source code strings
-- a small CLI interpreter for running or parsing simpl programs
+- a reusable library for parsing and evaluating Simpl source strings
+- a small CLI interpreter for running or inspecting Simpl programs
 
-The language implementation includes:
+## What Simpl Includes
 
-- recursive-descent parsing
-- surface-to-core lowering
+- recursive-descent parser with source-span diagnostics
+- surface-to-core desugaring pipeline
 - lexical scoping and closures
-- pattern matching
-- algebraic variants, records, and lists
-- mutable references
-- UCS-style `if` / `if is` syntax
+- pattern matching in `let`, `fn` parameters, and `if is`
+- records, variants, and lists
+- references and update operators
+- UCS-style conditional syntax (`if`, `is`, `and`, `or`, `else`, `end`)
+- UFCS fallback (`x.foo` / `x.foo(...)`)
 
 ## Module Metadata
 
 - Module: `amistozy/simpl`
-- Canonical README: `README.mbt.md`
-- `README.md` is a symbolic link to `README.mbt.md`
+- Readme entry in `moon.mod.json`: `README.mbt.md`
+- `README.md` is a symlink to this file
 
 ## Quick Start
 
@@ -38,19 +39,19 @@ Parse only:
 moon run cmd/main -- --parse --eval "let x = 1; x"
 ```
 
-Run from a file:
+Run a file:
 
 ```powershell
 moon run cmd/main -- path/to/program.simpl
 ```
 
-Refresh snapshots when needed:
+Update snapshots when behavior intentionally changes:
 
 ```powershell
 moon test --update
 ```
 
-Before finishing a change:
+Before finalizing a change:
 
 ```powershell
 moon info && moon fmt
@@ -58,14 +59,20 @@ moon info && moon fmt
 
 ## CLI Usage
 
-The CLI entry point is `cmd/main/main.mbt`.
+Entry point: `cmd/main/main.mbt`
 
-Supported input modes:
+Input modes:
 
 - `--eval` / `-e`: evaluate inline source
 - `--file` / `-f`: read source from file
-- positional `path`: read source from file (preferred over `--file`)
-- `--parse` / `-p`: parse only and print the surface AST
+- positional `path`: read source from file (preferred)
+- `--parse` / `-p`: parse only and print `SurfaceExpr`
+
+Rules enforced by CLI:
+
+- do not combine `--eval` with file input
+- do not provide file path twice (`--file` + positional)
+- no input prints help text
 
 Examples:
 
@@ -75,31 +82,65 @@ moon run cmd/main -- -p -e "if true then 1 else 2"
 moon run cmd/main -- examples/basic.simpl
 ```
 
-## Language Features
+## Language Tour
 
-- primitives: `Int`, `Bool`, `String`, `nil`
-- functions and closures: `fn(x) = ...`
-- default params: `fn(x; y = 2; z = 3) = ...`
-- required params must appear before defaulted params
-- named args in calls: `f(a = 1; 2; c = 3)`
-- function sugar where assignment is allowed: `f(x) = ...` (same as `f = fn(x) = ...`)
-- default expressions are evaluated when the function is defined
-- default expressions cannot reference other parameters
-- bindings: `let`, `let ... and ...`, `let rec`, `let rec ... and ...`
-- binding update sugar: `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`
-- control flow: UCS `if`, `if is`
-- patterns in `let`, function parameters, and `if is`
-- UFCS: `x.foo` -> `foo(x)`, `x.foo(y; z)` -> `foo(x; y; z)` when `foo` is not a record field
-- variants such as `#Left(1)` and `#Right("ok")`
-- records and lists (using `;` as separator, and `=` in record fields), including list rest patterns
-- references: `ref(...)`, dereference `!`, and assignment/update operators
+### Values and Operators
 
-For UCS `if` details, see [IF_SYNTAX.md](IF_SYNTAX.md).
-For function syntax details, see [FUNCTION_SYNTAX.md](FUNCTION_SYNTAX.md).
+- literals: `Int`, `Bool`, `String`, `nil`
+- arithmetic: `+ - * / %`
+- comparison: `== != < <= > >=`
+- boolean operators: `&& ||` (short-circuit, return operand values)
+
+### Bindings and Functions
+
+- `let` bindings and `do` sequencing
+- `let ... and ...` parallel-style bindings
+- `let rec` and `let rec ... and ...` for recursion and mutual recursion
+- lambdas: `fn(params) = body`
+- named function sugar: `f(x) = ...` where assignment sugar is allowed
+- default parameters with required-before-default ordering
+- named arguments in calls
+- trailing call sugar (`f x`, `f(a) b`)
+
+### Patterns
+
+Supported in `let`, function params, and `if is` arms:
+
+- binders, literals, `_`
+- variants, lists, list-rest patterns
+- record patterns and field shorthand
+- pattern alternatives with `|`
+
+### Data Structures
+
+- variants: `#Left(1)`, `#Right("ok")`
+- records: `{x = 1; y = 2}`, shorthand `{x; y = 2}`
+- lists: `[1; 2; 3]`
+
+### References and Mutation
+
+- create: `ref(expr)`
+- dereference: `!r`
+- assign: `r := value`
+- update sugar: `+= -= *= /= %= &&= ||=`
+
+### UFCS Fallback
+
+- `x.foo` can resolve to `foo(x)`
+- `x.foo(y; z)` can resolve to `foo(x; y; z)`
+- record field lookup takes priority over UFCS fallback
+
+### Builtins
+
+- `ref(value)` -> reference cell
+- `print(value)` -> prints value, returns `nil`
+- `say(string)` -> prints string text, returns `nil`
+
+Builtins do not accept named arguments.
 
 ## Public API
 
-Main public functions:
+Primary public functions:
 
 - `parse(String) -> SurfaceExpr raise`
 - `eval_source(String) -> Value raise`
@@ -107,7 +148,7 @@ Main public functions:
 - `parse_error_text(String) -> String?`
 - `eval_error_text(String) -> String?`
 
-Test helper functions:
+Testing helpers:
 
 - `parse_is_ok(String) -> Bool`
 - `parse_is_error(String) -> Bool`
@@ -125,7 +166,7 @@ Public types:
 
 ## Library Examples
 
-Evaluate a source string:
+Evaluate source text:
 
 ```moonbit nocheck
 ///|
@@ -133,7 +174,7 @@ let value = @simpl.eval_source("1 + 2 * 3")
 // => VInt(7)
 ```
 
-Lexical scoping:
+Lexical closure capture:
 
 ```moonbit nocheck
 ///|
@@ -163,33 +204,19 @@ let value = @simpl.eval_source(
 // => VInt(42)
 ```
 
-References:
-
-```moonbit nocheck
-///|
-let value = @simpl.eval_source(
-  (
-    #| let r = ref(1);
-    #| do r := 3;
-    #| !r + 3
-  ),
-)
-// => VInt(6)
-```
-
 ## Repository Layout
 
-- `parser.mbt`: lexer, parser, and parse diagnostics
-- `simpl.mbt`: AST definitions, lowering, evaluator, runtime helpers
+- `parser.mbt`: lexer, parser, parse diagnostics, parse/eval entry wrappers
+- `simpl.mbt`: ASTs, desugaring, evaluator, runtime behavior
 - `simpl_test.mbt`: black-box tests
 - `simpl_wbtest.mbt`: white-box tests
-- `cmd/main/main.mbt`: CLI entry point
-- `IF_SYNTAX.md`: UCS `if` syntax notes
-- `FUNCTION_SYNTAX.md`: function syntax notes
+- `cmd/main/main.mbt`: CLI implementation
+- `IF_SYNTAX.md`: detailed UCS `if` syntax notes
+- `FUNCTION_SYNTAX.md`: detailed function syntax notes
 
 ## Development Notes
 
 - Keep MoonBit files block-structured with `///|`.
 - Prefer deterministic assertions (`assert_eq`, `assert_true`) for stable behavior.
-- Use snapshot tests for broad structured outputs that may evolve.
+- Use snapshot updates only when output changes are intentional.
 - Move deprecated blocks into `deprecated.mbt` when applicable.
