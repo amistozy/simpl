@@ -1,21 +1,21 @@
-# Simpl `=` Syntax
+# Simpl `=`, `:=`, and `...=` Syntax
 
-This document explains how the single equals sign `=` is used in Simpl.
+This document is the canonical reference for the `=` family in Simpl.
 
-## 1. Quick Meaning
+## 1. Operator Map
 
-In Simpl, `=` is used for **definition-style binding and specification**, not for mutation and not for equality testing.
+Simpl distinguishes **binding**, **comparison**, and **mutation**:
 
-Use:
+- `=`: binding/specification syntax (not a general expression operator)
+- `==`: equality comparison expression
+- `:=`: reference assignment expression
+- `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`: reference update expressions
 
-- `==` for equality comparison
-- `:=` for reference assignment (mutation)
+## 2. `=` (Binding and Specification)
 
-## 2. Where `=` Is Valid
+`=` is used only in specific grammar forms.
 
-## 2.1 `let` bindings
-
-`let` uses `=` to bind a pattern to a value expression.
+## 2.1 `let` binding
 
 ```simpl
 let x = 1; x + 1
@@ -23,9 +23,7 @@ let [a; b] = [10; 32]; a + b
 let {x = left; y = right} = {x = 10; y = 32}; left + right
 ```
 
-## 2.2 Function definitions
-
-Function definitions place `=` between parameter list and body.
+## 2.2 Function definition
 
 ```simpl
 let add(x; y) = x + y; add(1; 2)
@@ -33,7 +31,7 @@ let add = fn(x; y) = x + y; add(1; 2)
 fn(x) = x + 1
 ```
 
-For `let rec`, each function definition also uses `=`.
+`let rec` definitions also use `=`:
 
 ```simpl
 let rec even(n) = if n == 0 then true else odd(n - 1)
@@ -43,99 +41,170 @@ even(10)
 
 ## 2.3 Default parameter values
 
-In parameter lists, `=` introduces a default value.
-
 ```simpl
 fn(a; b = 2; c = 3) = a + b + c
 ```
 
-Default values are evaluated at function definition time.
-
 ## 2.4 Named call arguments
-
-In call sites, `name = expr` passes a named argument.
 
 ```simpl
 f(a = 1; c = 3)
 f(a = 1; 2; c = 3)
 ```
 
-Named-argument lambda sugar is also supported:
+Named-lambda sugar in argument position:
 
 ```simpl
 apply(f(x) = x + 1)
 ```
 
-Builtins do not accept named arguments.
+## 2.5 Record literals and record patterns
 
-## 2.5 Record literals
-
-In record literals, `=` assigns a field value.
+Record literal fields:
 
 ```simpl
 {x = 1; y = 2}
-{x; y = 2}   // shorthand field `x` plus explicit field `y`
-```
-
-Record fields can also use function sugar:
-
-```simpl
+{x; y = 2}
 {inc(x) = x + 1}
 ```
 
-## 2.6 Record patterns
-
-In record patterns, `field = pattern` maps a field to a custom binding pattern.
+Record pattern field mapping:
 
 ```simpl
 let {x = left; y = right} = {x = 10; y = 32}; left + right
 ```
 
-Without `=`, record-pattern shorthand binds the same name:
+## 3. `==` (Equality)
+
+`==` is the equality operator in expressions.
 
 ```simpl
-let {x; y} = {x = 10; y = 32}; x + y
+if x == 1 then 2 else 3
+[1; 2] == [1; 2]
 ```
 
-## 3. What `=` Does Not Mean
+Use `==`, not `=` for comparison.
 
-## 3.1 Not equality
+## 4. `:=` (Reference Assignment)
 
-This is wrong for comparison:
+`:=` mutates a reference cell.
+
+```simpl
+let r = ref(1);
+r := 3
+```
+
+`:=` is an expression and returns the assigned value.
+
+```simpl
+let r = ref(1);
+let x = r := 3;
+!r + x   // 6
+```
+
+## 5. `...=` Reference Update Operators
+
+Simpl supports these update operators:
+
+- `+=`
+- `-=`
+- `*=`
+- `/=`
+- `%=`
+- `&&=`
+- `||=`
+
+They are expression forms for references:
+
+```simpl
+let r = ref(10);
+do r -= 3;
+do r *= 4;
+do r /= 2;
+do r %= 5;
+!r
+```
+
+Logical updates short-circuit according to `&&` / `||` behavior.
+
+```simpl
+let r = ref(false);
+let t = ref(0);
+do r &&= (do t := 1; true);
+!t   // 0
+```
+
+## 6. `let` Compound Binding Sugar vs Reference Update
+
+Inside `let`, `x += y` is **not** reference mutation.
+It is sugar for rebinding `x`:
+
+```simpl
+let x = 1;
+let x += 41;
+x
+```
+
+Equivalent to:
+
+```simpl
+let x = 1;
+let x = x + 41;
+x
+```
+
+The same applies to:
+
+- `let x -= ...`
+- `let x *= ...`
+- `let x /= ...`
+- `let x %= ...`
+- `let x &&= ...`
+- `let x ||= ...`
+
+## 7. Precedence and Associativity Notes
+
+Assignment-style operators (`:=`, `+=`, etc.) parse in the assignment layer and associate to the right.
+So chained forms group from right to left.
+
+Example shape:
+
+```simpl
+a := b := 1
+```
+
+parses like:
+
+```simpl
+a := (b := 1)
+```
+
+(At runtime, validity still depends on whether the left sides are valid references.)
+
+## 8. Common Mistakes
+
+Using `=` for comparison:
 
 ```simpl
 if x = 1 then 2 else 3   // invalid
 ```
 
-Use:
-
-```simpl
-if x == 1 then 2 else 3
-```
-
-## 3.2 Not mutation
-
-This does not update a reference:
+Using `=` for mutation:
 
 ```simpl
 r = 3   // invalid
 ```
 
-Use:
+Correct forms:
 
 ```simpl
+if x == 1 then 2 else 3
 r := 3
 ```
 
-## 4. Related Operators
+## 9. Summary
 
-- `=`: binding/specification in syntax forms
-- `==`: equality comparison expression
-- `:=`: reference assignment
-- `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`: reference update operators (and `let` compound-binding sugar)
-
-## 5. Summary
-
-- Think of `=` as “define/bind/specify”.
-- Use `==` for checking equality.
-- Use `:=` (or update operators) for mutation.
+- `=` defines/binds/specifies in syntax forms.
+- `==` compares values.
+- `:=` mutates references.
+- `...=` updates references (or rebinds when used as `let` compound sugar).
