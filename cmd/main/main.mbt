@@ -2,11 +2,9 @@
 fn main {
   let command = build_command()
   try command.parse() catch {
-    err => println(err.to_string())
+    err => println(err)
   } noraise {
-    matches => {
-      let _ = run_cli(command, matches)
-    }
+    matches => run_cli(command, matches)
   }
 }
 
@@ -55,18 +53,14 @@ priv enum SourceInput {
 }
 
 ///|
-fn run_cli(command : @argparse.Command, matches : @argparse.Matches) -> Bool {
+fn run_cli(command : @argparse.Command, matches : @argparse.Matches) -> Unit {
   let parse_only = flag_enabled(matches, "parse")
   match choose_source(matches) {
-    Help => {
-      println(command.render_help())
-      true
-    }
+    Help => println(command.render_help())
     Error(message) => {
-      println("error: " + message)
+      println("error: \{message}")
       println("")
       println(command.render_help())
-      false
     }
     Source(source) =>
       if parse_only {
@@ -110,7 +104,7 @@ fn choose_source(matches : @argparse.Matches) -> SourceInput {
 ///|
 fn read_source_from_file(path : String) -> SourceInput {
   try @fs.read_file_to_string(path) catch {
-    @fs.IOError(message) => Error("cannot read file '" + path + "': " + message)
+    @fs.IOError(message) => Error("cannot read file '\{path}': \{message}")
   } noraise {
     source => Source(source)
   }
@@ -150,41 +144,31 @@ fn first_arg_value(values : Array[String]) -> String? {
 }
 
 ///|
-fn run_parse(source : String) -> Bool {
+fn run_parse(source : String) -> Unit {
   try @lib.parse(source) catch {
-    _ => {
+    _ =>
       match @lib.parse_error_text(source) {
-        Some(message) => println("parse error: " + message)
+        Some(message) => println("parse error: \{message}")
         None => println("parse error")
       }
-      false
-    }
   } noraise {
-    expr => {
-      println("=> " + expr.to_string())
-      true
-    }
+    expr => println("=> \{expr}")
   }
 }
 
 ///|
-fn run_eval(source : String) -> Bool {
+fn run_eval(source : String) -> Unit {
   try @lib.eval_source(source) catch {
-    _ => {
+    _ =>
       match @lib.parse_error_text(source) {
-        Some(message) => println("parse error: " + message)
+        Some(message) => println("parse error: \{message}")
         None =>
           match @lib.eval_error_text(source) {
             Some(message) => println(message)
             None => println("evaluation failed")
           }
       }
-      false
-    }
   } noraise {
-    value => {
-      println("=> " + value.to_string())
-      true
-    }
+    value => println("=> \{value}")
   }
 }

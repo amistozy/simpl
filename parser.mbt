@@ -81,7 +81,7 @@ pub fn parse(source : String) -> SurfaceExpr raise {
     expr
   } else {
     raise SyntaxErrorAt(
-      "unexpected token after expression: " + token_name(token_kind(tokens, i)),
+      "unexpected token after expression: \{token_name(token_kind(tokens, i))}",
       token_span_at(tokens, i),
     )
   }
@@ -113,7 +113,7 @@ pub fn eval_source(source : String) -> Value raise {
 ///|
 pub fn format_parse_error(error : ParseError) -> String {
   match error {
-    SyntaxErrorAt(message, span) => message + " at " + format_source_span(span)
+    SyntaxErrorAt(message, span) => "\{message} at \{format_source_span(span)}"
   }
 }
 
@@ -121,7 +121,7 @@ pub fn format_parse_error(error : ParseError) -> String {
 pub fn parse_error_text(source : String) -> String? {
   try parse(source) catch {
     SyntaxErrorAt(message, span) =>
-      Some(message + " at " + format_source_span(span))
+      Some("\{message} at \{format_source_span(span)}")
     _ => None
   } noraise {
     _ => None
@@ -327,7 +327,7 @@ fn lex_loop(
         )
       } else {
         let span = make_span(source, i, i + 1, line, column)
-        raise SyntaxErrorAt("unexpected character: " + c.to_string(), span)
+        raise SyntaxErrorAt("unexpected character: \{c}", span)
       }
     '!' =>
       if i + 1 < source.length() &&
@@ -393,7 +393,7 @@ fn lex_loop(
       }
     _ =>
       raise SyntaxErrorAt(
-        "unexpected character: " + c.to_string(),
+        "unexpected character: \{c}",
         make_span(source, i, i + 1, line, column),
       )
   }
@@ -630,7 +630,7 @@ fn lex_string_content(
     start,
     line,
     column,
-    acc + source[i:i + 1].to_string(),
+    "\{acc}\{source[i:i + 1]}",
     i + 1,
   )
 }
@@ -666,11 +666,11 @@ fn lex_string_escape(
     '\\' => "\\"
     _ =>
       raise SyntaxErrorAt(
-        "invalid escape sequence: \\" + escaped.to_string(),
+        "invalid escape sequence: \\\{escaped}",
         make_span(source, i, i + 2, escape_line, escape_column),
       )
   }
-  lex_string_content(source, start, line, column, acc + decoded, i + 2)
+  lex_string_content(source, start, line, column, "\{acc}\{decoded}", i + 2)
 }
 
 ///|
@@ -719,7 +719,7 @@ fn token_name(tok : Token) -> String {
   match tok {
     IntTok(_) => "int"
     StrTok(_) => "string"
-    IdentTok(name) => "identifier(" + name + ")"
+    IdentTok(name) => "identifier(\{name})"
     TrueTok => "true"
     FalseTok => "false"
     NilTok => "nil"
@@ -1460,7 +1460,7 @@ fn parse_params_nonempty_from(
     syntax_error_at(
       tokens,
       next,
-      "unexpected token in params: " + token_name(token_kind(tokens, next)),
+      "unexpected token in params: \{token_name(token_kind(tokens, next))}",
     )
   }
 }
@@ -1853,7 +1853,7 @@ fn parse_postfix_tail(
         syntax_error_at(
           tokens,
           i + 1,
-          "expected field name, found: " + token_name(tok),
+          "expected field name, found: \{token_name(tok)}",
         )
     }
   } else {
@@ -1897,7 +1897,7 @@ fn parse_args_nonempty(
     syntax_error_at(
       tokens,
       next_expr,
-      "unexpected token in args: " + token_name(token_kind(tokens, next_expr)),
+      "unexpected token in args: \{token_name(token_kind(tokens, next_expr))}",
     )
   }
 }
@@ -2001,13 +2001,13 @@ fn parse_primary_expr(
         syntax_error_at(
           tokens,
           j,
-          "expected ')', found: " + token_name(token_kind(tokens, j)),
+          "expected ')', found: \{token_name(token_kind(tokens, j))}",
         )
       } else {
         syntax_error_eof(tokens, "expected ')' but found end")
       }
     }
-    tok => syntax_error_at(tokens, i, "unexpected token: " + token_name(tok))
+    tok => syntax_error_at(tokens, i, "unexpected token: \{token_name(tok)}")
   }
 }
 
@@ -2034,7 +2034,7 @@ fn parse_variant_literal(
       syntax_error_at(
         tokens,
         i,
-        "expected variant name, found: " + token_name(tok),
+        "expected variant name, found: \{token_name(tok)}",
       )
   }
 }
@@ -2058,7 +2058,7 @@ fn parse_record_literal(
         syntax_error_at(
           tokens,
           j,
-          "expected field name, found: " + token_name(tok),
+          "expected field name, found: \{token_name(tok)}",
         )
     }
     let (field, next_expr) = if j + 1 < tokens.length() &&
@@ -2092,7 +2092,7 @@ fn parse_record_literal(
     syntax_error_at(
       tokens,
       next_expr,
-      "unexpected token in record: " + token_name(token_kind(tokens, next_expr)),
+      "unexpected token in record: \{token_name(token_kind(tokens, next_expr))}",
     )
   }
 }
@@ -2124,7 +2124,7 @@ fn parse_list_literal(
     syntax_error_at(
       tokens,
       next_expr,
-      "unexpected token in list: " + token_name(token_kind(tokens, next_expr)),
+      "unexpected token in list: \{token_name(token_kind(tokens, next_expr))}",
     )
   }
 }
@@ -2179,7 +2179,7 @@ fn parse_pattern_atom(
       syntax_error_at(
         tokens,
         i,
-        "unexpected token in pattern: " + token_name(tok),
+        "unexpected token in pattern: \{token_name(tok)}",
       )
   }
 }
@@ -2323,7 +2323,7 @@ fn parse_variant_pattern(
       syntax_error_at(
         tokens,
         i,
-        "expected variant name, found: " + token_name(tok),
+        "expected variant name, found: \{token_name(tok)}",
       )
   }
   if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
@@ -2366,8 +2366,7 @@ fn parse_list_pattern(
     syntax_error_at(
       tokens,
       next_pattern,
-      "unexpected token in list pattern: " +
-      token_name(token_kind(tokens, next_pattern)),
+      "unexpected token in list pattern: \{token_name(token_kind(tokens, next_pattern))}",
     )
   }
 }
@@ -2391,8 +2390,7 @@ fn parse_list_pattern_rest(
       syntax_error_at(
         tokens,
         i,
-        "expected binding name, ';' or ']' after '..', found: " +
-        token_name(tok),
+        "expected binding name, ';' or ']' after '..', found: \{token_name(tok)}",
       )
   }
   if next_i >= tokens.length() {
@@ -2405,8 +2403,7 @@ fn parse_list_pattern_rest(
     syntax_error_at(
       tokens,
       next_i,
-      "expected ';' or ']' after list rest binding, found: " +
-      token_name(token_kind(tokens, next_i)),
+      "expected ';' or ']' after list rest binding, found: \{token_name(token_kind(tokens, next_i))}",
     )
   }
   let suffix = []
@@ -2433,8 +2430,7 @@ fn parse_list_pattern_rest(
     syntax_error_at(
       tokens,
       next_pattern,
-      "unexpected token in list pattern: " +
-      token_name(token_kind(tokens, next_pattern)),
+      "unexpected token in list pattern: \{token_name(token_kind(tokens, next_pattern))}",
     )
   }
 }
@@ -2458,7 +2454,7 @@ fn parse_match_record_pattern(
         syntax_error_at(
           tokens,
           j,
-          "expected field name, found: " + token_name(tok),
+          "expected field name, found: \{token_name(tok)}",
         )
     }
     let (field, next) = if j + 1 < tokens.length() &&
@@ -2481,8 +2477,7 @@ fn parse_match_record_pattern(
     syntax_error_at(
       tokens,
       next,
-      "unexpected token in record pattern: " +
-      token_name(token_kind(tokens, next)),
+      "unexpected token in record pattern: \{token_name(token_kind(tokens, next))}",
     )
   }
 }
