@@ -153,7 +153,7 @@
         },
         {
           "name": "keyword.operator.arithmetic.simpl",
-          "match": "\\+|-|\\*|/|%"
+          "match": "\\+|-|\\*|/|%|!|\\$"
         },
         {
           "name": "keyword.operator.assignment.simpl",
@@ -161,7 +161,7 @@
         },
         {
           "name": "keyword.operator.other.simpl",
-          "match": "!|\\.\\.|\\."
+          "match": "\\.\\.|\\."
         }
       ]
     },

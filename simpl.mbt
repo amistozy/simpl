@@ -173,6 +173,7 @@ priv enum BinOp {
 priv enum UnOp {
   Neg
   Bang
+  Dollar
 } derive(Debug)
 
 ///|
@@ -554,6 +555,7 @@ fn surface_unary_op_text(op : UnOp) -> String {
   match op {
     Neg => "-"
     Bang => "!"
+    Dollar => "$"
   }
 }
 
@@ -2156,6 +2158,7 @@ fn eval_unary(op : UnOp, value : Value) -> Value raise {
         VRef(cell) => cell.val
         _ => VBool(!truthy(value))
       }
+    Dollar => VString(value_pretty(value, 6))
   }
 }
 

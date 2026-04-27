@@ -56,6 +56,7 @@ priv enum Token {
   AndAndAssignTok
   OrOrAssignTok
   BangTok
+  DollarTok
   DotDotTok
   PipeTok
   DotTok
@@ -346,6 +347,7 @@ fn lex_loop(
       } else {
         push_single_char_token(source, i, line, column, BangTok, acc)
       }
+    '$' => push_single_char_token(source, i, line, column, DollarTok, acc)
     '.' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '.' {
@@ -768,6 +770,7 @@ fn token_name(tok : Token) -> String {
     AndAndAssignTok => "&&="
     OrOrAssignTok => "||="
     BangTok => "!"
+    DollarTok => "$"
     DotDotTok => ".."
     PipeTok => "|"
     DotTok => "."
@@ -1783,6 +1786,9 @@ fn parse_unary_expr(
   if i < tokens.length() && token_kind(tokens, i) == BangTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (located_expr(tokens, i, j, SUnary(Bang, expr)), j)
+  } else if i < tokens.length() && token_kind(tokens, i) == DollarTok {
+    let (expr, j) = parse_unary_expr(tokens, i + 1)
+    (located_expr(tokens, i, j, SUnary(Dollar, expr)), j)
   } else if i < tokens.length() && token_kind(tokens, i) == MinusTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (located_expr(tokens, i, j, SUnary(Neg, expr)), j)
@@ -1821,6 +1827,7 @@ fn is_trailing_arg_start(tokens : Array[SpannedToken], i : Int) -> Bool {
     | DoTok
     | WithTok
     | BangTok
+    | DollarTok
     | MinusTok
     | IntTok(_)
     | StrTok(_)

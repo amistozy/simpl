@@ -90,6 +90,7 @@ moon run cmd/main -- examples/basic.simpl
 - arithmetic: `+ - * / %`
 - comparison: `== != < <= > >=`
 - boolean operators: `&& ||` (short-circuit, return operand values)
+- unary operators: `-` (negation), `!` (not/deref), `$` (to string)
 
 ### Bindings and Functions
 
