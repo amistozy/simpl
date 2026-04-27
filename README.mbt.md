@@ -214,10 +214,10 @@ let value = @simpl.eval_source(
 - `simpl_test.mbt`: black-box tests
 - `simpl_wbtest.mbt`: white-box tests
 - `cmd/main/main.mbt`: CLI implementation
-- `IF_SYNTAX.md`: detailed UCS `if` syntax notes
-- `FUNCTION_SYNTAX.md`: detailed function syntax notes
-- `SEMICOLON_SYNTAX.md`: detailed semicolon syntax notes
-- `EQUALS_SYNTAX.md`: detailed `=` syntax notes
+- `docs/syntax/IF_SYNTAX.md`: detailed UCS `if` syntax notes
+- `docs/syntax/FUNCTION_SYNTAX.md`: detailed function syntax notes
+- `docs/syntax/SEMICOLON_SYNTAX.md`: detailed semicolon syntax notes
+- `docs/syntax/EQUALS_SYNTAX.md`: detailed `=` syntax notes
 - `editors/vscode-simpl`: VS Code syntax-highlighting extension for `.simpl`
 
 ## Development Notes
