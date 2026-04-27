@@ -799,7 +799,7 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       }
     IntLit(v) => VInt(v)
     BoolLit(v) => VBool(v)
-    StringLit(v) => VString(eval_string_literal(v, env))
+    StringLit(v) => VString(v)
     NilLit => VNil
     List(items) => VList(eval_expr_list(items, env))
     Var(name) => lookup(env, name)
@@ -1302,11 +1302,6 @@ fn[T] builtin_type_error(
   raise runtime_error(
     "builtin '\{name}' expected \{expected}, got \{typed_value_summary(actual)}",
   )
-}
-
-///|
-fn eval_string_literal(template : String, _env : Env) -> String {
-  template
 }
 
 ///|
