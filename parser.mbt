@@ -241,6 +241,9 @@ fn lex_loop(
       }
     '-' =>
       if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '-' {
+        skip_line_comment(source, i, line, column, acc)
+      } else if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '=' {
         push_multi_char_token(
           source,
@@ -408,6 +411,36 @@ fn lex_loop(
         "unexpected character: \{c}",
         make_span(source, i, i + 1, line, column),
       )
+  }
+}
+
+///|
+fn skip_line_comment(
+  source : String,
+  i : Int,
+  line : Int,
+  column : Int,
+  acc : Array[SpannedToken],
+) -> Unit raise {
+  let end = scan_line_comment_end(source, i + 2)
+  let (_, next_line, next_column) = advance_position_range(
+    source,
+    i,
+    end,
+    (i, line, column),
+  )
+  lex_loop(source, end, next_line, next_column, acc)
+}
+
+///|
+fn scan_line_comment_end(source : String, i : Int) -> Int {
+  if i >= source.length() {
+    return i
+  }
+  if source.unsafe_get(i).unsafe_to_char() == '\n' {
+    i
+  } else {
+    scan_line_comment_end(source, i + 1)
   }
 }
 

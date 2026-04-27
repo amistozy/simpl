@@ -3,6 +3,9 @@
   "scopeName": "source.simpl",
   "patterns": [
     {
+      "include": "#comments"
+    },
+    {
       "include": "#strings"
     },
     {
@@ -37,6 +40,14 @@
     }
   ],
   "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-dash.simpl",
+          "match": "--.*$"
+        }
+      ]
+    },
     "strings": {
       "patterns": [
         {

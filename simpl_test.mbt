@@ -26,6 +26,32 @@ test "type error remains runtime error" {
 }
 
 ///|
+test "single-line comment supports full-line comment" {
+  let code =
+    #| -- this is a comment
+    #| 1 + 2
+  assert_true(@simpl.eval_source_is_int(code, 3))
+}
+
+///|
+test "single-line comment supports end-of-line comment" {
+  let code =
+    #| let x = 1; -- keep x small
+    #| x + 2
+  assert_true(@simpl.eval_source_is_int(code, 3))
+}
+
+///|
+test "single-line comment can appear between expressions" {
+  let code =
+    #| let x = 1;
+    #| -- middle comment
+    #| let y = 2;
+    #| x + y
+  assert_true(@simpl.eval_source_is_int(code, 3))
+}
+
+///|
 test "comparison and logic operators" {
   assert_true(@simpl.eval_source_is_bool("1 < 2 && 3 == 3", true))
   assert_true(@simpl.eval_source_is_bool("4 > 1 || false", true))

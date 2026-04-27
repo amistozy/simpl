@@ -13,6 +13,9 @@
       "}"
     ]
   ],
+  "comments": {
+    "lineComment": "--"
+  },
   "autoClosingPairs": [
     {
       "open": "(",
