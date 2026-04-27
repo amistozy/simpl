@@ -182,6 +182,37 @@ test "parser supports fn param shorthand without parentheses" {
 }
 
 ///|
+test "parser lowers with(params) sugar to call with trailing lambda arg" {
+  match parse("with(v) = use(41); v + 1") {
+    SLocated(
+      _,
+      SCall(
+        SLocated(_, SVar("use")),
+        [
+          SArgPos(SLocated(_, SIntLit(41))),
+          SArgPos(SLocated(_, SLambda([SParam(SPBind("v"), None)], _))),
+        ]
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser lowers with foo(...); ... sugar to zero-arg lambda" {
+  match parse("with run(); 42") {
+    SLocated(
+      _,
+      SCall(
+        SLocated(_, SVar("run")),
+        [SArgPos(SLocated(_, SLambda([], SLocated(_, SIntLit(42)))))]
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "parser makes trailing application right-associative" {
   match parse("f g x") {
     SLocated(

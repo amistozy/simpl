@@ -89,6 +89,30 @@ test "trailing lambda works with lowest precedence application" {
 }
 
 ///|
+test "with(params) sugar appends lambda as last argument" {
+  let code =
+    #| let use(x; f) = f(x);
+    #| with(v) = use(41); v + 1
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "with x = ... sugar supports single param without parentheses" {
+  let code =
+    #| let use(x; f) = f(x);
+    #| with v = use(41); v + 1
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "with foo(...); ... sugar supports zero-parameter lambda" {
+  let code =
+    #| let run(f) = f();
+    #| with run(); 42
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 test "trailing application is right-associative" {
   let code =
     #| let f(v) = v * 10;

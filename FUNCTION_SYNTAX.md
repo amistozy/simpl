@@ -129,6 +129,14 @@ inc 41           // inc(41)
 add3(1; 2) 3     // add3(1; 2; 3)
 ```
 
+### With-Lambda Sugar
+
+`with` appends a lambda as the last argument to a target call:
+
+- `with(params) = func(args); body` -> `func(args; fn(params) = body)`
+- `with x = func(args); body` -> `func(args; fn x = body)`
+- `with func(args); body` -> `func(args; fn() = body)`
+
 ### Precedence and Associativity
 
 Trailing application has the lowest precedence among expression forms and is right-associative.

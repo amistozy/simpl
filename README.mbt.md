@@ -101,6 +101,7 @@ moon run cmd/main -- examples/basic.simpl
 - default parameters with required-before-default ordering
 - named arguments in calls
 - trailing call sugar (`f x`, `f(a) b`)
+- with-lambda sugar: `with(params) = call(...); body` -> `call(...; fn(params) = body)`
 
 ### Patterns
 

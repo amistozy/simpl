@@ -74,7 +74,7 @@
       "patterns": [
         {
           "name": "keyword.control.simpl",
-          "match": "\\b(?:if|then|else|do|end|is|and|or|let|rec|fn)\\b"
+          "match": "\\b(?:if|then|else|do|with|end|is|and|or|let|rec|fn)\\b"
         }
       ]
     },

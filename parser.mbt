@@ -28,6 +28,7 @@ priv enum Token {
   ElseTok
   FnTok
   DoTok
+  WithTok
   EndKeywordTok
   IsTok
   AndWordTok
@@ -714,6 +715,7 @@ fn keyword_or_ident(text : String) -> Token {
     "else" => ElseTok
     "fn" => FnTok
     "do" => DoTok
+    "with" => WithTok
     "end" => EndKeywordTok
     "is" => IsTok
     "and" => AndWordTok
@@ -738,6 +740,7 @@ fn token_name(tok : Token) -> String {
     ElseTok => "else"
     FnTok => "fn"
     DoTok => "do"
+    WithTok => "with"
     EndKeywordTok => "end"
     IsTok => "is"
     AndWordTok => "and"
@@ -1008,9 +1011,60 @@ fn parse_let_expr(
     }
   } else if token_kind(tokens, i) == DoTok {
     parse_do_expr(tokens, i + 1)
+  } else if token_kind(tokens, i) == WithTok {
+    parse_with_expr(tokens, i + 1)
   } else {
     parse_if_expr(tokens, i)
   }
+}
+
+///|
+fn parse_with_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected with target after 'with'")
+  }
+  if token_kind(tokens, i) == LParenTok {
+    let (params, j) = parse_params(tokens, i + 1)
+    if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+      syntax_error_at(tokens, j, "expected '=' after with params")
+    }
+    let (target_expr, k) = parse_expr(tokens, j + 1)
+    return parse_with_apply(tokens, i, params, target_expr, k)
+  }
+  if can_start_pattern(token_kind(tokens, i)) {
+    let (pattern, j) = parse_pattern(tokens, i)
+    if j < tokens.length() && token_kind(tokens, j) == AssignTok {
+      let (target_expr, k) = parse_expr(tokens, j + 1)
+      return parse_with_apply(
+        tokens,
+        i,
+        [SParam(pattern, None)],
+        target_expr,
+        k,
+      )
+    }
+  }
+  let (target_expr, j) = parse_expr(tokens, i)
+  parse_with_apply(tokens, i, [], target_expr, j)
+}
+
+///|
+fn parse_with_apply(
+  tokens : Array[SpannedToken],
+  start_i : Int,
+  params : Array[SurfaceParam],
+  target_expr : SurfaceExpr,
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
+  if i >= tokens.length() || token_kind(tokens, i) != SemicolonTok {
+    syntax_error_at(tokens, i, "expected ';' after with target expression")
+  }
+  let (body, k) = parse_expr(tokens, i + 1)
+  let lambda = located_expr(tokens, start_i, k, SLambda(params, body))
+  (append_trailing_arg(target_expr, lambda, tokens, k), k)
 }
 
 ///|
@@ -1765,6 +1819,7 @@ fn is_trailing_arg_start(tokens : Array[SpannedToken], i : Int) -> Bool {
     | IfTok
     | FnTok
     | DoTok
+    | WithTok
     | BangTok
     | MinusTok
     | IntTok(_)
