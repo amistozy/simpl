@@ -85,17 +85,16 @@ impl Show for ParseError with output(self : ParseError, logger : &Logger) -> Uni
 pub fn parse(source : String) -> SurfaceExpr raise {
   let tokens = lex(source)
   let (expr, i) = parse_expr(tokens, 0)
-  if i >= tokens.length() {
+  guard i < tokens.length() else {
     raise SyntaxErrorAt("unexpected end", eof_span(tokens))
   }
-  if token_kind(tokens, i) == EndTok {
-    expr
-  } else {
+  guard token_kind(tokens, i) == EndTok else {
     raise SyntaxErrorAt(
       "unexpected token after expression: \{token_name(token_kind(tokens, i))}",
       token_span_at(tokens, i),
     )
   }
+  expr
 }
 
 ///|
@@ -176,9 +175,7 @@ fn lex_loop(
   column : Int,
   acc : Array[SpannedToken],
 ) -> Unit raise {
-  if i >= source.length() {
-    return
-  }
+  guard i < source.length() else {  }
   let c = source.unsafe_get(i).unsafe_to_char()
   if c.is_ascii_whitespace() {
     let next = advance_position(source, i, line, column)
@@ -434,9 +431,7 @@ fn skip_line_comment(
 
 ///|
 fn scan_line_comment_end(source : String, i : Int) -> Int {
-  if i >= source.length() {
-    return i
-  }
+  guard i < source.length() else { i }
   if source.unsafe_get(i).unsafe_to_char() == '\n' {
     i
   } else {
@@ -536,12 +531,9 @@ fn token_kind(tokens : Array[SpannedToken], i : Int) -> Token {
 
 ///|
 fn token_span_at(tokens : Array[SpannedToken], i : Int) -> SourceSpan {
-  if i < tokens.length() {
-    let (_, span) = tokens[i]
-    span
-  } else {
-    eof_span(tokens)
-  }
+  guard i < tokens.length() else { eof_span(tokens) }
+  let (_, span) = tokens[i]
+  span
 }
 
 ///|
@@ -624,9 +616,7 @@ fn[T] syntax_error_eof(
 
 ///|
 fn scan_digits(source : String, i : Int) -> Int {
-  if i >= source.length() {
-    return i
-  }
+  guard i < source.length() else { i }
   let c = source.unsafe_get(i).unsafe_to_char()
   if c.is_ascii_digit() {
     scan_digits(source, i + 1)
@@ -637,9 +627,7 @@ fn scan_digits(source : String, i : Int) -> Int {
 
 ///|
 fn scan_ident(source : String, i : Int) -> Int {
-  if i >= source.length() {
-    return i
-  }
+  guard i < source.length() else { i }
   let c = source.unsafe_get(i).unsafe_to_char()
   if is_ident_continue(c) {
     scan_ident(source, i + 1)
@@ -657,7 +645,7 @@ fn lex_string_content(
   acc : String,
   i : Int,
 ) -> (String, Int) raise {
-  if i >= source.length() {
+  guard i < source.length() else {
     raise SyntaxErrorAt(
       "unterminated string literal",
       make_span(source, start, source.length(), line, column),
@@ -696,7 +684,7 @@ fn lex_string_escape(
     (start, line, column),
   )
   let (_, escape_line, escape_column) = escape_pos
-  if i + 1 >= source.length() {
+  guard i + 1 < source.length() else {
     raise SyntaxErrorAt(
       "unterminated escape sequence in string literal",
       make_span(source, i, source.length(), escape_line, escape_column),
