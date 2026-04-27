@@ -1,6 +1,6 @@
-# Simpl String Interpolation (Current Behavior)
+# Simpl String Interpolation
 
-This document describes how to build interpolated strings in **current Simpl**.
+This document describes how to build interpolated strings in Simpl.
 
 Simpl does not have a dedicated template string syntax. Instead, interpolation is built from:
 

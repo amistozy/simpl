@@ -1,34 +1,37 @@
 # Simpl Function Syntax
 
-This document is the canonical reference for function-related syntax in **Simpl**.
+This document describes function syntax and call behavior in Simpl.
 
-## 1. Function Definition Forms
+## 1. Function Definitions
 
-Simpl supports two equivalent forms for named functions:
+Simpl supports both explicit lambda binding and function-definition sugar:
 
 ```simpl
 let inc = fn(x) = x + 1;
 let inc(x) = x + 1;
 ```
 
-`name(params) = body` is syntax sugar for `name = fn(params) = body`.
+`name(params) = body` is sugar for `name = fn(params) = body`.
 
-The same sugar is available in any assignment-like slot:
+This sugar works in assignment-like positions (for example record fields and named call arguments):
 
 ```simpl
 let box = { inc(x) = x + 1 };
-let apply(f(x) = x + 1) = f(41);
-apply()
+apply(f(x) = x + 1)
 ```
 
-In the second example, `f(x) = x + 1` means `f = fn(x) = x + 1`.
+## 2. Lambda Forms
 
-## 2. Lambda Syntax
-
-Anonymous functions always use:
+General lambda form:
 
 ```simpl
 fn(params) = body
+```
+
+Single-parameter shorthand:
+
+```simpl
+fn x = body
 ```
 
 Examples:
@@ -43,9 +46,10 @@ fn(a; b = 2; c = 3) = a + b + c
 
 Parameters are separated by `;`.
 
-- Required parameter: `x`
-- Defaulted parameter: `x = expr`
-- Pattern parameter: any valid pattern, for example `#Pair(x)` or `{name}`
+A parameter may be:
+
+- a pattern parameter (for example `x`, `#Pair(x)`, `{name}`)
+- a parameter with a default value (`param = expr`)
 
 Example:
 
@@ -53,9 +57,9 @@ Example:
 fn(#Pair(x); {y}; z = 3) = x + y + z
 ```
 
-### Parameter Ordering Rule
+Ordering rule:
 
-All required parameters must appear before any defaulted parameter.
+- required parameters must come before defaulted parameters
 
 Valid:
 
@@ -69,9 +73,9 @@ Invalid:
 fn(a = 1; b) = ...
 ```
 
-### Default Evaluation Time
+## 4. Default Values
 
-Default expressions are evaluated when the function is defined, not when it is called.
+Default expressions are evaluated when the function is defined (captured in closure environment), not at call time.
 
 ```simpl
 let r = ref(1);
@@ -80,30 +84,22 @@ do r := 2;
 f()   // => 1
 ```
 
-Because defaults are pre-evaluated, defaults cannot depend on parameter names:
-
-```simpl
-fn(a = 1; b = a + 1) = b   // runtime error when called
-```
-
-## 4. Call Syntax
-
-### Parenthesized Calls
+## 5. Parenthesized Calls
 
 Standard call form:
 
 ```simpl
-f(args...)
+f(...)
 ```
 
 Arguments are separated by `;`.
 
 Supported argument forms:
 
-- Positional: `expr`
-- Named: `name = expr`
-- Named lambda sugar: `name(params) = body` (same as `name = fn(params) = body`)
-- Single-param named lambda sugar: `name param = body` (same as `name = fn param = body`)
+- positional: `expr`
+- named: `name = expr`
+- named-lambda sugar: `name(params) = body` (same as `name = fn(params) = body`)
+- single-param named-lambda sugar: `name x = body` (same as `name = fn x = body`)
 
 Examples:
 
@@ -115,31 +111,42 @@ apply(f(x) = x + 1)
 apply(f x = x + 1)
 ```
 
-### Trailing-Argument Calls
+## 6. Trailing Application
 
-Simpl also supports trailing application:
+Simpl supports trailing-argument call syntax:
 
-- `func expr` means `func(expr)`
-- `func(...) expr` means `func(...; expr)`
+- `func arg` means `func(arg)`
+- `func(...) arg` means `func(...; arg)`
 
 Examples:
 
 ```simpl
-inc 41           // inc(41)
-add3(1; 2) 3     // add3(1; 2; 3)
+inc 41
+add3(1; 2) 3
 ```
 
-### With-Lambda Sugar
+This style is also what enables expression-based string interpolation chains.
 
-`with` appends a lambda as the last argument to a target call:
+## 7. `with` Lambda Sugar
 
-- `with(params) = func(args); body` -> `func(args; fn(params) = body)`
-- `with x = func(args); body` -> `func(args; fn x = body)`
-- `with func(args); body` -> `func(args; fn() = body)`
+`with` appends a lambda as the last argument of a target call.
 
-### Precedence and Associativity
+Forms:
 
-Trailing application has the lowest precedence among expression forms and is right-associative.
+- `with(params) = target; body` -> `target(fn(params) = body)`
+- `with x = target; body` -> `target(fn x = body)`
+- `with target; body` -> `target(fn() = body)`
+
+Example:
+
+```simpl
+with(x) = map([1; 2; 3]); x + 1
+// same as: map([1; 2; 3]; fn(x) = x + 1)
+```
+
+## 8. Precedence and Associativity
+
+Trailing application is parsed at a low-precedence stage and associates to the right.
 
 So:
 
@@ -147,52 +154,47 @@ So:
 f g x
 ```
 
-is parsed as:
+parses as:
 
 ```simpl
 f(g(x))
 ```
 
-This enables trailing-lambda style:
+This is why patterns like `foo fn(x) = ...` work naturally:
 
 ```simpl
 let foo(f) = f 42;
 foo fn(x) = x + 1
 ```
 
-## 5. Argument Binding Semantics
+## 9. Runtime Argument Binding
 
-At runtime, argument-to-parameter binding happens in this order:
+At call time, Simpl binds arguments in this order:
 
-1. Bind all named arguments by parameter name.
-2. Bind positional arguments from left to right to remaining unbound parameters.
-3. Fill any still-unbound parameters using stored default values.
+1. Bind named arguments by parameter name.
+2. Bind positional arguments left-to-right to remaining unbound parameters.
+3. Fill unbound parameters with stored default values.
 4. If a required parameter is still unbound, raise an arity error.
 
-Runtime errors are raised for:
+Common runtime errors:
 
-- unknown named argument
-- duplicate assignment to the same parameter
-- too many provided arguments
+- `unknown named argument: <name>`
+- `duplicate argument: <name>`
+- arity mismatch (too many/few arguments)
 
-## 6. UFCS and Function Calls
+## 10. UFCS Interaction
 
 Simpl supports UFCS-style fallback:
 
 - `x.foo` may evaluate as `foo(x)`
 - `x.foo(y; z)` may evaluate as `foo(x; y; z)`
 
-For records, direct field access takes priority:
+For records, direct field lookup is tried first. If no field exists, UFCS fallback is attempted.
 
-1. If record `x` has field `foo`, use the field.
-2. Otherwise, if callable `foo` exists in scope, use UFCS fallback.
-3. Otherwise, report a missing field / undefined function error.
+## 11. Quick Summary
 
-## 7. Summary
-
-- Use `fn(params) = body` for lambdas. For a single non-default parameter, `fn x = body` is also allowed.
-- Use `name(params) = body` where assignment sugar is allowed.
-- Put required parameters before defaulted ones.
+- Define functions with `fn(...) = ...` or `name(...) = ...` sugar.
+- Put required params before defaulted params.
 - Defaults are captured at definition time.
-- Calls support positional + named arguments, plus trailing application.
-- UFCS provides method-like call style without changing core function semantics.
+- Calls support positional and named arguments.
+- Trailing application (`f x`) and `with` sugar are first-class call syntax.
