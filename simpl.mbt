@@ -2051,7 +2051,15 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
     Mul =>
       match (left, right) {
         (VInt(a), VInt(b)) => VInt(a * b)
-        _ => raise type_error_binary("operator '*'", "(Int, Int)", left, right)
+        (VInt(times), VString(text)) => VString(text.repeat(times))
+        (VString(text), VInt(times)) => VString(text.repeat(times))
+        (VInt(times), VList(items)) => VList(repeat_list(items, times))
+        (VList(items), VInt(times)) => VList(repeat_list(items, times))
+        _ =>
+          raise type_error_binary(
+            "operator '*'", "(Int, Int) or (Int, String) or (String, Int) or (Int, List) or (List, Int)",
+            left, right,
+          )
       }
     Div =>
       match (left, right) {
@@ -2098,6 +2106,15 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
     | RefUpdateAnd
     | RefUpdateOr =>
       raise runtime_error("internal: ref binary op in eval_binary")
+  }
+}
+
+///|
+fn repeat_list(items : Array[Value], times : Int) -> Array[Value] {
+  if times <= 0 {
+    []
+  } else {
+    items.repeat(times)
   }
 }
 

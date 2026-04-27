@@ -424,8 +424,7 @@ test "dollar supports $(...), $[...], ${...} forms" {
     #| "sum="$(x + y)", list="$[x; y]", record="${x; y}
   assert_true(
     @simpl.eval_source_is_string(
-      code,
-      "sum=3, list=[1; 2], record={x = 1; y = 2}",
+      code, "sum=3, list=[1; 2], record={x = 1; y = 2}",
     ),
   )
 }
@@ -447,6 +446,30 @@ test "division by zero now returns zero" {
 test "modulo by zero returns dividend" {
   assert_true(@simpl.eval_source_is_int("7 % 0", 7))
   assert_true(@simpl.eval_source_is_int("7 % 3", 1))
+}
+
+///|
+test "string repetition supports both multiplication directions" {
+  assert_true(@simpl.eval_source_is_string("3 * \"ha\"", "hahaha"))
+  assert_true(@simpl.eval_source_is_string("\"ha\" * 3", "hahaha"))
+}
+
+///|
+test "list repetition supports both multiplication directions" {
+  assert_true(
+    @simpl.eval_source_is_bool("[1; 2] * 3 == [1; 2; 1; 2; 1; 2]", true),
+  )
+  assert_true(
+    @simpl.eval_source_is_bool("3 * [1; 2] == [1; 2; 1; 2; 1; 2]", true),
+  )
+}
+
+///|
+test "non-positive repetition count returns empty string or list" {
+  assert_true(@simpl.eval_source_is_string("\"ha\" * 0", ""))
+  assert_true(@simpl.eval_source_is_string("-2 * \"ha\"", ""))
+  assert_true(@simpl.eval_source_is_bool("[1; 2] * 0 == []", true))
+  assert_true(@simpl.eval_source_is_bool("[1; 2] * -1 == []", true))
 }
 
 ///|
