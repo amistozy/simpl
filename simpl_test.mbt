@@ -398,50 +398,44 @@ test "print does not accept named arguments" {
 }
 
 ///|
-test "string interpolation supports $name and $(...)" {
+test "string interpolation uses call chaining without spaces" {
   let code =
-    #| let name = "moonbit";
-    #| "hello $name, $(1 + 1)"
-  assert_true(@simpl.eval_source_is_string(code, "hello moonbit, 2"))
+    #| let name = "Alice";
+    #| let age = 18;
+    #| name" is "$age" years old"
+  assert_true(@simpl.eval_source_is_string(code, "Alice is 18 years old"))
 }
 
 ///|
-test "string interpolation supports nested braces in expressions" {
+test "string interpolation chaining supports multiple typed values" {
   let code =
-    #| "x=$({x = 1}.x)"
-  assert_true(@simpl.eval_source_is_string(code, "x=1"))
+    #| let name = "Bob";
+    #| let age = 20;
+    #| let score = 99;
+    #| name" age="$age", score="$score
+  assert_true(@simpl.eval_source_is_string(code, "Bob age=20, score=99"))
 }
 
 ///|
-test "string interpolation supports $(...) as record expression" {
+test "dollar supports $(...), $[...], ${...} forms" {
   let code =
-    #| let name = 42;
-    #| "v=$({name})"
-  assert_true(@simpl.eval_source_is_string(code, "v={name = 42}"))
-}
-
-///|
-test "string interpolation rejects legacy $expr without parentheses" {
-  assert_eq(
-    @simpl.eval_error_text("\"bad $1 + 1\""),
-    Some("invalid string interpolation expression after '$' at 1:1-13"),
+    #| let x = 1;
+    #| let y = 2;
+    #| "sum="$(x + y)", list="$[x; y]", record="${x; y}
+  assert_true(
+    @simpl.eval_source_is_string(
+      code,
+      "sum=3, list=[1; 2], record={x = 1; y = 2}",
+    ),
   )
 }
 
 ///|
-test "string interpolation rejects legacy ${...} form" {
-  assert_eq(
-    @simpl.eval_error_text("\"bad ${name}\""),
-    Some("invalid string interpolation expression after '$' at 1:1-14"),
-  )
-}
-
-///|
-test "string interpolation parse errors become runtime errors" {
-  assert_eq(
-    @simpl.eval_error_text("\"bad $}\""),
-    Some("invalid string interpolation expression after '$' at 1:1-9"),
-  )
+test "string interpolation chaining can start from literal" {
+  let code =
+    #| let name = "Carol";
+    #| "Hello, "name"!"
+  assert_true(@simpl.eval_source_is_string(code, "Hello, Carol!"))
 }
 
 ///|
