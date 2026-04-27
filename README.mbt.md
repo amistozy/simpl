@@ -96,8 +96,8 @@ moon run cmd/main -- examples/basic.simpl
 - `let` bindings and `do` sequencing
 - `let ... and ...` parallel-style bindings
 - `let rec` and `let rec ... and ...` for recursion and mutual recursion
-- lambdas: `fn(params) = body`
-- named function sugar: `f(x) = ...` where assignment sugar is allowed
+- lambdas: `fn(params) = body` (single param can be `fn x = body`)
+- named function sugar: `f(x) = ...` (or single-param `f x = ...`) where assignment sugar is allowed
 - default parameters with required-before-default ordering
 - named arguments in calls
 - trailing call sugar (`f x`, `f(a) b`)

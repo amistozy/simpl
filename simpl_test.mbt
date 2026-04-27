@@ -50,6 +50,13 @@ test "higher order function" {
 }
 
 ///|
+test "single-parameter lambda can omit parentheses" {
+  let code =
+    #| (fn x = x + 1)(41)
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 test "trailing arg sugar rewrites f x to f(x)" {
   let code =
     #| let inc(x) = x + 1;
@@ -100,9 +107,25 @@ test "named arg supports f(...) = ... sugar" {
 }
 
 ///|
+test "named arg supports single-param f x = ... sugar" {
+  let code =
+    #| let apply(f) = f(41);
+    #| apply(f x = x + 1)
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 test "record field supports f(...) = ... sugar" {
   let code =
     #| let r = {inc(x) = x + 1};
+    #| r.inc(41)
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "record field supports single-param f x = ... sugar" {
+  let code =
+    #| let r = {inc x = x + 1};
     #| r.inc(41)
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -193,6 +216,14 @@ test "default expressions cannot reference params" {
 test "param default lambda sugar f(x)=... works as f = fn(x)=..." {
   let code =
     #| let foo(f(x) = x) = f(42);
+    #| foo()
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "param default lambda sugar supports single-param f x = ..." {
+  let code =
+    #| let foo(f x = x) = f(42);
     #| foo()
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -647,6 +678,14 @@ test "let function sugar supports parameter patterns" {
 }
 
 ///|
+test "let function sugar supports single param without parentheses" {
+  let code =
+    #| let inc x = x + 1;
+    #| inc(41)
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
 test "let x += sugar equals let x = x + ...; ..." {
   let code =
     #| let x = 1;
@@ -691,6 +730,15 @@ test "let rec and supports mutual recursion" {
   let code =
     #| let rec even(n) = if n == 0 then true else odd(n - 1)
     #| and odd(n) = if n == 0 then false else even(n - 1);
+    #| even(10)
+  assert_true(@simpl.eval_source_is_bool(code, true))
+}
+
+///|
+test "let rec and supports single-param shorthand" {
+  let code =
+    #| let rec even n = if n == 0 then true else odd(n - 1)
+    #| and odd n = if n == 0 then false else even(n - 1);
     #| even(10)
   assert_true(@simpl.eval_source_is_bool(code, true))
 }

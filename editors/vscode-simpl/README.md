@@ -5,6 +5,7 @@ Language support for `.simpl` files.
 ## Features
 
 - Syntax highlighting for Simpl keywords, literals, operators, and variant tags.
+- Function highlighting for both `f(...)` and trailing-call style `f x`.
 - File association for `*.simpl`.
 - Basic editor behavior: bracket matching and auto-closing pairs.
 

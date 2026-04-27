@@ -103,6 +103,7 @@ Supported argument forms:
 - Positional: `expr`
 - Named: `name = expr`
 - Named lambda sugar: `name(params) = body` (same as `name = fn(params) = body`)
+- Single-param named lambda sugar: `name param = body` (same as `name = fn param = body`)
 
 Examples:
 
@@ -111,6 +112,7 @@ f(1; 2)
 f(a = 1; c = 3)
 f(a = 1; 2; c = 3)
 apply(f(x) = x + 1)
+apply(f x = x + 1)
 ```
 
 ### Trailing-Argument Calls
@@ -180,7 +182,7 @@ For records, direct field access takes priority:
 
 ## 7. Summary
 
-- Use `fn(params) = body` for lambdas.
+- Use `fn(params) = body` for lambdas. For a single non-default parameter, `fn x = body` is also allowed.
 - Use `name(params) = body` where assignment sugar is allowed.
 - Put required parameters before defaulted ones.
 - Defaults are captured at definition time.

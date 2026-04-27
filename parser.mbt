@@ -859,6 +859,10 @@ fn parse_plain_let_binding(
         }
         let (func_body, k) = parse_expr(tokens, j + 1)
         (PLetFun(name, params, func_body), k)
+      } else if is_single_param_function_sugar_after_name(tokens, i) {
+        let (pattern, j) = parse_pattern(tokens, i + 1)
+        let (func_body, k) = parse_expr(tokens, j + 1)
+        (PLetFun(name, [SParam(pattern, None)], func_body), k)
       } else if i + 1 < tokens.length() {
         match let_compound_assign_binop(token_kind(tokens, i + 1)) {
           Some(op) => {
@@ -945,19 +949,27 @@ fn parse_let_rec_fun_binding(
   }
   match token_kind(tokens, i) {
     IdentTok(name) => {
-      if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
+      if i + 1 >= tokens.length() {
+        syntax_error_eof(tokens, "expected params after let rec function name")
+      }
+      if token_kind(tokens, i + 1) == LParenTok {
+        let (params, j) = parse_params(tokens, i + 2)
+        if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+          syntax_error_at(tokens, j, "expected '=' after let rec params")
+        }
+        let (func_body, k) = parse_expr(tokens, j + 1)
+        ((name, params, func_body), k)
+      } else if is_single_param_function_sugar_after_name(tokens, i) {
+        let (pattern, j) = parse_pattern(tokens, i + 1)
+        let (func_body, k) = parse_expr(tokens, j + 1)
+        ((name, [SParam(pattern, None)], func_body), k)
+      } else {
         syntax_error_at(
           tokens,
           i + 1,
-          "expected '(...)' after let rec function name",
+          "expected '(...)' or single param after let rec function name",
         )
       }
-      let (params, j) = parse_params(tokens, i + 2)
-      if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-        syntax_error_at(tokens, j, "expected '=' after let rec params")
-      }
-      let (func_body, k) = parse_expr(tokens, j + 1)
-      ((name, params, func_body), k)
     }
     _ => syntax_error_at(tokens, i, "expected function name after 'let rec'")
   }
@@ -1387,15 +1399,21 @@ fn parse_lambda_expr(
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == FnTok {
-    if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
-      syntax_error_at(tokens, i + 1, "expected '(' after 'fn'")
+    if i + 1 < tokens.length() && token_kind(tokens, i + 1) == LParenTok {
+      let (params, j) = parse_params(tokens, i + 2)
+      if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+        syntax_error_at(tokens, j, "expected '=' after lambda params")
+      }
+      let (body, k) = parse_expr(tokens, j + 1)
+      (located_expr(tokens, i, k, SLambda(params, body)), k)
+    } else {
+      let (pattern, j) = parse_pattern(tokens, i + 1)
+      if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+        syntax_error_at(tokens, j, "expected '=' after lambda param")
+      }
+      let (body, k) = parse_expr(tokens, j + 1)
+      (located_expr(tokens, i, k, SLambda([SParam(pattern, None)], body)), k)
     }
-    let (params, j) = parse_params(tokens, i + 2)
-    if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-      syntax_error_at(tokens, j, "expected '=' after lambda params")
-    }
-    let (body, k) = parse_expr(tokens, j + 1)
-    (located_expr(tokens, i, k, SLambda(params, body)), k)
   } else {
     parse_or_expr(tokens, i)
   }
@@ -1464,24 +1482,13 @@ fn parse_param(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceParam, Int) raise {
-  if i + 1 < tokens.length() && token_kind(tokens, i + 1) == LParenTok {
-    match token_kind(tokens, i) {
-      IdentTok(name) =>
-        match find_matching_rparen(tokens, i + 1, 0) {
-          Some(close_i) if close_i + 1 < tokens.length() &&
-            token_kind(tokens, close_i + 1) == AssignTok => {
-            let (lambda_expr, j) = parse_named_lambda_sugar(
-              tokens,
-              name,
-              i + 1,
-              i,
-            )
-            return (SParam(SPBind(name), Some(lambda_expr)), j)
-          }
-          _ => ()
-        }
-      _ => ()
-    }
+  match token_kind(tokens, i) {
+    IdentTok(name) =>
+      if is_named_lambda_sugar_at(tokens, i) {
+        let (lambda_expr, j) = parse_named_lambda_sugar(tokens, name, i, i)
+        return (SParam(SPBind(name), Some(lambda_expr)), j)
+      }
+    _ => ()
   }
   let (pattern, j) = parse_pattern(tokens, i)
   if j < tokens.length() && token_kind(tokens, j) == AssignTok {
@@ -1906,24 +1913,13 @@ fn parse_call_arg(
       _ => ()
     }
   }
-  if i + 1 < tokens.length() && token_kind(tokens, i + 1) == LParenTok {
-    match token_kind(tokens, i) {
-      IdentTok(name) =>
-        match find_matching_rparen(tokens, i + 1, 0) {
-          Some(close_i) if close_i + 1 < tokens.length() &&
-            token_kind(tokens, close_i + 1) == AssignTok => {
-            let (lambda_expr, j) = parse_named_lambda_sugar(
-              tokens,
-              name,
-              i + 1,
-              i,
-            )
-            return (SArgNamed(name, lambda_expr), j)
-          }
-          _ => ()
-        }
-      _ => ()
-    }
+  match token_kind(tokens, i) {
+    IdentTok(name) =>
+      if is_named_lambda_sugar_at(tokens, i) {
+        let (lambda_expr, j) = parse_named_lambda_sugar(tokens, name, i, i)
+        return (SArgNamed(name, lambda_expr), j)
+      }
+    _ => ()
   }
   let (expr, j) = parse_expr(tokens, i)
   (SArgPos(expr), j)
@@ -1954,15 +1950,79 @@ fn find_matching_rparen(
 fn parse_named_lambda_sugar(
   tokens : Array[SpannedToken],
   _name : String,
-  lparen_i : Int,
+  name_i : Int,
   start_i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  let (params, j) = parse_params(tokens, lparen_i + 1)
+  let (params, j) = if name_i + 1 < tokens.length() &&
+    token_kind(tokens, name_i + 1) == LParenTok {
+    parse_params(tokens, name_i + 2)
+  } else {
+    let (pattern, j) = parse_pattern(tokens, name_i + 1)
+    ([SParam(pattern, None)], j)
+  }
   if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-    syntax_error_at(tokens, j, "expected '=' after function params")
+    syntax_error_at(tokens, j, "expected '=' after function param(s)")
   }
   let (func_body, k) = parse_expr(tokens, j + 1)
   (located_expr(tokens, start_i, k, SLambda(params, func_body)), k)
+}
+
+///|
+fn is_named_lambda_sugar_at(
+  tokens : Array[SpannedToken],
+  name_i : Int,
+) -> Bool raise {
+  is_parenthesized_named_lambda_sugar_after_name(tokens, name_i) ||
+  is_single_param_function_sugar_after_name(tokens, name_i)
+}
+
+///|
+fn is_parenthesized_named_lambda_sugar_after_name(
+  tokens : Array[SpannedToken],
+  name_i : Int,
+) -> Bool {
+  if name_i + 1 >= tokens.length() ||
+    token_kind(tokens, name_i + 1) != LParenTok {
+    return false
+  }
+  match find_matching_rparen(tokens, name_i + 1, 0) {
+    Some(close_i) =>
+      close_i + 1 < tokens.length() &&
+      token_kind(tokens, close_i + 1) == AssignTok
+    None => false
+  }
+}
+
+///|
+fn is_single_param_function_sugar_after_name(
+  tokens : Array[SpannedToken],
+  name_i : Int,
+) -> Bool raise {
+  if name_i + 1 >= tokens.length() {
+    return false
+  }
+  let next_tok = token_kind(tokens, name_i + 1)
+  if !can_start_pattern(next_tok) {
+    return false
+  }
+  let (_, j) = parse_pattern(tokens, name_i + 1)
+  j < tokens.length() && token_kind(tokens, j) == AssignTok
+}
+
+///|
+fn can_start_pattern(tok : Token) -> Bool {
+  match tok {
+    IdentTok(_)
+    | IntTok(_)
+    | StrTok(_)
+    | TrueTok
+    | FalseTok
+    | NilTok
+    | HashTok
+    | LBracketTok
+    | LBraceTok => true
+    _ => false
+  }
 }
 
 ///|
@@ -2051,14 +2111,8 @@ fn parse_record_literal(
           "expected field name, found: \{token_name(tok)}",
         )
     }
-    let (field, next_expr) = if j + 1 < tokens.length() &&
-      token_kind(tokens, j + 1) == LParenTok {
-      let (value_expr, next_expr) = parse_named_lambda_sugar(
-        tokens,
-        name,
-        j + 1,
-        j,
-      )
+    let (field, next_expr) = if is_named_lambda_sugar_at(tokens, j) {
+      let (value_expr, next_expr) = parse_named_lambda_sugar(tokens, name, j, j)
       (SRecordField(name, value_expr), next_expr)
     } else if j + 1 < tokens.length() && token_kind(tokens, j + 1) == AssignTok {
       let (value_expr, next_expr) = parse_expr(tokens, j + 2)

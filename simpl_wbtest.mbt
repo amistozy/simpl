@@ -79,8 +79,33 @@ test "parser preserves let function sugar before desugar" {
 }
 
 ///|
+test "parser preserves let single-param function sugar before desugar" {
+  match parse("let add x = x + 1; add(41)") {
+    SLocated(_, SLetFun("add", [SParam(SPBind("x"), None)], _, _)) =>
+      assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "parser lowers param default lambda sugar to default lambda expr" {
   match parse("let foo(f(x) = x) = f(42); foo()") {
+    SLocated(
+      _,
+      SLetFun(
+        "foo",
+        [SParam(SPBind("f"), Some(SLocated(_, SLambda(_, _))))],
+        _,
+        _
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser lowers single-param default lambda sugar to default lambda expr" {
+  match parse("let foo(f x = x) = f(42); foo()") {
     SLocated(
       _,
       SLetFun(
@@ -124,12 +149,34 @@ test "parser appends trailing arg after parenthesized call" {
 }
 
 ///|
+test "parser supports single-param named arg lambda sugar" {
+  match parse("apply(f x = x + 1)") {
+    SLocated(
+      _,
+      SCall(
+        SLocated(_, SVar("apply")),
+        [SArgNamed("f", SLocated(_, SLambda(_, _)))]
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "parser binds trailing lambda as a single lowest-precedence arg" {
   match parse("foo fn(x) = x + 1") {
     SLocated(
       _,
       SCall(SLocated(_, SVar("foo")), [SArgPos(SLocated(_, SLambda(_, _)))])
     ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser supports fn param shorthand without parentheses" {
+  match parse("fn x = x + 1") {
+    SLocated(_, SLambda([SParam(SPBind("x"), None)], _)) => assert_true(true)
     _ => assert_true(false)
   }
 }
@@ -205,6 +252,14 @@ test "parser preserves let rec and group before desugar" {
 }
 
 ///|
+test "parser preserves let rec shorthand and group before desugar" {
+  match parse("let rec f x = x and g y = y; f(1)") {
+    SLocated(_, SLetRecAnd(defs, _)) => assert_eq(defs.length(), 2)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "desugar lowers record pattern shorthand to field binding" {
   match
     desugar_pattern(
@@ -219,6 +274,15 @@ test "desugar lowers record pattern shorthand to field binding" {
 test "parser preserves record shorthand before desugar" {
   match parse("{x; y = 1}") {
     SLocated(_, SRecord([SRecordShorthand("x"), SRecordField("y", _)])) =>
+      assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser preserves record single-param function field sugar" {
+  match parse("{inc x = x + 1}") {
+    SLocated(_, SRecord([SRecordField("inc", SLocated(_, SLambda(_, _)))])) =>
       assert_true(true)
     _ => assert_true(false)
   }
