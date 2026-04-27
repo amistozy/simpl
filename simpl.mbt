@@ -912,17 +912,13 @@ fn eval_ref_binop(
           } else {
             eval_with_env(right, env)
           }
-        _ => raise runtime_error("invalid ref binary operator")
+        _ => runtime_error("invalid ref binary operator")
       }
       cell.val = new_value
       new_value
     }
     value =>
-      raise type_error_unary(
-        ref_binary_operator_text(op),
-        "Ref on left side",
-        value,
-      )
+      type_error_unary(ref_binary_operator_text(op), "Ref on left side", value)
   }
 }
 
@@ -1014,7 +1010,7 @@ fn eval_if_cond_arms_with_fallback(
 fn lookup(env : Env, name : String) -> Value raise {
   match env.get(name) {
     Some(value) => value
-    None => raise undefined_variable_error(name)
+    None => undefined_variable_error(name)
   }
 }
 
@@ -1111,7 +1107,7 @@ fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
       eval_with_env(body, call_env)
     }
     VBuiltin(builtin) => apply_builtin(builtin, args)
-    _ => raise call_non_function_error(func_value)
+    _ => call_non_function_error(func_value)
   }
 }
 
@@ -1121,17 +1117,17 @@ fn apply_string_call(
   args : Array[EvaluatedCallArg],
 ) -> Value raise {
   if args.length() != 1 {
-    raise arity_error(1, args.length())
+    arity_error(1, args.length())
   }
   match args[0] {
     EArgNamed(_) =>
-      raise runtime_error("string call only accepts positional arguments")
+      runtime_error("string call only accepts positional arguments")
     EArgPos(value) =>
       match value {
         VString(suffix) => VString(text + suffix)
         VList(items) => VString(join_values_with_separator(items, text, 0))
         _ =>
-          raise runtime_error(
+          runtime_error(
             "string call expected String or List, got \{typed_value_summary(value)}",
           )
       }
@@ -1176,11 +1172,10 @@ fn apply_record_with_named_args_from(
     return fields
   }
   match args[i] {
-    EArgPos(_) =>
-      raise runtime_error("record call only accepts named arguments")
+    EArgPos(_) => runtime_error("record call only accepts named arguments")
     EArgNamed(name, value) =>
       if record_call_has_duplicate_named_arg(args, name, i, 0) {
-        raise runtime_error("duplicate argument: \{name}")
+        runtime_error("duplicate argument: \{name}")
       } else {
         apply_record_with_named_args_from(fields.add(name, value), args, i + 1)
       }
@@ -1211,25 +1206,25 @@ fn apply_builtin(
   match builtin {
     BMap => {
       if args.length() != 2 {
-        raise arity_error(2, args.length())
+        arity_error(2, args.length())
       }
       guard args is [EArgPos(list_value), EArgPos(func_value)] else {
-        raise builtin_named_arg_error(builtin)
+        builtin_named_arg_error(builtin)
       }
       guard list_value is VList(items) else {
-        raise builtin_type_error("map", "List", list_value)
+        builtin_type_error("map", "List", list_value)
       }
       guard func_value is (VClosure(_) | VRecClosure(_) | VBuiltin(_)) else {
-        raise builtin_type_error("map", "Function", func_value)
+        builtin_type_error("map", "Function", func_value)
       }
       VList(map_list_with_func(items, func_value, 0, []))
     }
     _ => {
       if args.length() != 1 {
-        raise arity_error(1, args.length())
+        arity_error(1, args.length())
       }
       match args[0] {
-        EArgNamed(_) => raise builtin_named_arg_error(builtin)
+        EArgNamed(_) => builtin_named_arg_error(builtin)
         EArgPos(v) =>
           match builtin {
             BRef => VRef(@ref.new(v))
@@ -1243,9 +1238,9 @@ fn apply_builtin(
                   println(text)
                   VNil
                 }
-                _ => raise builtin_type_error("say", "String", v)
+                _ => builtin_type_error("say", "String", v)
               }
-            _ => raise runtime_error("unknown builtin")
+            _ => runtime_error("unknown builtin")
           }
       }
     }
@@ -1269,7 +1264,7 @@ fn map_list_with_func(
 
 ///|
 fn[T] builtin_named_arg_error(builtin : Builtin) -> T raise {
-  raise runtime_error(
+  runtime_error(
     "builtin '\{builtin_name(builtin)}' does not accept named arguments",
   )
 }
@@ -1290,7 +1285,7 @@ fn[T] builtin_type_error(
   expected : String,
   actual : Value,
 ) -> T raise {
-  raise runtime_error(
+  runtime_error(
     "builtin '\{name}' expected \{expected}, got \{typed_value_summary(actual)}",
   )
 }
@@ -1342,13 +1337,13 @@ fn bind_named_args(
       match find_param_index_by_name(params, name, 0) {
         Some(param_i) =>
           match assigned[param_i] {
-            Some(_) => raise runtime_error("duplicate argument: \{name}")
+            Some(_) => runtime_error("duplicate argument: \{name}")
             None => {
               assigned[param_i] = Some(value)
               bind_named_args(params, args, assigned, i + 1)
             }
           }
-        None => raise runtime_error("unknown named argument: \{name}")
+        None => runtime_error("unknown named argument: \{name}")
       }
   }
 }
@@ -1389,7 +1384,7 @@ fn bind_positional_args(
           assigned[param_i] = Some(value)
           bind_positional_args(params, args, assigned, i + 1, param_i + 1)
         }
-        None => raise arity_error(params.length(), args.length())
+        None => arity_error(params.length(), args.length())
       }
   }
 }
@@ -1424,7 +1419,7 @@ fn finalize_param_bindings(
     None =>
       match default_values[i] {
         Some(v) => v
-        None => raise arity_error(required_count, provided_count)
+        None => arity_error(required_count, provided_count)
       }
   }
   let next_env = bind_pattern(pattern, value, env)
@@ -1510,7 +1505,7 @@ fn eval_field_value_or_ufcs(
           match env.get(name) {
             Some(func_value) if value_is_callable(func_value) =>
               apply(func_value, [EArgPos(target_value)])
-            _ => raise missing_field_error(name, target_value)
+            _ => missing_field_error(name, target_value)
           }
       }
     _ => apply_ufcs(name, target_value, [], env)
@@ -1532,7 +1527,7 @@ fn eval_field_call_or_ufcs(
           match env.get(name) {
             Some(func_value) if value_is_callable(func_value) =>
               apply(func_value, [EArgPos(target_value)] + args)
-            _ => raise missing_field_error(name, target_value)
+            _ => missing_field_error(name, target_value)
           }
       }
     _ => apply_ufcs(name, target_value, args, env)
@@ -1615,7 +1610,7 @@ fn bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env raise {
   match try_bind_pattern(pattern, value, env) {
     Some(bound_env) => bound_env
     None =>
-      raise runtime_error(
+      runtime_error(
         "pattern match failure: expected \{pattern_summary(pattern)}, got \{value_summary(value)}",
       )
   }
@@ -1958,28 +1953,26 @@ fn[T] runtime_error(message : String) -> T raise {
 
 ///|
 fn[T] undefined_variable_error(name : String) -> T raise {
-  raise runtime_error("undefined variable: name '\{name}' is not bound")
+  runtime_error("undefined variable: name '\{name}' is not bound")
 }
 
 ///|
 fn[T] missing_field_error(name : String, target : Value) -> T raise {
-  raise runtime_error(
+  runtime_error(
     "missing field: record has no field '\{name}' in \{typed_value_summary(target)}",
   )
 }
 
 ///|
 fn[T] call_non_function_error(actual : Value) -> T raise {
-  raise runtime_error(
+  runtime_error(
     "call error: expected Function, got \{typed_value_summary(actual)}",
   )
 }
 
 ///|
 fn[T] arity_error(expected : Int, actual : Int) -> T raise {
-  raise runtime_error(
-    "arity error: expected \{expected} arguments, got \{actual}",
-  )
+  runtime_error("arity error: expected \{expected} arguments, got \{actual}")
 }
 
 ///|
@@ -1988,7 +1981,7 @@ fn[T] type_error_unary(
   expected : String,
   actual : Value,
 ) -> T raise {
-  raise runtime_error(
+  runtime_error(
     "type error: \{operator} expected \{expected}, got \{typed_value_summary(actual)}",
   )
 }
@@ -2000,7 +1993,7 @@ fn[T] type_error_binary(
   left : Value,
   right : Value,
 ) -> T raise {
-  raise runtime_error(
+  runtime_error(
     "type error: \{operator} expected \{expected}, got (\{typed_value_summary(left)}, \{typed_value_summary(right)})",
   )
 }
@@ -2011,7 +2004,7 @@ fn eval_unary(op : UnOp, value : Value) -> Value raise {
     Neg =>
       match value {
         VInt(v) => VInt(-v)
-        _ => raise type_error_unary("unary '-'", "Int", value)
+        _ => type_error_unary("unary '-'", "Int", value)
       }
     Bang =>
       match value {
@@ -2030,14 +2023,14 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
         (VInt(a), VInt(b)) => VInt(a + b)
         (VString(a), VString(b)) => VString(a + b)
         _ =>
-          raise type_error_binary(
+          type_error_binary(
             "operator '+'", "(Int, Int) or (String, String)", left, right,
           )
       }
     Sub =>
       match (left, right) {
         (VInt(a), VInt(b)) => VInt(a - b)
-        _ => raise type_error_binary("operator '-'", "(Int, Int)", left, right)
+        _ => type_error_binary("operator '-'", "(Int, Int)", left, right)
       }
     Mul =>
       match (left, right) {
@@ -2047,7 +2040,7 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
         (VInt(times), VList(items)) => VList(repeat_list(items, times))
         (VList(items), VInt(times)) => VList(repeat_list(items, times))
         _ =>
-          raise type_error_binary(
+          type_error_binary(
             "operator '*'", "(Int, Int) or (Int, String) or (String, Int) or (Int, List) or (List, Int)",
             left, right,
           )
@@ -2056,35 +2049,35 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
       match (left, right) {
         (VInt(_), VInt(0)) => VInt(0)
         (VInt(a), VInt(b)) => VInt(a / b)
-        _ => raise type_error_binary("operator '/'", "(Int, Int)", left, right)
+        _ => type_error_binary("operator '/'", "(Int, Int)", left, right)
       }
     Mod =>
       match (left, right) {
         (VInt(a), VInt(0)) => VInt(a)
         (VInt(a), VInt(b)) => VInt(a % b)
-        _ => raise type_error_binary("operator '%'", "(Int, Int)", left, right)
+        _ => type_error_binary("operator '%'", "(Int, Int)", left, right)
       }
     Eq => VBool(value_eq(left, right))
     Ne => VBool(!value_eq(left, right))
     Lt =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a < b)
-        _ => raise type_error_binary("operator '<'", "(Int, Int)", left, right)
+        _ => type_error_binary("operator '<'", "(Int, Int)", left, right)
       }
     Le =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a <= b)
-        _ => raise type_error_binary("operator '<='", "(Int, Int)", left, right)
+        _ => type_error_binary("operator '<='", "(Int, Int)", left, right)
       }
     Gt =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a > b)
-        _ => raise type_error_binary("operator '>'", "(Int, Int)", left, right)
+        _ => type_error_binary("operator '>'", "(Int, Int)", left, right)
       }
     Ge =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a >= b)
-        _ => raise type_error_binary("operator '>='", "(Int, Int)", left, right)
+        _ => type_error_binary("operator '>='", "(Int, Int)", left, right)
       }
     And => if truthy(left) { right } else { left }
     Or => if truthy(left) { left } else { right }
@@ -2095,8 +2088,7 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
     | RefUpdateDiv
     | RefUpdateMod
     | RefUpdateAnd
-    | RefUpdateOr =>
-      raise runtime_error("internal: ref binary op in eval_binary")
+    | RefUpdateOr => runtime_error("internal: ref binary op in eval_binary")
   }
 }
 
@@ -2117,7 +2109,7 @@ fn ref_update_to_base_binop(op : BinOp) -> BinOp raise {
     RefUpdateMul => Mul
     RefUpdateDiv => Div
     RefUpdateMod => Mod
-    _ => raise runtime_error("invalid numeric ref update operator")
+    _ => runtime_error("invalid numeric ref update operator")
   }
 }
 
