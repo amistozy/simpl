@@ -1,1 +1,0 @@
-let foo(f) = f 42; foo fn(x) = x + 1

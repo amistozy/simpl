@@ -1,1 +1,0 @@
-let name = "A"; let age = 1; name " is " $age "!"
