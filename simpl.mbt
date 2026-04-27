@@ -827,19 +827,16 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       let defaults = eval_param_defaults(params, env)
       VClosure(params, body, env, defaults)
     }
-    Call(func_expr, arg_exprs) =>
-      match as_ufcs_field_callee(func_expr) {
-        Some((target, name)) => {
-          let target_value = eval_with_env(target, env)
-          let args = eval_call_args(arg_exprs, env)
-          eval_field_call_or_ufcs(target_value, name, args, env)
-        }
-        None => {
-          let func_value = eval_with_env(func_expr, env)
-          let args = eval_call_args(arg_exprs, env)
-          apply(func_value, args)
-        }
+    Call(func_expr, arg_exprs) => {
+      guard as_ufcs_field_callee(func_expr) is Some((target, name)) else {
+        let func_value = eval_with_env(func_expr, env)
+        let args = eval_call_args(arg_exprs, env)
+        return apply(func_value, args)
       }
+      let target_value = eval_with_env(target, env)
+      let args = eval_call_args(arg_exprs, env)
+      eval_field_call_or_ufcs(target_value, name, args, env)
+    }
     Field(target, name) => {
       let target_value = eval_with_env(target, env)
       eval_field_value_or_ufcs(target_value, name, env)
@@ -975,10 +972,11 @@ fn eval_if_cond_arms(
   env : Env,
   i : Int,
 ) -> Value raise {
-  match eval_if_cond_arms_with_fallback(arms, Some(else_expr), env, i) {
-    Some(result) => result
-    None => eval_with_env(else_expr, env)
+  guard eval_if_cond_arms_with_fallback(arms, Some(else_expr), env, i)
+    is Some(result) else {
+    eval_with_env(else_expr, env)
   }
+  result
 }
 
 ///|
@@ -988,30 +986,25 @@ fn eval_if_cond_arms_with_fallback(
   env : Env,
   i : Int,
 ) -> Value? raise {
-  if i >= arms.length() {
-    return match fallback {
-      Some(default_expr) => Some(eval_with_env(default_expr, env))
-      None => None
-    }
+  guard i < arms.length() else {
+    fallback.map(default_expr => eval_with_env(default_expr, env))
   }
   let IfCondArm(cond, arm_guard) = arms[i]
   let (passes, base_env) = eval_condition_bindings(cond, env)
-  if !passes {
-    return eval_if_cond_arms_with_fallback(arms, fallback, env, i + 1)
+  guard passes else {
+    eval_if_cond_arms_with_fallback(arms, fallback, env, i + 1)
   }
-  match eval_if_guard(arm_guard, base_env) {
-    Some(result) => Some(result)
-    None => eval_if_cond_arms_with_fallback(arms, fallback, env, i + 1)
+  guard eval_if_guard(arm_guard, base_env) is Some(result) else {
+    eval_if_cond_arms_with_fallback(arms, fallback, env, i + 1)
   }
+  Some(result)
 }
 
 ///|
 /// Helpers: environment and apply
 fn lookup(env : Env, name : String) -> Value raise {
-  match env.get(name) {
-    Some(value) => value
-    None => undefined_variable_error(name)
-  }
+  guard env.get(name) is Some(value) else { undefined_variable_error(name) }
+  value
 }
 
 ///|
@@ -1030,9 +1023,7 @@ fn eval_let_and_values(
   i : Int,
   acc : Array[(MatchPattern, Value)],
 ) -> Array[(MatchPattern, Value)] raise {
-  if i >= bindings.length() {
-    return acc
-  }
+  guard i < bindings.length() else { acc }
   let (pattern, value_expr) = bindings[i]
   acc.push((pattern, eval_with_env(value_expr, env)))
   eval_let_and_values(bindings, env, i + 1, acc)
@@ -1044,9 +1035,7 @@ fn bind_let_and_values(
   env : Env,
   i : Int,
 ) -> Env raise {
-  if i >= evaluated.length() {
-    return env
-  }
+  guard i < evaluated.length() else { env }
   let (pattern, value) = evaluated[i]
   let next_env = bind_pattern(pattern, value, env)
   bind_let_and_values(evaluated, next_env, i + 1)
@@ -1067,9 +1056,7 @@ fn build_rec_env_from(
   env : Env,
   i : Int,
 ) -> Env raise {
-  if i >= defs.length() {
-    return env
-  }
+  guard i < defs.length() else { env }
   let (name, _, _) = defs[i]
   let closure = rec_closure_from_def(defs[i], closure_env, defs)
   build_rec_env_from(defs, closure_env, env.add(name, closure), i + 1)
@@ -1116,21 +1103,17 @@ fn apply_string_call(
   text : String,
   args : Array[EvaluatedCallArg],
 ) -> Value raise {
-  if args.length() != 1 {
-    arity_error(1, args.length())
+  guard args.length() == 1 else { arity_error(1, args.length()) }
+  guard args is [EArgPos(value)] else {
+    runtime_error("string call only accepts positional arguments")
   }
-  match args[0] {
-    EArgNamed(_) =>
-      runtime_error("string call only accepts positional arguments")
-    EArgPos(value) =>
-      match value {
-        VString(suffix) => VString(text + suffix)
-        VList(items) => VString(join_values_with_separator(items, text, 0))
-        _ =>
-          runtime_error(
-            "string call expected String or List, got \{typed_value_summary(value)}",
-          )
-      }
+  match value {
+    VString(suffix) => VString(text + suffix)
+    VList(items) => VString(join_values_with_separator(items, text, 0))
+    _ =>
+      runtime_error(
+        "string call expected String or List, got \{typed_value_summary(value)}",
+      )
   }
 }
 
@@ -1140,9 +1123,7 @@ fn join_values_with_separator(
   separator : String,
   i : Int,
 ) -> String {
-  if i >= items.length() {
-    return ""
-  }
+  guard i < items.length() else { "" }
   let current = match items[i] {
     VString(text) => text
     value => value_pretty(value, 6)
@@ -1168,18 +1149,14 @@ fn apply_record_with_named_args_from(
   args : Array[EvaluatedCallArg],
   i : Int,
 ) -> @hashmap.HashMap[String, Value] raise {
-  if i >= args.length() {
-    return fields
+  guard i < args.length() else { fields }
+  guard args[i] is EArgNamed(name, value) else {
+    runtime_error("record call only accepts named arguments")
   }
-  match args[i] {
-    EArgPos(_) => runtime_error("record call only accepts named arguments")
-    EArgNamed(name, value) =>
-      if record_call_has_duplicate_named_arg(args, name, i, 0) {
-        runtime_error("duplicate argument: \{name}")
-      } else {
-        apply_record_with_named_args_from(fields.add(name, value), args, i + 1)
-      }
+  guard !record_call_has_duplicate_named_arg(args, name, i, 0) else {
+    runtime_error("duplicate argument: \{name}")
   }
+  apply_record_with_named_args_from(fields.add(name, value), args, i + 1)
 }
 
 ///|
@@ -1189,9 +1166,7 @@ fn record_call_has_duplicate_named_arg(
   limit_i : Int,
   j : Int,
 ) -> Bool {
-  if j >= limit_i {
-    return false
-  }
+  guard j < limit_i else { false }
   match args[j] {
     EArgNamed(n, _) if n == name => true
     _ => record_call_has_duplicate_named_arg(args, name, limit_i, j + 1)
@@ -1205,9 +1180,7 @@ fn apply_builtin(
 ) -> Value raise {
   match builtin {
     BMap => {
-      if args.length() != 2 {
-        arity_error(2, args.length())
-      }
+      guard args.length() == 2 else { arity_error(2, args.length()) }
       guard args is [EArgPos(list_value), EArgPos(func_value)] else {
         builtin_named_arg_error(builtin)
       }
@@ -1220,28 +1193,22 @@ fn apply_builtin(
       VList(items.map(item => apply(func_value, [EArgPos(item)])))
     }
     _ => {
-      if args.length() != 1 {
-        arity_error(1, args.length())
-      }
-      match args[0] {
-        EArgNamed(_) => builtin_named_arg_error(builtin)
-        EArgPos(v) =>
-          match builtin {
-            BRef => VRef(@ref.new(v))
-            BPrint => {
-              println(value_pretty(v, 6))
-              VNil
-            }
-            BSay =>
-              match v {
-                VString(text) => {
-                  println(text)
-                  VNil
-                }
-                _ => builtin_type_error("say", "String", v)
-              }
-            _ => runtime_error("unknown builtin")
+      guard args.length() == 1 else { arity_error(1, args.length()) }
+      guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
+      match builtin {
+        BRef => VRef(@ref.new(v))
+        BPrint => {
+          println(value_pretty(v, 6))
+          VNil
+        }
+        BSay => {
+          guard v is VString(text) else {
+            builtin_type_error("say", "String", v)
           }
+          println(text)
+          VNil
+        }
+        _ => runtime_error("unknown builtin")
       }
     }
   }
@@ -1283,10 +1250,8 @@ fn eval_param_defaults(params : Array[Param], env : Env) -> Array[Value?] raise 
 ///|
 fn eval_param_default_at_definition(param : Param, env : Env) -> Value? raise {
   let Param(_, default_expr, _) = param
-  match default_expr {
-    Some(expr) => Some(eval_with_env(expr, env))
-    None => None
-  }
+  guard default_expr is Some(expr) else { return None }
+  Some(eval_with_env(expr, env))
 }
 
 ///|
@@ -1313,24 +1278,18 @@ fn bind_named_args(
   assigned : Array[Value?],
   i : Int,
 ) -> Unit raise {
-  if i >= args.length() {
-    return
+  guard i < args.length() else {  }
+  guard args[i] is EArgNamed(name, value) else {
+    bind_named_args(params, args, assigned, i + 1)
   }
-  match args[i] {
-    EArgPos(_) => bind_named_args(params, args, assigned, i + 1)
-    EArgNamed(name, value) =>
-      match find_param_index_by_name(params, name, 0) {
-        Some(param_i) =>
-          match assigned[param_i] {
-            Some(_) => runtime_error("duplicate argument: \{name}")
-            None => {
-              assigned[param_i] = Some(value)
-              bind_named_args(params, args, assigned, i + 1)
-            }
-          }
-        None => runtime_error("unknown named argument: \{name}")
-      }
+  guard find_param_index_by_name(params, name, 0) is Some(param_i) else {
+    runtime_error("unknown named argument: \{name}")
   }
+  guard assigned[param_i] is None else {
+    runtime_error("duplicate argument: \{name}")
+  }
+  assigned[param_i] = Some(value)
+  bind_named_args(params, args, assigned, i + 1)
 }
 
 ///|
@@ -1339,9 +1298,7 @@ fn find_param_index_by_name(
   name : String,
   i : Int,
 ) -> Int? {
-  if i >= params.length() {
-    return None
-  }
+  guard i < params.length() else { None }
   let Param(_, _, param_name) = params[i]
   match param_name {
     Some(n) if n == name => Some(i)
@@ -1357,28 +1314,20 @@ fn bind_positional_args(
   i : Int,
   next_param_i : Int,
 ) -> Unit raise {
-  if i >= args.length() {
-    return
+  guard i < args.length() else {  }
+  guard args[i] is EArgPos(value) else {
+    bind_positional_args(params, args, assigned, i + 1, next_param_i)
   }
-  match args[i] {
-    EArgNamed(_) =>
-      bind_positional_args(params, args, assigned, i + 1, next_param_i)
-    EArgPos(value) =>
-      match find_next_unassigned_param(assigned, next_param_i) {
-        Some(param_i) => {
-          assigned[param_i] = Some(value)
-          bind_positional_args(params, args, assigned, i + 1, param_i + 1)
-        }
-        None => arity_error(params.length(), args.length())
-      }
+  guard find_next_unassigned_param(assigned, next_param_i) is Some(param_i) else {
+    arity_error(params.length(), args.length())
   }
+  assigned[param_i] = Some(value)
+  bind_positional_args(params, args, assigned, i + 1, param_i + 1)
 }
 
 ///|
 fn find_next_unassigned_param(assigned : Array[Value?], i : Int) -> Int? {
-  if i >= assigned.length() {
-    return None
-  }
+  guard i < assigned.length() else { None }
   match assigned[i] {
     Some(_) => find_next_unassigned_param(assigned, i + 1)
     None => Some(i)
@@ -1395,9 +1344,7 @@ fn finalize_param_bindings(
   env : Env,
   i : Int,
 ) -> Env raise {
-  if i >= params.length() {
-    return env
-  }
+  guard i < params.length() else { env }
   let Param(pattern, _, _) = params[i]
   let value = match assigned[i] {
     Some(v) => v
@@ -1421,9 +1368,7 @@ fn finalize_param_bindings(
 
 ///|
 fn count_assigned_values(assigned : Array[Value?], i : Int, acc : Int) -> Int {
-  if i >= assigned.length() {
-    return acc
-  }
+  guard i < assigned.length() else { acc }
   match assigned[i] {
     Some(_) => count_assigned_values(assigned, i + 1, acc + 1)
     None => count_assigned_values(assigned, i + 1, acc)
@@ -1436,9 +1381,7 @@ fn count_required_params(
   i : Int,
   acc : Int,
 ) -> Int {
-  if i >= default_values.length() {
-    return acc
-  }
+  guard i < default_values.length() else { acc }
   match default_values[i] {
     Some(_) => count_required_params(default_values, i + 1, acc)
     None => count_required_params(default_values, i + 1, acc + 1)
@@ -1482,19 +1425,19 @@ fn eval_field_value_or_ufcs(
   name : String,
   env : Env,
 ) -> Value raise {
-  match target_value {
-    VRecord(fields) =>
-      match fields.get(name) {
-        Some(value) => value
-        None =>
-          match env.get(name) {
-            Some(func_value) if value_is_callable(func_value) =>
-              apply(func_value, [EArgPos(target_value)])
-            _ => missing_field_error(name, target_value)
-          }
-      }
-    _ => apply_ufcs(name, target_value, [], env)
+  guard target_value is VRecord(fields) else {
+    apply_ufcs(name, target_value, [], env)
   }
+  guard fields.get(name) is Some(value) else {
+    guard env.get(name) is Some(func_value) else {
+      missing_field_error(name, target_value)
+    }
+    guard value_is_callable(func_value) else {
+      missing_field_error(name, target_value)
+    }
+    apply(func_value, [EArgPos(target_value)])
+  }
+  value
 }
 
 ///|
@@ -1504,19 +1447,19 @@ fn eval_field_call_or_ufcs(
   args : Array[EvaluatedCallArg],
   env : Env,
 ) -> Value raise {
-  match target_value {
-    VRecord(fields) =>
-      match fields.get(name) {
-        Some(value) => apply(value, args)
-        None =>
-          match env.get(name) {
-            Some(func_value) if value_is_callable(func_value) =>
-              apply(func_value, [EArgPos(target_value)] + args)
-            _ => missing_field_error(name, target_value)
-          }
-      }
-    _ => apply_ufcs(name, target_value, args, env)
+  guard target_value is VRecord(fields) else {
+    apply_ufcs(name, target_value, args, env)
   }
+  guard fields.get(name) is Some(value) else {
+    guard env.get(name) is Some(func_value) else {
+      missing_field_error(name, target_value)
+    }
+    guard value_is_callable(func_value) else {
+      missing_field_error(name, target_value)
+    }
+    apply(func_value, [EArgPos(target_value)] + args)
+  }
+  apply(value, args)
 }
 
 ///|
@@ -1573,34 +1516,27 @@ fn eval_if_pattern_arms_with_fallback(
   env : Env,
   i : Int,
 ) -> Value? raise {
-  if i >= arms.length() {
-    return match fallback {
-      Some(default_expr) => Some(eval_with_env(default_expr, env))
-      None => None
-    }
+  guard i < arms.length() else {
+    fallback.map(default_expr => eval_with_env(default_expr, env))
   }
   let IfPatternArm(pattern, arm_guard) = arms[i]
-  match try_bind_pattern(pattern, value, env) {
-    Some(bound_env) =>
-      match eval_if_guard(arm_guard, bound_env) {
-        Some(result) => Some(result)
-        None =>
-          eval_if_pattern_arms_with_fallback(value, arms, fallback, env, i + 1)
-      }
-    None =>
-      eval_if_pattern_arms_with_fallback(value, arms, fallback, env, i + 1)
+  guard try_bind_pattern(pattern, value, env) is Some(bound_env) else {
+    eval_if_pattern_arms_with_fallback(value, arms, fallback, env, i + 1)
   }
+  guard eval_if_guard(arm_guard, bound_env) is Some(result) else {
+    eval_if_pattern_arms_with_fallback(value, arms, fallback, env, i + 1)
+  }
+  Some(result)
 }
 
 ///|
 fn bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env raise {
-  match try_bind_pattern(pattern, value, env) {
-    Some(bound_env) => bound_env
-    None =>
-      runtime_error(
-        "pattern match failure: expected \{pattern_summary(pattern)}, got \{value_summary(value)}",
-      )
+  guard try_bind_pattern(pattern, value, env) is Some(bound_env) else {
+    runtime_error(
+      "pattern match failure: expected \{pattern_summary(pattern)}, got \{value_summary(value)}",
+    )
   }
+  bound_env
 }
 
 ///|
@@ -1674,13 +1610,11 @@ fn try_bind_list_pattern(
   env : Env,
   i : Int,
 ) -> Env? {
-  if i >= patterns.length() {
-    return Some(env)
+  guard i < patterns.length() else { Some(env) }
+  guard try_bind_pattern(patterns[i], values[i], env) is Some(next_env) else {
+    None
   }
-  match try_bind_pattern(patterns[i], values[i], env) {
-    Some(next_env) => try_bind_list_pattern(patterns, values, next_env, i + 1)
-    None => None
-  }
+  try_bind_list_pattern(patterns, values, next_env, i + 1)
 }
 
 ///|
@@ -1690,19 +1624,11 @@ fn try_bind_record_match_pattern(
   env : Env,
   i : Int,
 ) -> Env? {
-  if i >= patterns.length() {
-    return Some(env)
-  }
+  guard i < patterns.length() else { Some(env) }
   let (field_name, pattern) = patterns[i]
-  match values.get(field_name) {
-    Some(value) =>
-      match try_bind_pattern(pattern, value, env) {
-        Some(next_env) =>
-          try_bind_record_match_pattern(patterns, values, next_env, i + 1)
-        None => None
-      }
-    None => None
-  }
+  guard values.get(field_name) is Some(value) else { None }
+  guard try_bind_pattern(pattern, value, env) is Some(next_env) else { None }
+  try_bind_record_match_pattern(patterns, values, next_env, i + 1)
 }
 
 ///|
@@ -1715,24 +1641,20 @@ fn try_bind_list_rest_pattern(
 ) -> Env? {
   let prefix_len = prefix.length()
   let suffix_len = suffix.length()
-  if values.length() < prefix_len + suffix_len {
-    return None
+  guard values.length() >= prefix_len + suffix_len else { None }
+  guard try_bind_list_pattern(prefix, values, env, 0) is Some(prefix_env) else {
+    None
   }
-  match try_bind_list_pattern(prefix, values, env, 0) {
-    Some(prefix_env) => {
-      let middle_end = values.length() - suffix_len
-      let env_with_rest = if rest_name == "_" {
-        prefix_env
-      } else {
-        prefix_env.add(
-          rest_name,
-          VList(slice_values(values, prefix_len, middle_end)),
-        )
-      }
-      try_bind_list_suffix_pattern(suffix, values, env_with_rest, middle_end, 0)
-    }
-    None => None
+  let middle_end = values.length() - suffix_len
+  let env_with_rest = if rest_name == "_" {
+    prefix_env
+  } else {
+    prefix_env.add(
+      rest_name,
+      VList(slice_values(values, prefix_len, middle_end)),
+    )
   }
+  try_bind_list_suffix_pattern(suffix, values, env_with_rest, middle_end, 0)
 }
 
 ///|
@@ -1743,14 +1665,11 @@ fn try_bind_list_suffix_pattern(
   start : Int,
   i : Int,
 ) -> Env? {
-  if i >= suffix.length() {
-    return Some(env)
+  guard i < suffix.length() else { Some(env) }
+  guard try_bind_pattern(suffix[i], values[start + i], env) is Some(next_env) else {
+    None
   }
-  match try_bind_pattern(suffix[i], values[start + i], env) {
-    Some(next_env) =>
-      try_bind_list_suffix_pattern(suffix, values, next_env, start, i + 1)
-    None => None
-  }
+  try_bind_list_suffix_pattern(suffix, values, next_env, start, i + 1)
 }
 
 ///|
@@ -1765,9 +1684,7 @@ fn slice_values_from(
   end_ : Int,
   acc : Array[Value],
 ) -> Array[Value] {
-  if i >= end_ {
-    return acc
-  }
+  guard i < end_ else { acc }
   acc.push(values[i])
   slice_values_from(values, i + 1, end_, acc)
 }
@@ -1779,13 +1696,11 @@ fn try_bind_or_pattern(
   env : Env,
   i : Int,
 ) -> Env? {
-  if i >= patterns.length() {
-    return None
+  guard i < patterns.length() else { None }
+  guard try_bind_pattern(patterns[i], value, env) is Some(bound_env) else {
+    try_bind_or_pattern(patterns, value, env, i + 1)
   }
-  match try_bind_pattern(patterns[i], value, env) {
-    Some(bound_env) => Some(bound_env)
-    None => try_bind_or_pattern(patterns, value, env, i + 1)
-  }
+  Some(bound_env)
 }
 
 ///|
@@ -1817,9 +1732,7 @@ fn pattern_summary(pattern : MatchPattern) -> String {
 
 ///|
 fn join_pattern_summaries(patterns : Array[MatchPattern], i : Int) -> String {
-  if i >= patterns.length() {
-    return ""
-  }
+  guard i < patterns.length() else { "" }
   let current = pattern_summary(patterns[i])
   if i + 1 >= patterns.length() {
     current
@@ -1830,9 +1743,7 @@ fn join_pattern_summaries(patterns : Array[MatchPattern], i : Int) -> String {
 
 ///|
 fn join_pattern_list(patterns : Array[MatchPattern], i : Int) -> String {
-  if i >= patterns.length() {
-    return ""
-  }
+  guard i < patterns.length() else { "" }
   let current = pattern_summary(patterns[i])
   if i + 1 >= patterns.length() {
     current
@@ -1866,9 +1777,7 @@ fn join_record_pattern_fields(
   fields : Array[(String, MatchPattern)],
   i : Int,
 ) -> String {
-  if i >= fields.length() {
-    return ""
-  }
+  guard i < fields.length() else { "" }
   let (field_name, field_pattern) = fields[i]
   let current = match field_pattern {
     PBind(name) if name == field_name => field_name
@@ -1917,9 +1826,7 @@ fn typed_value_summary(value : Value) -> String {
 
 ///|
 fn join_value_list(values : Array[Value], i : Int) -> String {
-  if i >= values.length() {
-    return ""
-  }
+  guard i < values.length() else { "" }
   let current = value_summary(values[i])
   if i + 1 >= values.length() {
     current
@@ -2135,9 +2042,7 @@ fn record_eq(
   left : @hashmap.HashMap[String, Value],
   right : @hashmap.HashMap[String, Value],
 ) -> Bool {
-  if left.length() != right.length() {
-    return false
-  }
+  guard left.length() == right.length() else { false }
   left.fold(init=true, (acc, name, value) => {
     if !acc {
       false
@@ -2152,20 +2057,14 @@ fn record_eq(
 
 ///|
 fn list_eq(left : Array[Value], right : Array[Value]) -> Bool {
-  if left.length() != right.length() {
-    return false
-  }
+  guard left.length() == right.length() else { false }
   list_eq_from(left, right, 0)
 }
 
 ///|
 fn list_eq_from(left : Array[Value], right : Array[Value], i : Int) -> Bool {
-  if i >= left.length() {
-    return true
-  }
-  if !value_eq(left[i], right[i]) {
-    return false
-  }
+  guard i < left.length() else { true }
+  guard value_eq(left[i], right[i]) else { false }
   list_eq_from(left, right, i + 1)
 }
 

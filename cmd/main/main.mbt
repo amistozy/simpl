@@ -77,28 +77,20 @@ fn choose_source(matches : @argparse.Matches) -> SourceInput {
   let option_file_path = option_value(matches, "file")
   let positional_file_path = positional_path(matches)
 
-  match eval_source {
-    Some(source) =>
-      if option_file_path is Some(_) || positional_file_path is Some(_) {
-        Error("do not combine --eval with file path input")
-      } else {
-        Source(source)
-      }
-    None =>
-      match option_file_path {
-        Some(path) =>
-          if positional_file_path is Some(_) {
-            Error("provide file path only once: positional path or --file")
-          } else {
-            read_source_from_file(path)
-          }
-        None =>
-          match positional_file_path {
-            Some(path) => read_source_from_file(path)
-            None => Help
-          }
-      }
+  if eval_source is Some(source) {
+    guard option_file_path is None && positional_file_path is None else {
+      return Error("do not combine --eval with file path input")
+    }
+    return Source(source)
   }
+  if option_file_path is Some(path) {
+    guard positional_file_path is None else {
+      return Error("provide file path only once: positional path or --file")
+    }
+    return read_source_from_file(path)
+  }
+  guard positional_file_path is Some(path) else { return Help }
+  read_source_from_file(path)
 }
 
 ///|
@@ -112,35 +104,27 @@ fn read_source_from_file(path : String) -> SourceInput {
 
 ///|
 fn flag_enabled(matches : @argparse.Matches, name : String) -> Bool {
-  match matches.flags.get(name) {
-    Some(value) => value
-    None => false
-  }
+  guard matches.flags.get(name) is Some(value) else { false }
+  value
 }
 
 ///|
 fn option_value(matches : @argparse.Matches, name : String) -> String? {
-  match matches.values.get(name) {
-    Some(values) => first_arg_value(values)
-    None => None
-  }
+  guard matches.values.get(name) is Some(values) else { None }
+  first_arg_value(values)
 }
 
 ///|
 fn positional_path(matches : @argparse.Matches) -> String? {
-  match matches.values.get("path") {
-    Some(values) => if values.length() == 0 { None } else { Some(values[0]) }
-    None => None
-  }
+  guard matches.values.get("path") is Some(values) else { None }
+  guard values.length() > 0 else { None }
+  Some(values[0])
 }
 
 ///|
 fn first_arg_value(values : Array[String]) -> String? {
-  if values.length() == 0 {
-    None
-  } else {
-    Some(values[0])
-  }
+  guard values.length() > 0 else { None }
+  Some(values[0])
 }
 
 ///|
@@ -159,9 +143,7 @@ fn run_blocks(
   i : Int,
   runner : (String) -> Unit,
 ) -> Unit {
-  if i >= blocks.length() {
-    return
-  }
+  guard i < blocks.length() else {  }
   runner(blocks[i])
   if i + 1 < blocks.length() {
     println("")
@@ -172,11 +154,7 @@ fn run_blocks(
 ///|
 fn run_parse_single(source : String) -> Unit {
   try @lib.parse(source) catch {
-    _ =>
-      match @lib.parse_error_text(source) {
-        Some(message) => println("parse error: \{message}")
-        None => println("parse error")
-      }
+    e => println(e)
   } noraise {
     expr => println("=> \{expr}")
   }
@@ -193,9 +171,7 @@ fn run_eval_single(source : String) -> Unit {
 
 ///|
 fn split_source_blocks(source : String) -> Array[String] {
-  if !has_block_separator(source, 0, source.length()) {
-    return [source]
-  }
+  guard has_block_separator(source, 0, source.length()) else { [source] }
   split_source_blocks_with_separator(source, 0, "", [])
 }
 
@@ -206,12 +182,11 @@ fn split_source_blocks_with_separator(
   current : String,
   acc : Array[String],
 ) -> Array[String] {
-  if i >= source.length() {
-    if is_blank_block(current, 0) {
-      return acc
+  guard i < source.length() else {
+    if !is_blank_block(current, 0) {
+      acc.push(current)
     }
-    acc.push(current)
-    return acc
+    acc
   }
   let line_end = scan_line_end(source, i)
   let has_newline = line_end < source.length() &&
