@@ -1099,6 +1099,7 @@ priv enum EvaluatedCallArg {
 ///|
 fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
   match func_value {
+    VString(prefix_or_sep) => apply_string_call(prefix_or_sep, args)
     VRecord(fields) => apply_record_with_named_args(fields, args)
     VClosure(params, body, closure_env, default_values) => {
       let call_env = bind_params(params, args, closure_env, default_values)
@@ -1111,6 +1112,49 @@ fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
     }
     VBuiltin(builtin) => apply_builtin(builtin, args)
     _ => raise call_non_function_error(func_value)
+  }
+}
+
+///|
+fn apply_string_call(
+  text : String,
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  if args.length() != 1 {
+    raise arity_error(1, args.length())
+  }
+  match args[0] {
+    EArgNamed(_, _) =>
+      raise runtime_error("string call only accepts positional arguments")
+    EArgPos(value) =>
+      match value {
+        VString(suffix) => VString(text + suffix)
+        VList(items) => VString(join_values_with_separator(items, text, 0))
+        _ =>
+          raise runtime_error(
+            "string call expected String or List, got \{typed_value_summary(value)}",
+          )
+      }
+  }
+}
+
+///|
+fn join_values_with_separator(
+  items : Array[Value],
+  separator : String,
+  i : Int,
+) -> String {
+  if i >= items.length() {
+    return ""
+  }
+  let current = match items[i] {
+    VString(text) => text
+    value => value_pretty(value, 6)
+  }
+  if i + 1 >= items.length() {
+    current
+  } else {
+    "\{current}\{separator}\{join_values_with_separator(items, separator, i + 1)}"
   }
 }
 

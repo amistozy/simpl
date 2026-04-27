@@ -206,6 +206,28 @@ test "record call rejects positional arguments" {
 }
 
 ///|
+test "string is callable: string arg means concatenation" {
+  assert_true(
+    @simpl.eval_source_is_string("\"hello \"(\"world\")", "hello world"),
+  )
+}
+
+///|
+test "string is callable: list arg means join with separator" {
+  assert_true(@simpl.eval_source_is_string("\", \"([1; 2; 3])", "1, 2, 3"))
+}
+
+///|
+test "string join on list uses raw text for string elements" {
+  assert_true(@simpl.eval_source_is_string("\",\"([\"a\"; \"b\"; 1])", "a,b,1"))
+}
+
+///|
+test "string call rejects unsupported argument type" {
+  assert_true(@simpl.eval_source_is_error("\"x\"(1)"))
+}
+
+///|
 test "function params without defaults are required" {
   let code =
     #| (fn(x; y) = x)()

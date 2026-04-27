@@ -132,6 +132,11 @@ Supported in `let`, function params, and `if is` arms:
 - `x.foo(y; z)` can resolve to `foo(x; y; z)`
 - record field lookup takes priority over UFCS fallback
 
+### String Calls
+
+- if `a` is `String`, then `a(str)` means concatenation: `a + str`
+- if `a` is `String`, then `a(list)` joins `list` items using `a` as separator
+
 ### Builtins
 
 - `ref(value)` -> reference cell
