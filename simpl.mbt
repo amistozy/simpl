@@ -573,7 +573,7 @@ fn value_pretty(value : Value, depth : Int) -> String {
     VRecord(fields) => "{\{value_record_pretty(fields, depth - 1)}}"
     VVariant(tag, payload) => "#\{tag}(\{value_pretty(payload, depth - 1)})"
     VRef(cell) => "ref(\{value_pretty(cell.val, depth - 1)})"
-    VClosure(_, _, _, _) => "<fn>"
+    VClosure(_) => "<fn>"
     VRecClosure(name, _, _, _, _, _) => "<rec \{name}>"
     VBuiltin(builtin) => "<builtin \{builtin_name(builtin)}>"
   }
@@ -1124,7 +1124,7 @@ fn apply_string_call(
     raise arity_error(1, args.length())
   }
   match args[0] {
-    EArgNamed(_, _) =>
+    EArgNamed(_) =>
       raise runtime_error("string call only accepts positional arguments")
     EArgPos(value) =>
       match value {
@@ -1198,11 +1198,8 @@ fn record_call_has_duplicate_named_arg(
     return false
   }
   match args[j] {
-    EArgPos(_) =>
-      record_call_has_duplicate_named_arg(args, name, limit_i, j + 1)
     EArgNamed(n, _) if n == name => true
-    EArgNamed(_, _) =>
-      record_call_has_duplicate_named_arg(args, name, limit_i, j + 1)
+    _ => record_call_has_duplicate_named_arg(args, name, limit_i, j + 1)
   }
 }
 
@@ -1216,29 +1213,23 @@ fn apply_builtin(
       if args.length() != 2 {
         raise arity_error(2, args.length())
       }
-      match (args[0], args[1]) {
-        (EArgNamed(_, _), _) | (_, EArgNamed(_, _)) =>
-          raise builtin_named_arg_error(builtin)
-        (EArgPos(list_value), EArgPos(func_value)) =>
-          match list_value {
-            VList(items) =>
-              match func_value {
-                VClosure(_, _, _, _)
-                | VRecClosure(_, _, _, _, _, _)
-                | VBuiltin(_) =>
-                  VList(map_list_with_func(items, func_value, 0, []))
-                _ => raise builtin_type_error("map", "Function", func_value)
-              }
-            _ => raise builtin_type_error("map", "List", list_value)
-          }
+      guard args is [EArgPos(list_value), EArgPos(func_value)] else {
+        raise builtin_named_arg_error(builtin)
       }
+      guard list_value is VList(items) else {
+        raise builtin_type_error("map", "List", list_value)
+      }
+      guard func_value is (VClosure(_) | VRecClosure(_) | VBuiltin(_)) else {
+        raise builtin_type_error("map", "Function", func_value)
+      }
+      VList(map_list_with_func(items, func_value, 0, []))
     }
     _ => {
       if args.length() != 1 {
         raise arity_error(1, args.length())
       }
       match args[0] {
-        EArgNamed(_, _) => raise builtin_named_arg_error(builtin)
+        EArgNamed(_) => raise builtin_named_arg_error(builtin)
         EArgPos(v) =>
           match builtin {
             BRef => VRef(@ref.new(v))
@@ -1311,7 +1302,7 @@ fn eval_param_defaults(params : Array[Param], env : Env) -> Array[Value?] raise 
 
 ///|
 fn eval_param_default_at_definition(param : Param, env : Env) -> Value? raise {
-  let Param(_pattern, default_expr, _name) = param
+  let Param(_, default_expr, _) = param
   match default_expr {
     Some(expr) => Some(eval_with_env(expr, env))
     None => None
@@ -1390,7 +1381,7 @@ fn bind_positional_args(
     return
   }
   match args[i] {
-    EArgNamed(_, _) =>
+    EArgNamed(_) =>
       bind_positional_args(params, args, assigned, i + 1, next_param_i)
     EArgPos(value) =>
       match find_next_unassigned_param(assigned, next_param_i) {
@@ -1427,7 +1418,7 @@ fn finalize_param_bindings(
   if i >= params.length() {
     return env
   }
-  let Param(pattern, _default_expr, _) = params[i]
+  let Param(pattern, _, _) = params[i]
   let value = match assigned[i] {
     Some(v) => v
     None =>
@@ -1551,8 +1542,8 @@ fn eval_field_call_or_ufcs(
 ///|
 fn value_is_callable(value : Value) -> Bool {
   match value {
-    VClosure(_, _, _, _) => true
-    VRecClosure(_, _, _, _, _, _) => true
+    VClosure(_) => true
+    VRecClosure(_) => true
     VBuiltin(_) => true
     _ => false
   }
@@ -1919,8 +1910,8 @@ fn value_summary(value : Value) -> String {
     VRecord(fields) => "record(\{fields.length()} fields)"
     VVariant(tag, payload) => "#\{tag}(\{value_summary(payload)})"
     VRef(_) => "ref"
-    VClosure(_, _, _, _) => "function"
-    VRecClosure(_, _, _, _, _, _) => "function"
+    VClosure(_) => "function"
+    VRecClosure(_) => "function"
     VBuiltin(_) => "function"
   }
 }
@@ -1936,8 +1927,8 @@ fn typed_value_summary(value : Value) -> String {
     VRecord(fields) => "Record(\{fields.length()} fields)"
     VVariant(tag, payload) => "Variant(#\{tag}(\{value_summary(payload)}))"
     VRef(_) => "Ref"
-    VClosure(_, _, _, _) => "Function"
-    VRecClosure(_, _, _, _, _, _) => "Function"
+    VClosure(_) => "Function"
+    VRecClosure(_) => "Function"
     VBuiltin(_) => "Function"
   }
 }
