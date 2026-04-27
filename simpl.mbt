@@ -241,28 +241,28 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
     SBoolLit(v) => v.to_string()
     SStringLit(v) => "\"\{v}\""
     SNilLit => "nil"
-    SList(items) => "[\{surface_expr_list_pretty(items, 0)}]"
+    SList(items) => "[\{surface_expr_list_pretty(items)}]"
     SVar(name) => name
-    SRecord(fields) => "{\{surface_record_fields_pretty(fields, 0)}}"
+    SRecord(fields) => "{\{surface_record_fields_pretty(fields)}}"
     SVariant(tag, value_expr) => "#\{tag}(\{surface_expr_pretty(value_expr)})"
     SIf(cases, else_expr) =>
-      "if \{surface_if_cond_arms_pretty(cases, 0)} else \{surface_expr_pretty(else_expr)} end"
+      "if \{surface_if_cond_arms_pretty(cases)} else \{surface_expr_pretty(else_expr)} end"
     SLet(pattern, value_expr, body) =>
       "let \{surface_pattern_pretty(pattern)} = \{surface_expr_pretty(value_expr)}; \{surface_expr_pretty(body)}"
     SLetAnd(bindings, body) =>
-      "let \{surface_let_bindings_pretty(bindings, 0)}; \{surface_expr_pretty(body)}"
+      "let \{surface_let_bindings_pretty(bindings)}; \{surface_expr_pretty(body)}"
     SDo(value_expr, body) =>
       "do \{surface_expr_pretty(value_expr)}; \{surface_expr_pretty(body)}"
     SLetFun(name, params, func_body, body) =>
-      "let \{name}(\{surface_param_list_pretty(params, 0)}) = \{surface_expr_pretty(func_body)}; \{surface_expr_pretty(body)}"
+      "let \{name}(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(func_body)}; \{surface_expr_pretty(body)}"
     SLetRec(name, params, func_body, body) =>
-      "let rec \{name}(\{surface_param_list_pretty(params, 0)}) = \{surface_expr_pretty(func_body)}; \{surface_expr_pretty(body)}"
+      "let rec \{name}(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(func_body)}; \{surface_expr_pretty(body)}"
     SLetRecAnd(defs, body) =>
-      "let rec \{surface_let_rec_defs_pretty(defs, 0)}; \{surface_expr_pretty(body)}"
+      "let rec \{surface_let_rec_defs_pretty(defs)}; \{surface_expr_pretty(body)}"
     SLambda(params, body) =>
-      "fn(\{surface_param_list_pretty(params, 0)}) = \{surface_expr_pretty(body)}"
+      "fn(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(body)}"
     SCall(func_expr, arg_exprs) =>
-      "\{surface_expr_pretty(func_expr)}(\{surface_call_arg_list_pretty(arg_exprs, 0)})"
+      "\{surface_expr_pretty(func_expr)}(\{surface_call_arg_list_pretty(arg_exprs)})"
     SField(target, name) => "\{surface_expr_pretty(target)}.\{name}"
     SUnary(op, one) => "\{surface_unary_op_text(op)}\{surface_expr_pretty(one)}"
     SBinary(op, left, right) =>
@@ -271,16 +271,8 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
 }
 
 ///|
-fn surface_expr_list_pretty(items : Array[SurfaceExpr], i : Int) -> String {
-  if i >= items.length() {
-    return ""
-  }
-  let current = surface_expr_pretty(items[i])
-  if i + 1 >= items.length() {
-    current
-  } else {
-    "\{current}; \{surface_expr_list_pretty(items, i + 1)}"
-  }
+fn surface_expr_list_pretty(items : Array[SurfaceExpr]) -> String {
+  items.map(surface_expr_pretty).join("; ")
 }
 
 ///|
@@ -296,16 +288,8 @@ fn surface_param_pretty(param : SurfaceParam) -> String {
 }
 
 ///|
-fn surface_param_list_pretty(params : Array[SurfaceParam], i : Int) -> String {
-  if i >= params.length() {
-    return ""
-  }
-  let current = surface_param_pretty(params[i])
-  if i + 1 >= params.length() {
-    current
-  } else {
-    "\{current}; \{surface_param_list_pretty(params, i + 1)}"
-  }
+fn surface_param_list_pretty(params : Array[SurfaceParam]) -> String {
+  params.map(surface_param_pretty).join("; ")
 }
 
 ///|
@@ -318,86 +302,54 @@ fn surface_call_arg_pretty(arg : SurfaceCallArg) -> String {
 }
 
 ///|
-fn surface_call_arg_list_pretty(
-  args : Array[SurfaceCallArg],
-  i : Int,
-) -> String {
-  if i >= args.length() {
-    return ""
-  }
-  let current = surface_call_arg_pretty(args[i])
-  if i + 1 >= args.length() {
-    current
-  } else {
-    "\{current}; \{surface_call_arg_list_pretty(args, i + 1)}"
-  }
+fn surface_call_arg_list_pretty(args : Array[SurfaceCallArg]) -> String {
+  args.map(surface_call_arg_pretty).join("; ")
 }
 
 ///|
-fn surface_record_fields_pretty(
-  fields : Array[SurfaceRecordField],
-  i : Int,
-) -> String {
-  if i >= fields.length() {
-    return ""
-  }
-  let current = match fields[i] {
-    SRecordField(name, value_expr) =>
-      "\{name} = \{surface_expr_pretty(value_expr)}"
-    SRecordShorthand(name) => name
-  }
-  if i + 1 >= fields.length() {
-    current
-  } else {
-    "\{current}; \{surface_record_fields_pretty(fields, i + 1)}"
-  }
+fn surface_record_fields_pretty(fields : Array[SurfaceRecordField]) -> String {
+  fields
+  .map(field => {
+    match field {
+      SRecordField(name, value_expr) =>
+        "\{name} = \{surface_expr_pretty(value_expr)}"
+      SRecordShorthand(name) => name
+    }
+  })
+  .join("; ")
 }
 
 ///|
-fn surface_if_cond_arms_pretty(
-  arms : Array[SurfaceIfCondArm],
-  i : Int,
-) -> String {
-  if i >= arms.length() {
-    return ""
-  }
-  let current = match arms[i] {
-    SIfCondArm(cond, arm_guard) =>
-      "\{surface_expr_pretty(cond)} \{surface_if_guard_pretty(arm_guard)}"
-  }
-  if i + 1 >= arms.length() {
-    current
-  } else {
-    "\{current} | \{surface_if_cond_arms_pretty(arms, i + 1)}"
-  }
+fn surface_if_cond_arms_pretty(arms : Array[SurfaceIfCondArm]) -> String {
+  arms
+  .map(arm => {
+    match arm {
+      SIfCondArm(cond, arm_guard) =>
+        "\{surface_expr_pretty(cond)} \{surface_if_guard_pretty(arm_guard)}"
+    }
+  })
+  .join(" | ")
 }
 
 ///|
-fn surface_if_pattern_arms_pretty(
-  arms : Array[SurfaceIfPatternArm],
-  i : Int,
-) -> String {
-  if i >= arms.length() {
-    return ""
-  }
-  let current = match arms[i] {
-    SIfPatternArm(pattern, arm_guard) =>
-      "\{surface_pattern_pretty(pattern)} \{surface_if_guard_pretty(arm_guard)}"
-  }
-  if i + 1 >= arms.length() {
-    current
-  } else {
-    "\{current} | \{surface_if_pattern_arms_pretty(arms, i + 1)}"
-  }
+fn surface_if_pattern_arms_pretty(arms : Array[SurfaceIfPatternArm]) -> String {
+  arms
+  .map(arm => {
+    match arm {
+      SIfPatternArm(pattern, arm_guard) =>
+        "\{surface_pattern_pretty(pattern)} \{surface_if_guard_pretty(arm_guard)}"
+    }
+  })
+  .join(" | ")
 }
 
 ///|
 fn surface_if_guard_pretty(arm_guard : SurfaceIfGuard) -> String {
   match arm_guard {
     SIfThen(body) => "then \{surface_expr_pretty(body)}"
-    SIfAnd(arms) => "and (\{surface_if_cond_arms_pretty(arms, 0)})"
+    SIfAnd(arms) => "and (\{surface_if_cond_arms_pretty(arms)})"
     SIfIs(value_expr, pattern_arms) =>
-      "is \{surface_expr_pretty(value_expr)} (\{surface_if_pattern_arms_pretty(pattern_arms, 0)})"
+      "is \{surface_expr_pretty(value_expr)} (\{surface_if_pattern_arms_pretty(pattern_arms)})"
   }
 }
 
@@ -409,65 +361,38 @@ fn surface_pattern_pretty(pattern : SurfacePattern) -> String {
     SPBool(v) => v.to_string()
     SPString(v) => "\"\{v}\""
     SPNil => "nil"
-    SPOr(patterns) => surface_pattern_or_pretty(patterns, 0)
+    SPOr(patterns) => surface_pattern_or_pretty(patterns)
     SPVariant(tag, inner) => "#\{tag}(\{surface_pattern_pretty(inner)})"
-    SPList(items) => "[\{surface_pattern_list_pretty(items, 0)}]"
+    SPList(items) => "[\{surface_pattern_list_pretty(items)}]"
     SPListRest(prefix, rest_name, suffix) =>
       "[\{surface_list_rest_pretty(prefix, rest_name, suffix)}]"
-    SPRecord(fields) => "{\{surface_record_pattern_fields_pretty(fields, 0)}}"
+    SPRecord(fields) => "{\{surface_record_pattern_fields_pretty(fields)}}"
   }
 }
 
 ///|
-fn surface_pattern_or_pretty(
-  patterns : Array[SurfacePattern],
-  i : Int,
-) -> String {
-  if i >= patterns.length() {
-    return ""
-  }
-  let current = surface_pattern_pretty(patterns[i])
-  if i + 1 >= patterns.length() {
-    current
-  } else {
-    "\{current} | \{surface_pattern_or_pretty(patterns, i + 1)}"
-  }
+fn surface_pattern_or_pretty(patterns : Array[SurfacePattern]) -> String {
+  patterns.map(surface_pattern_pretty).join(" | ")
 }
 
 ///|
-fn surface_pattern_list_pretty(
-  patterns : Array[SurfacePattern],
-  i : Int,
-) -> String {
-  if i >= patterns.length() {
-    return ""
-  }
-  let current = surface_pattern_pretty(patterns[i])
-  if i + 1 >= patterns.length() {
-    current
-  } else {
-    "\{current}; \{surface_pattern_list_pretty(patterns, i + 1)}"
-  }
+fn surface_pattern_list_pretty(patterns : Array[SurfacePattern]) -> String {
+  patterns.map(surface_pattern_pretty).join("; ")
 }
 
 ///|
 fn surface_record_pattern_fields_pretty(
   fields : Array[SurfaceRecordPatternField],
-  i : Int,
 ) -> String {
-  if i >= fields.length() {
-    return ""
-  }
-  let current = match fields[i] {
-    SPRecordField(name, pattern) =>
-      "\{name} = \{surface_pattern_pretty(pattern)}"
-    SPRecordShorthand(name) => name
-  }
-  if i + 1 >= fields.length() {
-    current
-  } else {
-    "\{current}; \{surface_record_pattern_fields_pretty(fields, i + 1)}"
-  }
+  fields
+  .map(field => {
+    match field {
+      SPRecordField(name, pattern) =>
+        "\{name} = \{surface_pattern_pretty(pattern)}"
+      SPRecordShorthand(name) => name
+    }
+  })
+  .join("; ")
 }
 
 ///|
@@ -476,8 +401,8 @@ fn surface_list_rest_pretty(
   rest_name : String,
   suffix : Array[SurfacePattern],
 ) -> String {
-  let prefix_text = surface_pattern_list_pretty(prefix, 0)
-  let suffix_text = surface_pattern_list_pretty(suffix, 0)
+  let prefix_text = surface_pattern_list_pretty(prefix)
+  let suffix_text = surface_pattern_list_pretty(suffix)
   if prefix.length() == 0 && suffix.length() == 0 {
     "..\{rest_name}"
   } else if prefix.length() == 0 {
@@ -492,35 +417,25 @@ fn surface_list_rest_pretty(
 ///|
 fn surface_let_bindings_pretty(
   bindings : Array[(SurfacePattern, SurfaceExpr)],
-  i : Int,
 ) -> String {
-  if i >= bindings.length() {
-    return ""
-  }
-  let (pattern, value_expr) = bindings[i]
-  let current = "\{surface_pattern_pretty(pattern)} = \{surface_expr_pretty(value_expr)}"
-  if i + 1 >= bindings.length() {
-    current
-  } else {
-    "\{current} and \{surface_let_bindings_pretty(bindings, i + 1)}"
-  }
+  bindings
+  .map(binding => {
+    let (pattern, value_expr) = binding
+    "\{surface_pattern_pretty(pattern)} = \{surface_expr_pretty(value_expr)}"
+  })
+  .join(" and ")
 }
 
 ///|
 fn surface_let_rec_defs_pretty(
   defs : Array[(String, Array[SurfaceParam], SurfaceExpr)],
-  i : Int,
 ) -> String {
-  if i >= defs.length() {
-    return ""
-  }
-  let (name, params, func_body) = defs[i]
-  let current = "\{name}(\{surface_param_list_pretty(params, 0)}) = \{surface_expr_pretty(func_body)}"
-  if i + 1 >= defs.length() {
-    current
-  } else {
-    "\{current} and \{surface_let_rec_defs_pretty(defs, i + 1)}"
-  }
+  defs
+  .map(def => {
+    let (name, params, func_body) = def
+    "\{name}(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(func_body)}"
+  })
+  .join(" and ")
 }
 
 ///|
@@ -569,7 +484,7 @@ fn value_pretty(value : Value, depth : Int) -> String {
     VBool(v) => v.to_string()
     VString(v) => "\"\{v}\""
     VNil => "nil"
-    VList(items) => "[\{value_list_pretty(items, 0, depth - 1)}]"
+    VList(items) => "[\{value_list_pretty(items, depth - 1)}]"
     VRecord(fields) => "{\{value_record_pretty(fields, depth - 1)}}"
     VVariant(tag, payload) => "#\{tag}(\{value_pretty(payload, depth - 1)})"
     VRef(cell) => "ref(\{value_pretty(cell.val, depth - 1)})"
@@ -580,16 +495,8 @@ fn value_pretty(value : Value, depth : Int) -> String {
 }
 
 ///|
-fn value_list_pretty(values : Array[Value], i : Int, depth : Int) -> String {
-  if i >= values.length() {
-    return ""
-  }
-  let current = value_pretty(values[i], depth)
-  if i + 1 >= values.length() {
-    current
-  } else {
-    "\{current}; \{value_list_pretty(values, i + 1, depth)}"
-  }
+fn value_list_pretty(values : Array[Value], depth : Int) -> String {
+  values.map(value => value_pretty(value, depth)).join("; ")
 }
 
 ///|
@@ -1012,33 +919,15 @@ fn eval_let_and_bindings(
   bindings : Array[(MatchPattern, Expr)],
   env : Env,
 ) -> Env raise {
-  let evaluated = eval_let_and_values(bindings, env, 0, [])
-  bind_let_and_values(evaluated, env, 0)
-}
-
-///|
-fn eval_let_and_values(
-  bindings : Array[(MatchPattern, Expr)],
-  env : Env,
-  i : Int,
-  acc : Array[(MatchPattern, Value)],
-) -> Array[(MatchPattern, Value)] raise {
-  guard i < bindings.length() else { acc }
-  let (pattern, value_expr) = bindings[i]
-  acc.push((pattern, eval_with_env(value_expr, env)))
-  eval_let_and_values(bindings, env, i + 1, acc)
-}
-
-///|
-fn bind_let_and_values(
-  evaluated : Array[(MatchPattern, Value)],
-  env : Env,
-  i : Int,
-) -> Env raise {
-  guard i < evaluated.length() else { env }
-  let (pattern, value) = evaluated[i]
-  let next_env = bind_pattern(pattern, value, env)
-  bind_let_and_values(evaluated, next_env, i + 1)
+  bindings
+  .map(binding => {
+    let (pattern, value_expr) = binding
+    (pattern, eval_with_env(value_expr, env))
+  })
+  .fold(init=env, (env, evaluated) => {
+    let (pattern, value) = evaluated
+    bind_pattern(pattern, value, env)
+  })
 }
 
 ///|
@@ -1046,24 +935,15 @@ fn build_rec_env(
   defs : Array[(String, Array[Param], Expr)],
   closure_env : Env,
 ) -> Env raise {
-  build_rec_env_from(defs, closure_env, closure_env, 0)
+  defs.fold(init=closure_env, (env, def) => {
+    let (name, _, _) = def
+    let closure = rec_closure_def(def, closure_env, defs)
+    env.add(name, closure)
+  })
 }
 
 ///|
-fn build_rec_env_from(
-  defs : Array[(String, Array[Param], Expr)],
-  closure_env : Env,
-  env : Env,
-  i : Int,
-) -> Env raise {
-  guard i < defs.length() else { env }
-  let (name, _, _) = defs[i]
-  let closure = rec_closure_from_def(defs[i], closure_env, defs)
-  build_rec_env_from(defs, closure_env, env.add(name, closure), i + 1)
-}
-
-///|
-fn rec_closure_from_def(
+fn rec_closure_def(
   def : (String, Array[Param], Expr),
   closure_env : Env,
   defs : Array[(String, Array[Param], Expr)],
@@ -1109,7 +989,7 @@ fn apply_string_call(
   }
   match value {
     VString(suffix) => VString(text + suffix)
-    VList(items) => VString(join_values_with_separator(items, text, 0))
+    VList(items) => VString(join_values_with_separator(items, text))
     _ =>
       runtime_error(
         "string call expected String or List, got \{typed_value_summary(value)}",
@@ -1121,18 +1001,15 @@ fn apply_string_call(
 fn join_values_with_separator(
   items : Array[Value],
   separator : String,
-  i : Int,
 ) -> String {
-  guard i < items.length() else { "" }
-  let current = match items[i] {
-    VString(text) => text
-    value => value_pretty(value, 6)
-  }
-  if i + 1 >= items.length() {
-    current
-  } else {
-    "\{current}\{separator}\{join_values_with_separator(items, separator, i + 1)}"
-  }
+  items
+  .map(item => {
+    match item {
+      VString(text) => text
+      value => value_pretty(value, 6)
+    }
+  })
+  .join(separator)
 }
 
 ///|
@@ -1140,23 +1017,15 @@ fn apply_record_with_named_args(
   fields : @hashmap.HashMap[String, Value],
   args : Array[EvaluatedCallArg],
 ) -> Value raise {
-  VRecord(apply_record_with_named_args_from(fields, args, 0))
-}
-
-///|
-fn apply_record_with_named_args_from(
-  fields : @hashmap.HashMap[String, Value],
-  args : Array[EvaluatedCallArg],
-  i : Int,
-) -> @hashmap.HashMap[String, Value] raise {
-  guard i < args.length() else { fields }
-  guard args[i] is EArgNamed(name, value) else {
-    runtime_error("record call only accepts named arguments")
-  }
-  guard !record_call_has_duplicate_named_arg(args, name, i, 0) else {
-    runtime_error("duplicate argument: \{name}")
-  }
-  apply_record_with_named_args_from(fields.add(name, value), args, i + 1)
+  VRecord <| args.foldi(init=fields, (i, fields, arg) => {
+    guard arg is EArgNamed(name, value) else {
+      runtime_error("record call only accepts named arguments")
+    }
+    guard !record_call_has_duplicate_named_arg(args, name, i, 0) else {
+      runtime_error("duplicate argument: \{name}")
+    }
+    fields.add(name, value)
+  })
 }
 
 ///|
@@ -1262,7 +1131,7 @@ fn bind_params(
   default_values : Array[Value?],
 ) -> Env raise {
   let assigned = params.map(_ => None)
-  bind_named_args(params, args, assigned, 0)
+  bind_named_args(params, args, assigned)
   bind_positional_args(params, args, assigned, 0, 0)
   let provided_count = count_assigned_values(assigned, 0, 0)
   let required_count = count_required_params(default_values, 0, 0)
@@ -1276,34 +1145,25 @@ fn bind_named_args(
   params : Array[Param],
   args : Array[EvaluatedCallArg],
   assigned : Array[Value?],
-  i : Int,
 ) -> Unit raise {
-  guard i < args.length() else {  }
-  guard args[i] is EArgNamed(name, value) else {
-    bind_named_args(params, args, assigned, i + 1)
+  for arg in args {
+    guard arg is EArgNamed(name, value) else {  }
+    guard find_param_index_by_name(params, name) is Some(param_i) else {
+      runtime_error("unknown named argument: \{name}")
+    }
+    guard assigned[param_i] is None else {
+      runtime_error("duplicate argument: \{name}")
+    }
+    assigned[param_i] = Some(value)
   }
-  guard find_param_index_by_name(params, name, 0) is Some(param_i) else {
-    runtime_error("unknown named argument: \{name}")
-  }
-  guard assigned[param_i] is None else {
-    runtime_error("duplicate argument: \{name}")
-  }
-  assigned[param_i] = Some(value)
-  bind_named_args(params, args, assigned, i + 1)
 }
 
 ///|
-fn find_param_index_by_name(
-  params : Array[Param],
-  name : String,
-  i : Int,
-) -> Int? {
-  guard i < params.length() else { None }
-  let Param(_, _, param_name) = params[i]
-  match param_name {
-    Some(n) if n == name => Some(i)
-    _ => find_param_index_by_name(params, name, i + 1)
-  }
+fn find_param_index_by_name(params : Array[Param], name : String) -> Int? {
+  params.search_by(param => {
+    let Param(_, _, param_name) = param
+    param_name is Some(n) && n == name
+  })
 }
 
 ///|
@@ -1503,7 +1363,7 @@ fn eval_if_guard(arm_guard : IfGuard, env : Env) -> Value? raise {
     IfAnd(arms) => eval_if_cond_arms_with_fallback(arms, None, env, 0)
     IfIs(value_expr, arms) => {
       let value = eval_with_env(value_expr, env)
-      eval_if_pattern_arms_with_fallback(value, arms, None, env, 0)
+      eval_if_pattern_arms_with_fallback(value, arms, None, env)
     }
   }
 }
@@ -1514,19 +1374,16 @@ fn eval_if_pattern_arms_with_fallback(
   arms : Array[IfPatternArm],
   fallback : Expr?,
   env : Env,
-  i : Int,
 ) -> Value? raise {
-  guard i < arms.length() else {
+  for arm in arms {
+    let IfPatternArm(pattern, arm_guard) = arm
+    if try_bind_pattern(pattern, value, env) is Some(bound_env) &&
+      eval_if_guard(arm_guard, bound_env) is Some(result) {
+      break Some(result)
+    }
+  } nobreak {
     fallback.map(default_expr => eval_with_env(default_expr, env))
   }
-  let IfPatternArm(pattern, arm_guard) = arms[i]
-  guard try_bind_pattern(pattern, value, env) is Some(bound_env) else {
-    eval_if_pattern_arms_with_fallback(value, arms, fallback, env, i + 1)
-  }
-  guard eval_if_guard(arm_guard, bound_env) is Some(result) else {
-    eval_if_pattern_arms_with_fallback(value, arms, fallback, env, i + 1)
-  }
-  Some(result)
 }
 
 ///|
@@ -1568,7 +1425,7 @@ fn try_bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env? {
         VNil => Some(env)
         _ => None
       }
-    POr(patterns) => try_bind_or_pattern(patterns, value, env, 0)
+    POr(patterns) => try_bind_or_pattern(patterns, value, env)
     PVariant(tag, inner) =>
       match value {
         VVariant(value_tag, payload) =>
@@ -1694,13 +1551,14 @@ fn try_bind_or_pattern(
   patterns : Array[MatchPattern],
   value : Value,
   env : Env,
-  i : Int,
 ) -> Env? {
-  guard i < patterns.length() else { None }
-  guard try_bind_pattern(patterns[i], value, env) is Some(bound_env) else {
-    try_bind_or_pattern(patterns, value, env, i + 1)
+  for pattern in patterns {
+    if try_bind_pattern(pattern, value, env) is Some(bound_env) {
+      break Some(bound_env)
+    }
+  } nobreak {
+    None
   }
-  Some(bound_env)
 }
 
 ///|
@@ -1721,35 +1579,23 @@ fn pattern_summary(pattern : MatchPattern) -> String {
     PBool(value) => value.to_string()
     PString(value) => "\"\{value}\""
     PNil => "nil"
-    POr(patterns) => join_pattern_summaries(patterns, 0)
+    POr(patterns) => join_pattern_summaries(patterns)
     PVariant(tag, inner) => "#\{tag}(\{pattern_summary(inner)})"
-    PList(items) => "[\{join_pattern_list(items, 0)}]"
+    PList(items) => "[\{join_pattern_list(items)}]"
     PListRest(prefix, rest_name, suffix) =>
       "[\{join_list_rest_pattern_parts(prefix, rest_name, suffix)}]"
-    PRecord(fields) => "{\{join_record_pattern_fields(fields, 0)}}"
+    PRecord(fields) => "{\{join_record_pattern_fields(fields)}}"
   }
 }
 
 ///|
-fn join_pattern_summaries(patterns : Array[MatchPattern], i : Int) -> String {
-  guard i < patterns.length() else { "" }
-  let current = pattern_summary(patterns[i])
-  if i + 1 >= patterns.length() {
-    current
-  } else {
-    "\{current} | \{join_pattern_summaries(patterns, i + 1)}"
-  }
+fn join_pattern_summaries(patterns : Array[MatchPattern]) -> String {
+  patterns.map(pattern_summary).join(" | ")
 }
 
 ///|
-fn join_pattern_list(patterns : Array[MatchPattern], i : Int) -> String {
-  guard i < patterns.length() else { "" }
-  let current = pattern_summary(patterns[i])
-  if i + 1 >= patterns.length() {
-    current
-  } else {
-    "\{current}; \{join_pattern_list(patterns, i + 1)}"
-  }
+fn join_pattern_list(patterns : Array[MatchPattern]) -> String {
+  patterns.map(pattern_summary).join("; ")
 }
 
 ///|
@@ -1758,9 +1604,9 @@ fn join_list_rest_pattern_parts(
   rest_name : String,
   suffix : Array[MatchPattern],
 ) -> String {
-  let prefix_text = join_pattern_list(prefix, 0)
+  let prefix_text = join_pattern_list(prefix)
   let rest_text = if rest_name == "_" { ".." } else { "..\{rest_name}" }
-  let suffix_text = join_pattern_list(suffix, 0)
+  let suffix_text = join_pattern_list(suffix)
   if prefix.length() == 0 && suffix.length() == 0 {
     rest_text
   } else if prefix.length() == 0 {
@@ -1773,21 +1619,16 @@ fn join_list_rest_pattern_parts(
 }
 
 ///|
-fn join_record_pattern_fields(
-  fields : Array[(String, MatchPattern)],
-  i : Int,
-) -> String {
-  guard i < fields.length() else { "" }
-  let (field_name, field_pattern) = fields[i]
-  let current = match field_pattern {
-    PBind(name) if name == field_name => field_name
-    _ => "\{field_name} = \{pattern_summary(field_pattern)}"
-  }
-  if i + 1 >= fields.length() {
-    current
-  } else {
-    "\{current}; \{join_record_pattern_fields(fields, i + 1)}"
-  }
+fn join_record_pattern_fields(fields : Array[(String, MatchPattern)]) -> String {
+  fields
+  .map(field => {
+    let (field_name, field_pattern) = field
+    match field_pattern {
+      PBind(name) if name == field_name => field_name
+      _ => "\{field_name} = \{pattern_summary(field_pattern)}"
+    }
+  })
+  .join("; ")
 }
 
 ///|
@@ -1797,7 +1638,7 @@ fn value_summary(value : Value) -> String {
     VBool(v) => v.to_string()
     VString(v) => "\"\{v}\""
     VNil => "nil"
-    VList(items) => "[\{join_value_list(items, 0)}]"
+    VList(items) => "[\{join_value_list(items)}]"
     VRecord(fields) => "record(\{fields.length()} fields)"
     VVariant(tag, payload) => "#\{tag}(\{value_summary(payload)})"
     VRef(_) => "ref"
@@ -1814,7 +1655,7 @@ fn typed_value_summary(value : Value) -> String {
     VBool(v) => "Bool(\{v})"
     VString(v) => "String(\"\{v}\")"
     VNil => "Nil"
-    VList(items) => "List([\{join_value_list(items, 0)}])"
+    VList(items) => "List([\{join_value_list(items)}])"
     VRecord(fields) => "Record(\{fields.length()} fields)"
     VVariant(tag, payload) => "Variant(#\{tag}(\{value_summary(payload)}))"
     VRef(_) => "Ref"
@@ -1825,14 +1666,8 @@ fn typed_value_summary(value : Value) -> String {
 }
 
 ///|
-fn join_value_list(values : Array[Value], i : Int) -> String {
-  guard i < values.length() else { "" }
-  let current = value_summary(values[i])
-  if i + 1 >= values.length() {
-    current
-  } else {
-    "\{current}; \{join_value_list(values, i + 1)}"
-  }
+fn join_value_list(values : Array[Value]) -> String {
+  values.map(value_summary).join("; ")
 }
 
 ///|
@@ -1951,8 +1786,8 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
         (VInt(a), VInt(b)) => VInt(a % b)
         _ => type_error_binary("operator '%'", "(Int, Int)", left, right)
       }
-    Eq => VBool(value_eq(left, right))
-    Ne => VBool(!value_eq(left, right))
+    Eq => VBool(left == right)
+    Ne => VBool(left != right)
     Lt =>
       match (left, right) {
         (VInt(a), VInt(b)) => VBool(a < b)
@@ -2023,49 +1858,18 @@ fn ref_binary_operator_text(op : BinOp) -> String {
 }
 
 ///|
-fn value_eq(a : Value, b : Value) -> Bool {
+impl Eq for Value with equal(a : Value, b : Value) -> Bool {
   match (a, b) {
     (VInt(x), VInt(y)) => x == y
     (VBool(x), VBool(y)) => x == y
     (VString(x), VString(y)) => x == y
     (VNil, VNil) => true
-    (VList(x), VList(y)) => list_eq(x, y)
-    (VRecord(x), VRecord(y)) => record_eq(x, y)
+    (VList(x), VList(y)) => x == y
+    (VRecord(x), VRecord(y)) => x == y
     (VVariant(tag1, value1), VVariant(tag2, value2)) =>
-      tag1 == tag2 && value_eq(value1, value2)
+      tag1 == tag2 && value1 == value2
     _ => false
   }
-}
-
-///|
-fn record_eq(
-  left : @hashmap.HashMap[String, Value],
-  right : @hashmap.HashMap[String, Value],
-) -> Bool {
-  guard left.length() == right.length() else { false }
-  left.fold(init=true, (acc, name, value) => {
-    if !acc {
-      false
-    } else {
-      match right.get(name) {
-        Some(other) => value_eq(value, other)
-        None => false
-      }
-    }
-  })
-}
-
-///|
-fn list_eq(left : Array[Value], right : Array[Value]) -> Bool {
-  guard left.length() == right.length() else { false }
-  list_eq_from(left, right, 0)
-}
-
-///|
-fn list_eq_from(left : Array[Value], right : Array[Value], i : Int) -> Bool {
-  guard i < left.length() else { true }
-  guard value_eq(left[i], right[i]) else { false }
-  list_eq_from(left, right, i + 1)
 }
 
 ///|
