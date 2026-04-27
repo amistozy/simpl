@@ -73,7 +73,7 @@ let name = "Alice";
 
 ## 5. Precedence Note
 
-`$` binds before binary operators. So:
+Trailing application has very low precedence, so:
 
 ```simpl
 "value=" $1 + 2
@@ -82,10 +82,11 @@ let name = "Alice";
 is interpreted like:
 
 ```simpl
-("value=" ($1)) + 2
+"value="($1 + 2)
 ```
 
-This leads to a type error (`String + Int`). Use parentheses when needed:
+This still leads to a type error (`String + Int`) inside the argument expression (`$1 + 2`).
+Use parentheses to convert the full arithmetic expression first:
 
 ```simpl
 "value=" $(1 + 2)
