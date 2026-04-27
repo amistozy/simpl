@@ -407,6 +407,13 @@ test "map applies function to each list element" {
 }
 
 ///|
+test "map accepts any callable value as second argument" {
+  let code =
+    #| ["a"; "b"].map("c") == ["ca"; "cb"]
+  assert_true(@simpl.eval_source_is_bool(code, true))
+}
+
+///|
 test "map validates argument types" {
   assert_eq(
     @simpl.eval_error_text("map(1; fn(x) = x)"),
@@ -414,7 +421,7 @@ test "map validates argument types" {
   )
   assert_eq(
     @simpl.eval_error_text("map([1]; 1)"),
-    Some("builtin 'map' expected Function, got Int(1) at 1:1-12"),
+    Some("builtin 'map' expected Callable, got Int(1) at 1:1-12"),
   )
 }
 

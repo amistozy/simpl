@@ -1214,10 +1214,10 @@ fn apply_builtin(
       guard list_value is VList(items) else {
         builtin_type_error("map", "List", list_value)
       }
-      guard func_value is (VClosure(_) | VRecClosure(_) | VBuiltin(_)) else {
-        builtin_type_error("map", "Function", func_value)
+      guard value_is_callable(func_value) else {
+        builtin_type_error("map", "Callable", func_value)
       }
-      VList(map_list_with_func(items, func_value, 0, []))
+      VList(items.map(item => apply(func_value, [EArgPos(item)])))
     }
     _ => {
       if args.length() != 1 {
@@ -1245,21 +1245,6 @@ fn apply_builtin(
       }
     }
   }
-}
-
-///|
-fn map_list_with_func(
-  items : Array[Value],
-  func_value : Value,
-  i : Int,
-  acc : Array[Value],
-) -> Array[Value] raise {
-  if i >= items.length() {
-    return acc
-  }
-  let mapped = apply(func_value, [EArgPos(items[i])])
-  acc.push(mapped)
-  map_list_with_func(items, func_value, i + 1, acc)
 }
 
 ///|
@@ -1537,6 +1522,8 @@ fn eval_field_call_or_ufcs(
 ///|
 fn value_is_callable(value : Value) -> Bool {
   match value {
+    VString(_) => true
+    VRecord(_) => true
     VClosure(_) => true
     VRecClosure(_) => true
     VBuiltin(_) => true
