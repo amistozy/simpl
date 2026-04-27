@@ -73,23 +73,24 @@ let name = "Alice";
 
 ## 5. Precedence Note
 
-Trailing application has very low precedence, so:
+Interpolation relies on **trailing application** (`f x`), and trailing application is parsed at a very low precedence level.
+
+In practice:
+
+- `"value=" $1 + 2` is parsed as `"value="($1 + 2)`.
+- The `+` stays inside the argument expression.
+- So the error comes from evaluating `$1 + 2` (`String + Int`), not from an outer `("value=" ...) + 2` shape.
+
+Use explicit grouping when mixing interpolation and arithmetic:
 
 ```simpl
-"value=" $1 + 2
+"value=" $(1 + 2)   // ok => "value=3"
 ```
 
-is interpreted like:
+If you only want to insert one value, `$` can stay local:
 
 ```simpl
-"value="($1 + 2)
-```
-
-This still leads to a type error (`String + Int`) inside the argument expression (`$1 + 2`).
-Use parentheses to convert the full arithmetic expression first:
-
-```simpl
-"value=" $(1 + 2)
+"value=" $1         // "value=1"
 ```
 
 ## 6. Common Errors
