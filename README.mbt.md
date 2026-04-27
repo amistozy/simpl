@@ -136,6 +136,7 @@ Supported in `let`, function params, and `if is` arms:
 
 - if `a` is `String`, then `a(str)` means concatenation: `a + str`
 - if `a` is `String`, then `a(list)` joins `list` items using `a` as separator
+- interpolation style is expression-based (see `docs/syntax/STRING_INTERPOLATION.md`)
 
 ### Builtins
 
@@ -223,6 +224,7 @@ let value = @simpl.eval_source(
 - `docs/syntax/FUNCTION_SYNTAX.md`: detailed function syntax notes
 - `docs/syntax/SEMICOLON_SYNTAX.md`: detailed semicolon syntax notes
 - `docs/syntax/EQUALS_SYNTAX.md`: detailed `=` syntax notes
+- `docs/syntax/STRING_INTERPOLATION.md`: detailed current string interpolation behavior
 - `editors/vscode-simpl`: VS Code syntax-highlighting extension for `.simpl`
 
 ## Development Notes
