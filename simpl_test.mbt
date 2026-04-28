@@ -529,6 +529,30 @@ test "int call on function requires arity 0 or 1" {
 }
 
 ///|
+test "list call on function maps each element and collects results" {
+  assert_true(
+    @simpl.eval_source_is_bool("[1; 2; 3](fn(x) = x * 2) == [2; 4; 6]", true),
+  )
+  assert_true(
+    @simpl.eval_source_is_bool(
+      "[1; 2](fn(x) = [x; x + 10]) == [1; 11; 2; 12]", true,
+    ),
+  )
+}
+
+///|
+test "list call validates function argument and arity" {
+  assert_eq(
+    @simpl.eval_error_text("[1](1)"),
+    Some("list call expected Function, got Int(1) at 1:1-7"),
+  )
+  assert_eq(
+    @simpl.eval_error_text("[1](fn() = 1)"),
+    Some("list call function expected 1 parameter, got 0 at 1:1-14"),
+  )
+}
+
+///|
 test "unary type error reports expected and actual value" {
   assert_eq(
     @simpl.eval_error_text("-true"),

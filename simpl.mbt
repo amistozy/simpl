@@ -977,6 +977,7 @@ priv enum EvaluatedCallArg {
 fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
   match func_value {
     VInt(times) => apply_int_call(times, args)
+    VList(items) => apply_list_call(items, args)
     VString(prefix_or_sep) => apply_string_call(prefix_or_sep, args)
     VRecord(fields) => apply_record_with_named_args(fields, args)
     VClosure(params, body, closure_env, default_values) => {
@@ -991,6 +992,36 @@ fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
     VBuiltin(builtin) => apply_builtin(builtin, args)
     _ => call_non_function_error(func_value)
   }
+}
+
+///|
+fn apply_list_call(
+  items : Array[Value],
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  guard args.length() == 1 else { arity_error(1, args.length()) }
+  guard args is [EArgPos(func_value)] else {
+    runtime_error("list call only accepts positional arguments")
+  }
+  guard value_is_function(func_value) else {
+    runtime_error(
+      "list call expected Function, got \{typed_value_summary(func_value)}",
+    )
+  }
+  guard function_param_count(func_value) is Some(param_count) else {
+    runtime_error(
+      "list call expected Function, got \{typed_value_summary(func_value)}",
+    )
+  }
+  guard param_count == 1 else {
+    runtime_error("list call function expected 1 parameter, got \{param_count}")
+  }
+
+  let acc = []
+  for item in items {
+    append_result(acc, apply(func_value, [EArgPos(item)]))
+  }
+  VList(acc)
 }
 
 ///|
@@ -1044,7 +1075,6 @@ fn repeat_function_results(
       append_result(acc, apply(func_value, []))
     }
   }
-
   acc
 }
 
