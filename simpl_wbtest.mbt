@@ -182,16 +182,20 @@ test "parser supports fn param shorthand without parentheses" {
 }
 
 ///|
-test "parser lowers with(params) sugar to call with trailing lambda arg" {
+test "parser preserves with(params) sugar in surface ast" {
   match parse("with(v) = use(41); v + 1") {
     SLocated(
       _,
-      SCall(
-        SLocated(_, SVar("use")),
-        [
-          SArgPos(SLocated(_, SIntLit(41))),
-          SArgPos(SLocated(_, SLambda([SParam(SPBind("v"), None)], _))),
-        ]
+      SWith(
+        [SParam(SPBind("v"), None)],
+        SLocated(
+          _,
+          SCall(SLocated(_, SVar("use")), [SArgPos(SLocated(_, SIntLit(41)))])
+        ),
+        SLocated(
+          _,
+          SBinary(Add, SLocated(_, SVar("v")), SLocated(_, SIntLit(1)))
+        )
       )
     ) => assert_true(true)
     _ => assert_true(false)
@@ -199,13 +203,14 @@ test "parser lowers with(params) sugar to call with trailing lambda arg" {
 }
 
 ///|
-test "parser lowers with foo(...); ... sugar to zero-arg lambda" {
+test "parser preserves with foo(...); ... sugar in surface ast" {
   match parse("with run(); 42") {
     SLocated(
       _,
-      SCall(
-        SLocated(_, SVar("run")),
-        [SArgPos(SLocated(_, SLambda([], SLocated(_, SIntLit(42)))))]
+      SWith(
+        [],
+        SLocated(_, SCall(SLocated(_, SVar("run")), [])),
+        SLocated(_, SIntLit(42))
       )
     ) => assert_true(true)
     _ => assert_true(false)

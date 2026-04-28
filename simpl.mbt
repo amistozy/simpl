@@ -17,6 +17,7 @@ enum SurfaceExpr {
   SLetFun(String, Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
   SLetRec(String, Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
   SLetRecAnd(Array[(String, Array[SurfaceParam], SurfaceExpr)], SurfaceExpr)
+  SWith(Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
   SLambda(Array[SurfaceParam], SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceCallArg])
   SField(SurfaceExpr, String)
@@ -250,6 +251,8 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
       "let rec \{name}(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(func_body)}; \{surface_expr_pretty(body)}"
     SLetRecAnd(defs, body) =>
       "let rec \{surface_let_rec_defs_pretty(defs)}; \{surface_expr_pretty(body)}"
+    SWith(params, target_expr, body) =>
+      "with(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(target_expr)}; \{surface_expr_pretty(body)}"
     SLambda(params, body) =>
       "fn(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(body)}"
     SCall(func_expr, arg_exprs) =>
@@ -561,6 +564,11 @@ fn desugar(expr : SurfaceExpr) -> Expr {
       )
     SLetRecAnd(defs, body) =>
       LetRecAnd(defs.map(def => desugar_let_rec_def(def)), desugar(body))
+    SWith(params, target_expr, body) =>
+      append_trailing_arg_core(
+        desugar(target_expr),
+        Lambda(params.map(param => desugar_param(param)), desugar(body)),
+      )
     SLambda(params, body) =>
       Lambda(params.map(param => desugar_param(param)), desugar(body))
     SCall(func_expr, arg_exprs) =>
@@ -568,6 +576,16 @@ fn desugar(expr : SurfaceExpr) -> Expr {
     SField(target, name) => Field(desugar(target), name)
     SUnary(op, one) => Unary(op, desugar(one))
     SBinary(op, left, right) => Binary(op, desugar(left), desugar(right))
+  }
+}
+
+///|
+fn append_trailing_arg_core(target_expr : Expr, arg_expr : Expr) -> Expr {
+  match target_expr {
+    Located(span, inner) =>
+      Located(span, append_trailing_arg_core(inner, arg_expr))
+    Call(func_expr, args) => Call(func_expr, args + [ArgPos(arg_expr)])
+    _ => Call(target_expr, [ArgPos(arg_expr)])
   }
 }
 

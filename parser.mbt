@@ -1050,7 +1050,7 @@ fn parse_with_expr(
       syntax_error_at(tokens, j, "expected '=' after with params")
     }
     let (target_expr, k) = parse_expr(tokens, j + 1)
-    return parse_with_apply(tokens, i, params, target_expr, k)
+    return parse_with_apply(tokens, i - 1, params, target_expr, k)
   }
   if can_start_pattern(token_kind(tokens, i)) {
     let (pattern, j) = parse_pattern(tokens, i)
@@ -1058,7 +1058,7 @@ fn parse_with_expr(
       let (target_expr, k) = parse_expr(tokens, j + 1)
       return parse_with_apply(
         tokens,
-        i,
+        i - 1,
         [SParam(pattern, None)],
         target_expr,
         k,
@@ -1066,7 +1066,7 @@ fn parse_with_expr(
     }
   }
   let (target_expr, j) = parse_expr(tokens, i)
-  parse_with_apply(tokens, i, [], target_expr, j)
+  parse_with_apply(tokens, i - 1, [], target_expr, j)
 }
 
 ///|
@@ -1081,8 +1081,7 @@ fn parse_with_apply(
     syntax_error_at(tokens, i, "expected ';' after with target expression")
   }
   let (body, k) = parse_expr(tokens, i + 1)
-  let lambda = located_expr(tokens, start_i, k, SLambda(params, body))
-  (append_trailing_arg(target_expr, lambda, tokens, k), k)
+  (located_expr(tokens, start_i, k, SWith(params, target_expr, body)), k)
 }
 
 ///|
