@@ -1665,6 +1665,20 @@ fn join_value_list(values : Array[Value]) -> String {
 }
 
 ///|
+fn value_list_is_nil_only(items : Array[Value]) -> Bool {
+  items.all(value_is_nil_or_nil_only_list)
+}
+
+///|
+pub fn value_is_nil_or_nil_only_list(value : Value) -> Bool {
+  match value {
+    VNil => true
+    VList(items) => value_list_is_nil_only(items)
+    _ => false
+  }
+}
+
+///|
 fn unknown_source_span() -> SourceSpan {
   ((0, 1, 1), (0, 1, 1))
 }

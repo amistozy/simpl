@@ -165,8 +165,18 @@ fn run_eval_single(source : String) -> Unit {
   try @lib.eval_source(source) catch {
     e => println(e)
   } noraise {
-    value => println("=> \{value}")
+    value =>
+      if should_hide_eval_result(value) {
+        println("=>")
+      } else {
+        println("=> \{value}")
+      }
   }
+}
+
+///|
+fn should_hide_eval_result(value : @lib.Value) -> Bool {
+  @lib.value_is_nil_or_nil_only_list(value)
 }
 
 ///|

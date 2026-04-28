@@ -28,6 +28,8 @@ pub fn parse_is_error(String) -> Bool
 
 pub fn parse_is_ok(String) -> Bool
 
+pub fn value_is_nil_or_nil_only_list(Value) -> Bool
+
 // Errors
 type ParseError derive(@debug.Debug)
 
