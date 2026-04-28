@@ -4,7 +4,7 @@ This note explains the real composition model behind `with`, `int(func)`, and `l
 
 ## 1. Core Truth About `with`
 
-`with` is call sugar, not `let` sugar.
+`with` is a call sugar.
 
 - `with(params) = target; body` => `target(fn(params) = body)`
 - `with x = target; body` => `target(fn(x) = body)`
