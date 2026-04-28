@@ -44,22 +44,6 @@ Install the extension directly from the extension folder (no packaging required)
 2. Run `Developer: Install Extension from Location...`.
 3. Select the `editors/vscode-simpl` directory.
 
-## Build and Package
-
-```powershell
-cd editors/vscode-simpl
-npm install
-npm run package
-```
-
-Alternative command:
-
-```powershell
-cd editors/vscode-simpl
-npm install
-npx @vscode/vsce package
-```
-
 ## Development Notes
 
 - Extension manifest: `package.json`
