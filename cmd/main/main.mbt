@@ -145,36 +145,30 @@ fn run_eval_blocks(source : String) -> Unit {
 ///|
 fn run_blocks(
   blocks : Array[SourceBlock],
-  runner : (SourceBlock) -> Unit,
+  runner : (String) -> Unit raise,
 ) -> Unit {
   for block in blocks {
-    runner(block)
+    let SourceBlock(source, line_offset) = block
+    runner(source) catch {
+      e => println(@lib.format_error(e, line_offset))
+    }
     println("")
   }
 }
 
 ///|
-fn run_parse_single(block : SourceBlock) -> Unit {
-  let SourceBlock(source, line_offset) = block
-  try @lib.parse(source) catch {
-    e => println(@lib.format_error(e, line_offset))
-  } noraise {
-    expr => println("=> \{expr}")
-  }
+fn run_parse_single(source : String) -> Unit raise {
+  let expr = @lib.parse(source)
+  println("=> \{expr}")
 }
 
 ///|
-fn run_eval_single(block : SourceBlock) -> Unit {
-  let SourceBlock(source, line_offset) = block
-  try @lib.eval_source(source) catch {
-    e => println(@lib.format_error(e, line_offset))
-  } noraise {
-    value =>
-      if should_hide_eval_result(value) {
-        println("=>")
-      } else {
-        println("=> \{value}")
-      }
+fn run_eval_single(source : String) -> Unit raise {
+  let value = @lib.eval_source(source)
+  if should_hide_eval_result(value) {
+    println("=>")
+  } else {
+    println("=> \{value}")
   }
 }
 
