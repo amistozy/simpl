@@ -1081,6 +1081,7 @@ fn repeat_function_results(
 ///|
 fn append_result(acc : Array[Value], result : Value) -> Unit {
   match result {
+    VNil => ()
     VList(items) => acc.append(items)
     _ => acc.push(result)
   }

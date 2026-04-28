@@ -518,6 +518,7 @@ test "int call on function collects results into list" {
       "3(fn(i) = [i; i + 10]) == [0; 10; 1; 11; 2; 12]", true,
     ),
   )
+  assert_true(@simpl.eval_source_is_bool("3(fn(i) = nil) == []", true))
 }
 
 ///|
@@ -538,6 +539,7 @@ test "list call on function maps each element and collects results" {
       "[1; 2](fn(x) = [x; x + 10]) == [1; 11; 2; 12]", true,
     ),
   )
+  assert_true(@simpl.eval_source_is_bool("[1; 2](fn(x) = nil) == []", true))
 }
 
 ///|
