@@ -53,6 +53,11 @@ priv enum SourceInput {
 }
 
 ///|
+priv enum SourceBlock {
+  SourceBlock(String, Int)
+}
+
+///|
 fn run_cli(command : @argparse.Command, matches : @argparse.Matches) -> Unit {
   let parse_only = flag_enabled(matches, "parse")
   match choose_source(matches) {
@@ -129,41 +134,40 @@ fn first_arg_value(values : Array[String]) -> String? {
 
 ///|
 fn run_parse_blocks(source : String) -> Unit {
-  run_blocks(split_source_blocks(source), 0, run_parse_single)
+  source |> split_source_blocks |> run_blocks(run_parse_single)
 }
 
 ///|
 fn run_eval_blocks(source : String) -> Unit {
-  run_blocks(split_source_blocks(source), 0, run_eval_single)
+  source |> split_source_blocks |> run_blocks(run_eval_single)
 }
 
 ///|
 fn run_blocks(
-  blocks : Array[String],
-  i : Int,
-  runner : (String) -> Unit,
+  blocks : Array[SourceBlock],
+  runner : (SourceBlock) -> Unit,
 ) -> Unit {
-  guard i < blocks.length() else {  }
-  runner(blocks[i])
-  if i + 1 < blocks.length() {
+  for block in blocks {
+    runner(block)
     println("")
   }
-  run_blocks(blocks, i + 1, runner)
 }
 
 ///|
-fn run_parse_single(source : String) -> Unit {
+fn run_parse_single(block : SourceBlock) -> Unit {
+  let SourceBlock(source, line_offset) = block
   try @lib.parse(source) catch {
-    e => println(e)
+    e => println(@lib.format_error(e, line_offset))
   } noraise {
     expr => println("=> \{expr}")
   }
 }
 
 ///|
-fn run_eval_single(source : String) -> Unit {
+fn run_eval_single(block : SourceBlock) -> Unit {
+  let SourceBlock(source, line_offset) = block
   try @lib.eval_source(source) catch {
-    e => println(e)
+    e => println(@lib.format_error(e, line_offset))
   } noraise {
     value =>
       if should_hide_eval_result(value) {
@@ -180,9 +184,11 @@ fn should_hide_eval_result(value : @lib.Value) -> Bool {
 }
 
 ///|
-fn split_source_blocks(source : String) -> Array[String] {
-  guard has_block_separator(source, 0, source.length()) else { [source] }
-  split_source_blocks_with_separator(source, 0, "", [])
+fn split_source_blocks(source : String) -> Array[SourceBlock] {
+  guard has_block_separator(source, 0, source.length()) else {
+    [SourceBlock(source, 0)]
+  }
+  split_source_blocks_with_separator(source, 0, "", [], 1, 1)
 }
 
 ///|
@@ -190,11 +196,13 @@ fn split_source_blocks_with_separator(
   source : String,
   i : Int,
   current : String,
-  acc : Array[String],
-) -> Array[String] {
+  acc : Array[SourceBlock],
+  line_no : Int,
+  block_start_line : Int,
+) -> Array[SourceBlock] {
   guard i < source.length() else {
     if !is_blank_block(current, 0) {
-      acc.push(current)
+      acc.push(SourceBlock(current, block_start_line - 1))
     }
     acc
   }
@@ -205,9 +213,16 @@ fn split_source_blocks_with_separator(
   let next_i = if has_newline { line_end + 1 } else { line_end }
   if is_block_separator_line(line_no_newline, 0, 0, false) {
     if !is_blank_block(current, 0) {
-      acc.push(current)
+      acc.push(SourceBlock(current, block_start_line - 1))
     }
-    return split_source_blocks_with_separator(source, next_i, "", acc)
+    return split_source_blocks_with_separator(
+      source,
+      next_i,
+      "",
+      acc,
+      line_no + 1,
+      line_no + 1,
+    )
   }
   let line_with_newline = if has_newline {
     source[i:next_i].to_string()
@@ -219,6 +234,8 @@ fn split_source_blocks_with_separator(
     next_i,
     current + line_with_newline,
     acc,
+    line_no + 1,
+    block_start_line,
   )
 }
 

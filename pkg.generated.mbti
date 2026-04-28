@@ -18,7 +18,7 @@ pub fn eval_source_is_int(String, Int) -> Bool
 
 pub fn eval_source_is_string(String, String) -> Bool
 
-pub fn format_parse_error(ParseError) -> String
+pub fn format_error(Error, Int) -> String
 
 pub fn parse(String) -> SurfaceExpr raise
 

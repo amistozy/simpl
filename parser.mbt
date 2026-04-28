@@ -72,16 +72,6 @@ priv enum Token {
 } derive(Eq)
 
 ///|
-impl Show for ParseError with output(self : ParseError, logger : &Logger) -> Unit {
-  match self {
-    SyntaxErrorAt(message, span) =>
-      logger.write_string(
-        "parse error: \{message} at \{format_source_span(span)}",
-      )
-  }
-}
-
-///|
 pub fn parse(source : String) -> SurfaceExpr raise {
   let tokens = lex(source)
   let (expr, i) = parse_expr(tokens, 0)
@@ -121,9 +111,11 @@ pub fn eval_source(source : String) -> Value raise {
 }
 
 ///|
-pub fn format_parse_error(error : ParseError) -> String {
+pub fn format_error(error : Error, line_offset : Int) -> String {
   match error {
-    SyntaxErrorAt(message, span) => "\{message} at \{format_source_span(span)}"
+    SyntaxErrorAt(message, span) | RuntimeErrorAt(message, span) =>
+      "\{message} at \{format_source_span(span, line_offset)}"
+    _ => error.to_string()
   }
 }
 
@@ -131,7 +123,7 @@ pub fn format_parse_error(error : ParseError) -> String {
 pub fn parse_error_text(source : String) -> String? {
   try parse(source) catch {
     SyntaxErrorAt(message, span) =>
-      Some("\{message} at \{format_source_span(span)}")
+      Some("\{message} at \{format_source_span(span, 0)}")
     _ => None
   } noraise {
     _ => None
@@ -543,14 +535,16 @@ fn eof_span(tokens : Array[SpannedToken]) -> SourceSpan {
 }
 
 ///|
-fn format_source_span(span : SourceSpan) -> String {
+fn format_source_span(span : SourceSpan, line_offset : Int) -> String {
   let (start, end_) = span
   let (_, start_line, start_column) = start
   let (_, end_line, end_column) = end_
-  if start_line == end_line {
-    "\{start_line}:\{start_column}-\{end_column}"
+  let adjusted_start_line = start_line + line_offset
+  let adjusted_end_line = end_line + line_offset
+  if adjusted_start_line == adjusted_end_line {
+    "\{adjusted_start_line}:\{start_column}-\{end_column}"
   } else {
-    "\{start_line}:\{start_column}-\{end_line}:\{end_column}"
+    "\{adjusted_start_line}:\{start_column}-\{adjusted_end_line}:\{end_column}"
   }
 }
 
