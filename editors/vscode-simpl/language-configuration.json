@@ -14,7 +14,9 @@
     ]
   ],
   "comments": {
-    "lineComment": "--"
+    "lineComment": {
+      "comment": "--"
+    }
   },
   "autoClosingPairs": [
     {
