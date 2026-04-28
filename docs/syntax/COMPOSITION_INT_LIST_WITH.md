@@ -1,20 +1,20 @@
 # Composing `int(func)`, `list(func)`, and `with` in Simpl
 
-This note explains the real composition model behind `with`, `int(func)`, and `list(func)`.
+This guide shows how to combine `with`, `int(func)`, and `list(func)` in everyday Simpl code.
 
-## 1. Core Truth About `with`
+## 1. `with` at a Glance
 
-`with` is a call sugar.
+`with` is call sugar.
 
 - `with(params) = target; body` => `target(fn(params) = body)`
 - `with x = target; body` => `target(fn(x) = body)`
 - `with target; body` => `target(fn() = body)`
 
-So `with` always appends a lambda as a trailing argument to a target expression.
+In practice, `with i = 2;` can be read as introducing the name `i` for the following expression.
 
-## 2. Why Your Examples Are Interesting
+## 2. Examples
 
-## 2.1 Example A
+## 2.1 Cross combinations with two `with` bindings
 
 ```simpl
 with msg = ["Hi"; "Bye"];
@@ -22,9 +22,7 @@ with name = ["Alice"; "Bob"; "Mary"];
 say msg", "name"!"
 ```
 
-This is not two nested `let`s.
-
-It is equivalent in shape to:
+Expanded shape:
 
 ```simpl
 ["Hi"; "Bye"](fn(msg) =
@@ -33,8 +31,6 @@ It is equivalent in shape to:
   )
 )
 ```
-
-Because list call applies the function to each element and collects results, this becomes a compact cross-combination style pattern.
 
 Output:
 
@@ -48,20 +44,18 @@ Bye, Mary!
 =>
 ```
 
-## 2.2 Example B
+## 2.2 Repeating side effects with `with target; body`
 
 ```simpl
 with 3;
 say "hello"
 ```
 
-Equivalent shape:
+Expanded shape:
 
 ```simpl
 3(fn() = say "hello")
 ```
-
-Since `int(func)` with a zero-arg function runs it `n` times, this executes `say "hello"` three times.
 
 Output:
 
@@ -72,7 +66,7 @@ hello
 =>
 ```
 
-## 2.3 Example C (chained `with` + interpolation)
+## 2.3 Chained values + interpolation
 
 ```simpl
 with i = 2;
@@ -80,7 +74,7 @@ with j = 3;
 $i"+"$j"="$(i + j)
 ```
 
-Equivalent shape:
+Expanded shape:
 
 ```simpl
 2(fn(i) =
@@ -89,8 +83,6 @@ Equivalent shape:
   )
 )
 ```
-
-This demonstrates that `with` can pass values through nested lambdas, while string-call chaining keeps expression-style interpolation concise.
 
 Output:
 
