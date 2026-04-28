@@ -205,7 +205,6 @@ type Env = @hashmap.HashMap[String, Value]
 ///|
 priv enum Builtin {
   BRef
-  BPrint
   BSay
   BMap
 } derive(Debug)
@@ -530,7 +529,7 @@ fn initial_env() -> Env {
 
 ///|
 fn builtin_bindings() -> Array[(String, Builtin)] {
-  [("ref", BRef), ("print", BPrint), ("say", BSay), ("map", BMap)]
+  [("ref", BRef), ("say", BSay), ("map", BMap)]
 }
 
 ///|
@@ -1066,15 +1065,11 @@ fn apply_builtin(
       guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
       match builtin {
         BRef => VRef(@ref.new(v))
-        BPrint => {
-          println(value_pretty(v, 6))
-          VNil
-        }
         BSay => {
-          guard v is VString(text) else {
-            builtin_type_error("say", "String", v)
+          match v {
+            VString(text) => println(text)
+            _ => println(v)
           }
-          println(text)
           VNil
         }
         _ => runtime_error("unknown builtin")
@@ -1094,7 +1089,6 @@ fn[T] builtin_named_arg_error(builtin : Builtin) -> T raise {
 fn builtin_name(builtin : Builtin) -> String {
   match builtin {
     BRef => "ref"
-    BPrint => "print"
     BSay => "say"
     BMap => "map"
   }
@@ -1740,7 +1734,11 @@ fn eval_unary(op : UnOp, value : Value) -> Value raise {
         VRef(cell) => cell.val
         _ => VBool(!truthy(value))
       }
-    Dollar => VString(value_pretty(value, 6))
+    Dollar =>
+      match value {
+        VString(v) => VString(v)
+        _ => VString(value.to_string())
+      }
   }
 }
 

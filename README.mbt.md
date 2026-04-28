@@ -80,7 +80,7 @@ moon run cmd/main -- examples/basic.simpl
 - Arithmetic: `+ - * / %`
 - Comparison: `== != < <= > >=`
 - Boolean: `&& ||` (short-circuit, returns operand values)
-- Unary: `-` (negate), `!` (not/deref), `$` (to display string)
+- Unary: `-` (negate), `!` (not/deref), `$` (to string)
 
 Runtime notes:
 
@@ -137,7 +137,7 @@ Simpl has no dedicated template string syntax. Interpolation is expression-based
 
 - If `a` is `String`, `a(str)` means concatenation
 - If `a` is `String`, `a(list)` joins list items with `a` as separator
-- `$expr` converts a value to its display string
+- `$expr` converts a value to string (`$"text"` returns `"text"` without extra quotes)
 
 Example:
 
@@ -150,8 +150,7 @@ name" is "$age" years old"
 ### Builtins
 
 - `ref(value)`: reference cell
-- `print(value)`: prints value and returns `nil`
-- `say(string)`: prints raw string text and returns `nil`
+- `say(value)`: prints a value and returns `nil` (strings are printed as raw text)
 - `map(list; f)`: maps a function over a list
 
 Builtins do not accept named arguments.

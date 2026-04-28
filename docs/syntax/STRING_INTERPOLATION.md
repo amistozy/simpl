@@ -6,7 +6,7 @@ Simpl does not have a dedicated template string syntax. Instead, interpolation i
 
 - trailing application (`f x`)
 - string-call semantics (`"a"(...)`)
-- unary `$` (value to display string)
+- unary `$` (value to interpolation text)
 
 ## 1. Core Idea
 
@@ -42,36 +42,52 @@ let name = "Carol";
 
 ## 3. What `$` Does
 
-`$expr` converts a value to Simpl's display string (pretty form).
+`$expr` converts a value to interpolation text.
+
+Rule:
+
+- if `expr` is a `String`, `$expr` returns that string unchanged
+- otherwise, `$expr` uses Simpl's pretty display form
 
 ```simpl
 $1          // "1"
 $true       // "true"
 $[1; 2]     // "[1; 2]"
 ${x; y}     // "{x = 1; y = 2}"   (if x,y are in scope)
+$"moon"     // "moon"
 ```
 
 Grouping forms such as `$(...)`, `$[...]`, and `${...}` work because `$` is a unary operator applied to the next expression.
 
 ## 4. Important Difference: String Values
 
-`$` on a string includes quotes in the output, because it uses display formatting:
+`$` on a string now keeps plain text (no extra quotes):
 
 ```simpl
 let name = "Alice";
 "hello "$name
-// => "hello "Alice""
+// => "hello Alice"
 ```
 
-For plain text insertion of an existing string variable, pass the string directly (without `$`):
+So both of these are equivalent for string values:
 
 ```simpl
 let name = "Alice";
 "hello "name
+"hello "$name
 // => "hello Alice"
 ```
 
-## 5. Precedence Note
+## 5. `say` Uses The Same Conversion
+
+`say(value)` and `$value` share the same string conversion logic:
+
+- strings print as raw text
+- non-strings use pretty display text
+
+So interpolation and output stay consistent.
+
+## 6. Precedence Note
 
 Interpolation relies on **trailing application** (`f x`), and trailing application is parsed at a very low precedence level.
 
@@ -93,7 +109,7 @@ If you only want to insert one value, `$` can stay local:
 "value=" $1         // "value=1"
 ```
 
-## 6. Common Errors
+## 7. Common Errors
 
 Passing a non-string/non-list directly to a string call:
 
@@ -107,9 +123,9 @@ Runtime error:
 string call expected String or List, got Int(1)
 ```
 
-## 7. Summary
+## 8. Summary
 
 - Interpolation is expression-based, not template-literal-based.
 - Use direct string chaining for string values.
-- Use `$` to insert non-string values (or debug-style string representations).
+- Use `$` to insert values; strings stay plain, non-strings use pretty display text.
 - Use `$(...)` to control grouping in mixed expressions.

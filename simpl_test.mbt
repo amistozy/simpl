@@ -376,14 +376,6 @@ test "ref basics and assignment expression value" {
 }
 
 ///|
-test "print is available as builtin and returns nil" {
-  let code =
-    #| do print(1);
-    #| 42
-  assert_true(@simpl.eval_source_is_int(code, 42))
-}
-
-///|
 test "say outputs string and returns nil" {
   let code =
     #| do say("hello");
@@ -392,11 +384,12 @@ test "say outputs string and returns nil" {
 }
 
 ///|
-test "say only accepts string" {
-  assert_eq(
-    @simpl.eval_error_text("say(1)"),
-    Some("builtin 'say' expected String, got Int(1) at 1:1-7"),
-  )
+test "say accepts any value" {
+  let code =
+    #| do say(1);
+    #| do say([1; 2]);
+    #| 42
+  assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
@@ -426,8 +419,8 @@ test "map validates argument types" {
 }
 
 ///|
-test "print does not accept named arguments" {
-  assert_true(@simpl.eval_source_is_error("print(x = 1)"))
+test "say does not accept named arguments" {
+  assert_true(@simpl.eval_source_is_error("say(x = 1)"))
 }
 
 ///|
@@ -693,6 +686,7 @@ test "! works as logical not for non-reference values" {
 ///|
 test "$ converts values to pretty string" {
   assert_true(@simpl.eval_source_is_string("$42", "42"))
+  assert_true(@simpl.eval_source_is_string("$\"moon\"", "moon"))
   assert_true(@simpl.eval_source_is_string("$[1; 2]", "[1; 2]"))
   assert_true(@simpl.eval_source_is_string("$(#Some(1))", "#Some(1)"))
 }
