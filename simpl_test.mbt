@@ -400,9 +400,10 @@ test "map applies function to each list element" {
 }
 
 ///|
-test "map accepts any callable value as second argument" {
+test "map accepts any function value as second argument" {
   let code =
-    #| ["a"; "b"].map("c") == ["ca"; "cb"]
+    #| let add_prefix = fn(x) = "c"(x);
+    #| ["a"; "b"].map(add_prefix) == ["ca"; "cb"]
   assert_true(@simpl.eval_source_is_bool(code, true))
 }
 
@@ -414,7 +415,7 @@ test "map validates argument types" {
   )
   assert_eq(
     @simpl.eval_error_text("map([1]; 1)"),
-    Some("builtin 'map' expected Callable, got Int(1) at 1:1-12"),
+    Some("builtin 'map' expected Function, got Int(1) at 1:1-12"),
   )
 }
 
@@ -499,6 +500,35 @@ test "non-positive repetition count returns empty string or list" {
 }
 
 ///|
+test "int is callable for string and list repetition" {
+  assert_true(@simpl.eval_source_is_string("3(\"ha\")", "hahaha"))
+  assert_true(
+    @simpl.eval_source_is_bool("3([1; 2]) == [1; 2; 1; 2; 1; 2]", true),
+  )
+}
+
+///|
+test "int call on function collects results into list" {
+  assert_true(@simpl.eval_source_is_bool("3(fn(i) = i * i) == [0; 1; 4]", true))
+  assert_true(
+    @simpl.eval_source_is_bool("let x = 5; 3(fn() = x) == [5; 5; 5]", true),
+  )
+  assert_true(
+    @simpl.eval_source_is_bool(
+      "3(fn(i) = [i; i + 10]) == [0; 10; 1; 11; 2; 12]", true,
+    ),
+  )
+}
+
+///|
+test "int call on function requires arity 0 or 1" {
+  assert_eq(
+    @simpl.eval_error_text("3(fn(a; b) = a + b)"),
+    Some("int call function expected 0 or 1 parameter, got 2 at 1:1-20"),
+  )
+}
+
+///|
 test "unary type error reports expected and actual value" {
   assert_eq(
     @simpl.eval_error_text("-true"),
@@ -543,8 +573,8 @@ test "missing field reports field name and record summary" {
 ///|
 test "calling non-function reports actual value" {
   assert_eq(
-    @simpl.eval_error_text("1(2)"),
-    Some("call error: expected Function, got Int(1) at 1:1-5"),
+    @simpl.eval_error_text("true(1)"),
+    Some("call error: expected Function, got Bool(true) at 1:1-8"),
   )
 }
 

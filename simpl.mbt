@@ -953,6 +953,7 @@ priv enum EvaluatedCallArg {
 ///|
 fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
   match func_value {
+    VInt(times) => apply_int_call(times, args)
     VString(prefix_or_sep) => apply_string_call(prefix_or_sep, args)
     VRecord(fields) => apply_record_with_named_args(fields, args)
     VClosure(params, body, closure_env, default_values) => {
@@ -966,6 +967,69 @@ fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
     }
     VBuiltin(builtin) => apply_builtin(builtin, args)
     _ => call_non_function_error(func_value)
+  }
+}
+
+///|
+fn apply_int_call(times : Int, args : Array[EvaluatedCallArg]) -> Value raise {
+  guard args.length() == 1 else { arity_error(1, args.length()) }
+  guard args is [EArgPos(value)] else {
+    runtime_error("int call only accepts positional arguments")
+  }
+  match value {
+    VString(text) => VString(text.repeat(times))
+    VList(items) => VList(repeat_list(items, times))
+    _ => {
+      guard value_is_function(value) else {
+        runtime_error(
+          "int call expected String, List, or Function, got \{typed_value_summary(value)}",
+        )
+      }
+      guard function_param_count(value) is Some(param_count) else {
+        runtime_error(
+          "int call expected String, List, or Function, got \{typed_value_summary(value)}",
+        )
+      }
+      if times <= 0 {
+        VList([])
+      } else if param_count == 0 {
+        VList(repeat_function_results(value, times, false))
+      } else if param_count == 1 {
+        VList(repeat_function_results(value, times, true))
+      } else {
+        runtime_error(
+          "int call function expected 0 or 1 parameter, got \{param_count}",
+        )
+      }
+    }
+  }
+}
+
+///|
+fn repeat_function_results(
+  func_value : Value,
+  times : Int,
+  pass_index : Bool,
+) -> Array[Value] raise {
+  let acc = []
+  if pass_index {
+    for i in 0..<times {
+      append_result(acc, apply(func_value, [EArgPos(VInt(i))]))
+    }
+  } else {
+    for _ in 0..<times {
+      append_result(acc, apply(func_value, []))
+    }
+  }
+
+  acc
+}
+
+///|
+fn append_result(acc : Array[Value], result : Value) -> Unit {
+  match result {
+    VList(items) => acc.append(items)
+    _ => acc.push(result)
   }
 }
 
@@ -1047,8 +1111,8 @@ fn apply_builtin(
       guard list_value is VList(items) else {
         builtin_type_error("map", "List", list_value)
       }
-      guard value_is_callable(func_value) else {
-        builtin_type_error("map", "Callable", func_value)
+      guard value_is_function(func_value) else {
+        builtin_type_error("map", "Function", func_value)
       }
       VList(items.map(item => apply(func_value, [EArgPos(item)])))
     }
@@ -1278,7 +1342,7 @@ fn eval_field_value_or_ufcs(
     guard env.get(name) is Some(func_value) else {
       missing_field_error(name, target_value)
     }
-    guard value_is_callable(func_value) else {
+    guard value_is_function(func_value) else {
       missing_field_error(name, target_value)
     }
     apply(func_value, [EArgPos(target_value)])
@@ -1300,7 +1364,7 @@ fn eval_field_call_or_ufcs(
     guard env.get(name) is Some(func_value) else {
       missing_field_error(name, target_value)
     }
-    guard value_is_callable(func_value) else {
+    guard value_is_function(func_value) else {
       missing_field_error(name, target_value)
     }
     apply(func_value, [EArgPos(target_value)] + args)
@@ -1309,14 +1373,24 @@ fn eval_field_call_or_ufcs(
 }
 
 ///|
-fn value_is_callable(value : Value) -> Bool {
+fn value_is_function(value : Value) -> Bool {
   match value {
-    VString(_) => true
-    VRecord(_) => true
     VClosure(_) => true
     VRecClosure(_) => true
     VBuiltin(_) => true
     _ => false
+  }
+}
+
+///|
+fn function_param_count(value : Value) -> Int? {
+  match value {
+    VClosure(params, _, _, _) => Some(params.length())
+    VRecClosure(_, params, _, _, _, _) => Some(params.length())
+    VBuiltin(BRef) => Some(1)
+    VBuiltin(BSay) => Some(1)
+    VBuiltin(BMap) => Some(2)
+    _ => None
   }
 }
 
