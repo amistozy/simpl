@@ -1,117 +1,100 @@
-# Simpl String Interpolation
+# String Interpolation in Simpl
 
-This document describes how to build interpolated strings in Simpl.
-
-Simpl does not have a dedicated template string syntax. Instead, interpolation is built from:
+Simpl does not provide template literals. Instead, interpolation is built from ordinary expressions:
 
 - trailing application (`f x`)
-- string-call semantics (`"a"(...)`)
-- unary `$` (value to interpolation text)
+- string-call behavior (`"text"(arg)`)
+- unary `$` for value-to-text conversion
 
-## 1. Core Idea
+## Overview
 
-If a value is a `String`, calling it with one positional argument behaves specially:
+When a `String` value is called with one argument, it has special behavior:
 
-- `string(other_string)` => concatenation
-- `string(list)` => join list items with `string` as the separator
+- `s(t)` where `t` is `String` -> concatenate
+- `s(xs)` where `xs` is `List` -> join list items with `s` as the separator
 
-Because trailing calls are supported, this gives a chainable interpolation style.
+Because trailing application is supported, this creates a natural interpolation chain.
 
-## 2. Basic Interpolation Pattern
-
-Use string fragments as callees and convert non-string values with `$`:
+## Basic Usage
 
 ```simpl
 let name = "Alice";
 let age = 18;
-name" is "$age" years old"
+"Name: "name", age: "$age
 ```
 
-Result:
+This evaluates to:
 
 ```simpl
-"Alice is 18 years old"
+"Name: Alice, age: 18"
 ```
 
-You can also start from a literal:
+String fragments and values can be mixed directly:
 
 ```simpl
-let name = "Carol";
-"Hello, "name"!"
+let user = "Carol";
+"Hello, "user"!"
 ```
 
-## 3. What `$` Does
+## `$` Conversion Rules
 
-`$expr` converts a value to interpolation text.
+`$expr` converts an expression into interpolation text:
 
-Rule:
+- if `expr` is already `String`, it is kept as-is
+- otherwise, Simpl uses pretty-display output
 
-- if `expr` is a `String`, `$expr` returns that string unchanged
-- otherwise, `$expr` uses Simpl's pretty display form
+Examples:
 
 ```simpl
 $1          // "1"
 $true       // "true"
 $[1; 2]     // "[1; 2]"
-${x; y}     // "{x = 1; y = 2}"   (if x,y are in scope)
 $"moon"     // "moon"
 ```
 
-Grouping forms such as `$(...)`, `$[...]`, and `${...}` work because `$` is a unary operator applied to the next expression.
-
-## 4. Important Difference: String Values
-
-`$` on a string now keeps plain text (no extra quotes):
+Since `$` is unary, it applies to the next expression. Parenthesized and bracketed forms are valid:
 
 ```simpl
-let name = "Alice";
-"hello "$name
-// => "hello Alice"
+$(1 + 2)
+$[1; 2; 3]
+${x; y}
 ```
 
-So both of these are equivalent for string values:
+## String Values and `$`
+
+For string values, these are equivalent:
 
 ```simpl
 let name = "Alice";
 "hello "name
 "hello "$name
-// => "hello Alice"
 ```
 
-## 5. `say` Uses The Same Conversion
+Both produce `"hello Alice"` (without extra quotes around `name`).
 
-`say(value)` and `$value` share the same string conversion logic:
+## Precedence and Grouping
 
-- strings print as raw text
-- non-strings use pretty display text
-
-So interpolation and output stay consistent.
-
-## 6. Precedence Note
-
-Interpolation relies on **trailing application** (`f x`), and trailing application is parsed at a very low precedence level.
-
-In practice:
-
-- `"value=" $1 + 2` is parsed as `"value="($1 + 2)`.
-- The `+` stays inside the argument expression.
-- So the error comes from evaluating `$1 + 2` (`String + Int`), not from an outer `("value=" ...) + 2` shape.
-
-Use explicit grouping when mixing interpolation and arithmetic:
+Trailing application has low precedence. This matters in mixed expressions.
 
 ```simpl
-"value=" $(1 + 2)   // ok => "value=3"
+"value=" $1 + 2
 ```
 
-If you only want to insert one value, `$` can stay local:
+This is parsed as:
 
 ```simpl
-"value=" $1         // "value=1"
+"value="($1 + 2)
 ```
 
-## 7. Common Errors
+So the inner expression fails (`String + Int`). Use grouping when you intend arithmetic first:
 
-Passing a non-string/non-list directly to a string call:
+```simpl
+"value=" $(1 + 2)   // "value=3"
+```
+
+## Common Pitfall
+
+Passing a non-string value directly to a string call is invalid:
 
 ```simpl
 "value=" 1
@@ -123,9 +106,18 @@ Runtime error:
 string call expected String or List, got Int(1)
 ```
 
-## 8. Summary
+## Relation to `say`
+
+`say(v)` uses the same conversion policy as `$v`:
+
+- strings are emitted as raw text
+- other values use pretty-display text
+
+This keeps printed output and interpolation behavior consistent.
+
+## Quick Reference
 
 - Interpolation is expression-based, not template-literal-based.
-- Use direct string chaining for string values.
-- Use `$` to insert values; strings stay plain, non-strings use pretty display text.
-- Use `$(...)` to control grouping in mixed expressions.
+- Chain string fragments and values via trailing application.
+- Use `$` for non-string values (and optionally for strings).
+- Use `$(...)` when combining interpolation with operators.
