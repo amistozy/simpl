@@ -36,14 +36,13 @@ This is especially useful for chained string interpolation patterns such as:
 name" is "$age" years old"
 ```
 
-## Installation
+## Installation (From Location)
 
-Install from a local VSIX package:
+Install the extension directly from the extension folder (no packaging required):
 
-1. Package the extension (see commands below).
-2. In VS Code, open Extensions view.
-3. Use `...` menu -> `Install from VSIX...`.
-4. Select the generated `.vsix` file.
+1. In VS Code, open the Command Palette.
+2. Run `Developer: Install Extension from Location...`.
+3. Select the `editors/vscode-simpl` directory.
 
 ## Build and Package
 
