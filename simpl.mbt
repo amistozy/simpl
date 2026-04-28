@@ -18,6 +18,7 @@ enum SurfaceExpr {
   SLetRec(String, Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
   SLetRecAnd(Array[(String, Array[SurfaceParam], SurfaceExpr)], SurfaceExpr)
   SWith(Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
+  STrailingCall(SurfaceExpr, SurfaceExpr)
   SLambda(Array[SurfaceParam], SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceCallArg])
   SField(SurfaceExpr, String)
@@ -253,6 +254,8 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
       "let rec \{surface_let_rec_defs_pretty(defs)}; \{surface_expr_pretty(body)}"
     SWith(params, target_expr, body) =>
       "with(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(target_expr)}; \{surface_expr_pretty(body)}"
+    STrailingCall(func_expr, arg_expr) =>
+      "\{surface_expr_pretty(func_expr)} \{surface_expr_pretty(arg_expr)}"
     SLambda(params, body) =>
       "fn(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(body)}"
     SCall(func_expr, arg_exprs) =>
@@ -569,6 +572,8 @@ fn desugar(expr : SurfaceExpr) -> Expr {
         desugar(target_expr),
         Lambda(params.map(param => desugar_param(param)), desugar(body)),
       )
+    STrailingCall(func_expr, arg_expr) =>
+      append_trailing_arg_core(desugar(func_expr), desugar(arg_expr))
     SLambda(params, body) =>
       Lambda(params.map(param => desugar_param(param)), desugar(body))
     SCall(func_expr, arg_exprs) =>

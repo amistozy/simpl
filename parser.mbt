@@ -1820,7 +1820,7 @@ fn parse_trailing_apply_tail(
   if is_trailing_arg_start(tokens, i) {
     let (arg_expr, j) = parse_expr(tokens, i)
     parse_trailing_apply_tail(
-      append_trailing_arg(expr, arg_expr, tokens, j),
+      located_expr_from_left(expr, tokens, j, STrailingCall(expr, arg_expr)),
       tokens,
       j,
     )
@@ -1854,38 +1854,6 @@ fn is_trailing_arg_start(tokens : Array[SpannedToken], i : Int) -> Bool {
     | LBracketTok
     | LParenTok => true
     _ => false
-  }
-}
-
-///|
-fn append_trailing_arg(
-  expr : SurfaceExpr,
-  arg_expr : SurfaceExpr,
-  tokens : Array[SpannedToken],
-  end_i : Int,
-) -> SurfaceExpr {
-  match expr {
-    SLocated(_, SCall(func_expr, args)) =>
-      located_expr_from_left(
-        expr,
-        tokens,
-        end_i,
-        SCall(func_expr, args + [SArgPos(arg_expr)]),
-      )
-    SCall(func_expr, args) =>
-      located_expr_from_left(
-        expr,
-        tokens,
-        end_i,
-        SCall(func_expr, args + [SArgPos(arg_expr)]),
-      )
-    _ =>
-      located_expr_from_left(
-        expr,
-        tokens,
-        end_i,
-        SCall(expr, [SArgPos(arg_expr)]),
-      )
   }
 }
 

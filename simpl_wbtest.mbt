@@ -120,28 +120,28 @@ test "parser lowers single-param default lambda sugar to default lambda expr" {
 }
 
 ///|
-test "parser rewrites trailing arg sugar into positional call arg" {
+test "parser preserves trailing arg sugar in surface ast" {
   match parse("f x") {
-    SLocated(
-      _,
-      SCall(SLocated(_, SVar("f")), [SArgPos(SLocated(_, SVar("x")))])
-    ) => assert_true(true)
+    SLocated(_, STrailingCall(SLocated(_, SVar("f")), SLocated(_, SVar("x")))) =>
+      assert_true(true)
     _ => assert_true(false)
   }
 }
 
 ///|
-test "parser appends trailing arg after parenthesized call" {
+test "parser preserves trailing arg after parenthesized call" {
   match parse("f(1; 2) 3") {
     SLocated(
       _,
-      SCall(
-        SLocated(_, SVar("f")),
-        [
-          SArgPos(SLocated(_, SIntLit(1))),
-          SArgPos(SLocated(_, SIntLit(2))),
-          SArgPos(SLocated(_, SIntLit(3))),
-        ]
+      STrailingCall(
+        SLocated(
+          _,
+          SCall(
+            SLocated(_, SVar("f")),
+            [SArgPos(SLocated(_, SIntLit(1))), SArgPos(SLocated(_, SIntLit(2)))]
+          )
+        ),
+        SLocated(_, SIntLit(3))
       )
     ) => assert_true(true)
     _ => assert_true(false)
@@ -167,7 +167,7 @@ test "parser binds trailing lambda as a single lowest-precedence arg" {
   match parse("foo fn(x) = x + 1") {
     SLocated(
       _,
-      SCall(SLocated(_, SVar("foo")), [SArgPos(SLocated(_, SLambda(_, _)))])
+      STrailingCall(SLocated(_, SVar("foo")), SLocated(_, SLambda(_, _)))
     ) => assert_true(true)
     _ => assert_true(false)
   }
@@ -222,16 +222,12 @@ test "parser makes trailing application right-associative" {
   match parse("f g x") {
     SLocated(
       _,
-      SCall(
+      STrailingCall(
         SLocated(_, SVar("f")),
-        [
-          SArgPos(
-            SLocated(
-              _,
-              SCall(SLocated(_, SVar("g")), [SArgPos(SLocated(_, SVar("x")))])
-            )
-          ),
-        ]
+        SLocated(
+          _,
+          STrailingCall(SLocated(_, SVar("g")), SLocated(_, SVar("x")))
+        )
       )
     ) => assert_true(true)
     _ => assert_true(false)
