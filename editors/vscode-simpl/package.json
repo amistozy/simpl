@@ -42,6 +42,13 @@
         "scopeName": "source.simpl",
         "path": "./syntaxes/simpl.tmLanguage.json"
       }
-    ]
+    ],
+    "configurationDefaults": {
+      "[simpl]": {
+        "editor.autoClosingQuotes": "always",
+        "editor.autoClosingOvertype": "never",
+        "editor.tabSize": 2
+      }
+    }
   }
 }
