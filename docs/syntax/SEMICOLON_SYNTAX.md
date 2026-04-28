@@ -1,98 +1,97 @@
-# Simpl Semicolon Syntax
+# Semicolon Syntax in Simpl
 
-This document defines how `;` is used in Simpl.
+This document describes the exact role of `;` in Simpl.
 
-## 1. Core Rule
+## 1. Design Principle
 
-In Simpl, semicolon is primarily a **separator**, not a universal statement terminator.
+In Simpl, `;` is a grammar-level separator. It is **not** a general "end of statement" token.
 
-You can think of it as:
+Use `;` only where the grammar explicitly requires it.
 
-- separating items inside grouped syntax (lists, records, params, args, patterns)
-- connecting a binding/effect expression to its following body in `let` / `do`
+## 2. Required Positions
 
-## 2. Where `;` Is Used
+### 2.1 Binding/effect forms
 
-### 2.1 In `let`, `let rec`, and `do`
-
-A semicolon is required between the binding/effect part and the body expression.
+A semicolon separates the head form from its body expression.
 
 ```simpl
 let x = 1; x + 1
 let rec fact(n) = if n == 0 then 1 else n * fact(n - 1); fact(5)
-do print(1); 42
+do say("hello"); 42
+with(v) = use(41); v + 1
+with run(); 42
 ```
 
-Notes:
+For multi-binding forms, `and` separates bindings, and one final `;` starts the shared body.
 
-- `let ... and ...` uses the keyword `and` between bindings, then one `;` before the body.
-- `let rec ... and ...` behaves the same way.
+```simpl
+let a = 1 and b = 2; a + b
+let rec f(x) = x and g(y) = y; f(1)
+```
 
-### 2.2 In function parameter lists
+### 2.2 Function parameter lists
 
-Parameters are separated by semicolons.
+Parameters are semicolon-separated.
 
 ```simpl
 fn(x; y) = x + y
 fn(a; b = 2; c = 3) = a + b + c
 ```
 
-### 2.3 In call argument lists
+### 2.3 Call argument lists
 
-Arguments are separated by semicolons.
+Arguments are semicolon-separated.
 
 ```simpl
 f(1; 2)
-f(a = 1; 2; c = 3)
+f(x = 1; 2; y = 3)
 ```
 
-### 2.4 In list literals
+### 2.4 List literals
 
-List items are separated by semicolons.
+List items are semicolon-separated.
 
 ```simpl
 [1; 2; 3]
 [#Left(1); #Right(2)]
 ```
 
-### 2.5 In record literals
+### 2.5 Record literals
 
-Record fields are separated by semicolons.
+Record fields are semicolon-separated.
 
 ```simpl
 {x = 1; y = 2}
 {x; y = 2}
 ```
 
-### 2.6 In list and record patterns
+### 2.6 Patterns
 
-Pattern items/fields also use semicolon separation.
+List and record patterns also use semicolon separation.
 
 ```simpl
 let [x; y] = [1; 2]; x + y
 let {x; y = z} = {x = 1; y = 2}; x + z
 ```
 
-For list-rest patterns, semicolon is also part of the rest form:
+List-rest patterns keep semicolons as part of the pattern shape.
 
 ```simpl
 let [head; ..rest] = [1; 2; 3]; head
 let [a; ..; z] = [1; 2; 3]; z
 ```
 
-## 3. Important Non-Uses
+## 3. Invalid Uses
 
-### 3.1 Not a global expression terminator
-
-A top-level trailing semicolon is not valid by itself:
+### 3.1 Standalone trailing semicolon
 
 ```simpl
 1 + 2;   // parse error
 ```
 
-### 3.2 No trailing semicolon in grouped lists
+### 3.2 Trailing separator inside grouped syntax
 
-These forms are invalid:
+Simpl does not allow trailing `;` before a closing token.
 
 ```simpl
 f(1; 2;)        // invalid
@@ -101,17 +100,14 @@ fn(x; y;) = x   // invalid
 {x = 1; y = 2;} // invalid
 ```
 
-Simpl expects another item after `;`, or the proper closing token without a trailing separator.
+## 4. Practical Reading Rule
 
-## 4. Practical Style
+- In grouped syntax, read `;` as "next item".
+- In `let` / `let rec` / `do` / `with`, read `;` as "then evaluate body".
 
-- Use `;` exactly where grammar requires separation.
-- Do not add optional-looking trailing semicolons.
-- In `let` / `do`, read `;` as “then evaluate the body”.
-
-## 5. Quick Summary
+## 5. Summary
 
 - `;` is required in many structured forms.
-- `;` separates parameters, arguments, list items, and record fields.
-- `;` connects `let` / `let rec` / `do` to their body expression.
-- `;` is not a standalone “end-of-statement” marker.
+- `;` separates items (params, args, list elements, record fields, pattern parts).
+- `;` also separates head and body in binding/effect forms.
+- `;` is not a universal statement terminator.
