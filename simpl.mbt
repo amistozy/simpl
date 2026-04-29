@@ -1009,14 +1009,6 @@ fn apply_list_call(
       "list call expected Function, got \{typed_value_summary(func_value)}",
     )
   }
-  guard function_param_count(func_value) is Some(param_count) else {
-    runtime_error(
-      "list call expected Function, got \{typed_value_summary(func_value)}",
-    )
-  }
-  guard param_count == 1 else {
-    runtime_error("list call function expected 1 parameter, got \{param_count}")
-  }
 
   let acc = []
   for item in items {
@@ -1040,21 +1032,10 @@ fn apply_int_call(times : Int, args : Array[EvaluatedCallArg]) -> Value raise {
           "int call expected String, List, or Function, got \{typed_value_summary(value)}",
         )
       }
-      guard function_param_count(value) is Some(param_count) else {
-        runtime_error(
-          "int call expected String, List, or Function, got \{typed_value_summary(value)}",
-        )
-      }
       if times <= 0 {
         VList([])
-      } else if param_count == 0 {
-        VList(repeat_function_results(value, times, false))
-      } else if param_count == 1 {
-        VList(repeat_function_results(value, times, true))
       } else {
-        runtime_error(
-          "int call function expected 0 or 1 parameter, got \{param_count}",
-        )
+        VList(repeat_function_results(value, times))
       }
     }
   }
@@ -1064,17 +1045,10 @@ fn apply_int_call(times : Int, args : Array[EvaluatedCallArg]) -> Value raise {
 fn repeat_function_results(
   func_value : Value,
   times : Int,
-  pass_index : Bool,
 ) -> Array[Value] raise {
   let acc = []
-  if pass_index {
-    for i in 0..<times {
-      append_result(acc, apply(func_value, [EArgPos(VInt(i))]))
-    }
-  } else {
-    for _ in 0..<times {
-      append_result(acc, apply(func_value, []))
-    }
+  for _ in 0..<times {
+    append_result(acc, apply(func_value, []))
   }
   acc
 }
@@ -1444,19 +1418,6 @@ fn value_is_function(value : Value) -> Bool {
     VRecClosure(_) => true
     VBuiltin(_) => true
     _ => false
-  }
-}
-
-///|
-fn function_param_count(value : Value) -> Int? {
-  match value {
-    VClosure(params, _, _, _) => Some(params.length())
-    VRecClosure(_, params, _, _, _, _) => Some(params.length())
-    VBuiltin(BRef) => Some(1)
-    VBuiltin(BSay) => Some(1)
-    VBuiltin(BMap) => Some(2)
-    VBuiltin(BLength) => Some(1)
-    _ => None
   }
 }
 

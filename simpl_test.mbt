@@ -525,23 +525,20 @@ test "int is callable for string and list repetition" {
 
 ///|
 test "int call on function collects results into list" {
-  assert_true(@simpl.eval_source_is_bool("3(fn(i) = i * i) == [0; 1; 4]", true))
   assert_true(
     @simpl.eval_source_is_bool("let x = 5; 3(fn() = x) == [5; 5; 5]", true),
   )
   assert_true(
-    @simpl.eval_source_is_bool(
-      "3(fn(i) = [i; i + 10]) == [0; 10; 1; 11; 2; 12]", true,
-    ),
+    @simpl.eval_source_is_bool("3(fn() = [1; 2]) == [1; 2; 1; 2; 1; 2]", true),
   )
-  assert_true(@simpl.eval_source_is_bool("3(fn(i) = nil) == []", true))
+  assert_true(@simpl.eval_source_is_bool("3(fn() = nil) == []", true))
 }
 
 ///|
-test "int call on function requires arity 0 or 1" {
+test "int call on function passes no arguments" {
   assert_eq(
-    @simpl.eval_error_text("3(fn(a; b) = a + b)"),
-    Some("int call function expected 0 or 1 parameter, got 2 at 1:1-20"),
+    @simpl.eval_error_text("3(fn(a) = a)"),
+    Some("arity error: expected 1 arguments, got 0 at 1:1-13"),
   )
 }
 
@@ -559,14 +556,10 @@ test "list call on function maps each element and collects results" {
 }
 
 ///|
-test "list call validates function argument and arity" {
+test "list call validates function argument" {
   assert_eq(
     @simpl.eval_error_text("[1](1)"),
     Some("list call expected Function, got Int(1) at 1:1-7"),
-  )
-  assert_eq(
-    @simpl.eval_error_text("[1](fn() = 1)"),
-    Some("list call function expected 1 parameter, got 0 at 1:1-14"),
   )
 }
 
