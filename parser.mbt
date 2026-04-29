@@ -1817,43 +1817,30 @@ fn parse_trailing_apply_tail(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  if is_trailing_arg_start(tokens, i) {
-    let (arg_expr, j) = parse_expr(tokens, i)
-    parse_trailing_apply_tail(
-      located_expr_from_left(expr, tokens, j, STrailingCall(expr, arg_expr)),
-      tokens,
-      j,
-    )
-  } else {
-    (expr, i)
-  }
-}
-
-///|
-fn is_trailing_arg_start(tokens : Array[SpannedToken], i : Int) -> Bool {
   if i >= tokens.length() {
-    return false
-  }
-  match token_kind(tokens, i) {
-    LetTok
-    | IfTok
-    | FnTok
-    | DoTok
-    | WithTok
-    | BangTok
-    | DollarTok
-    | MinusTok
-    | IntTok(_)
-    | StrTok(_)
-    | TrueTok
-    | FalseTok
-    | NilTok
-    | IdentTok(_)
-    | HashTok
-    | LBraceTok
-    | LBracketTok
-    | LParenTok => true
-    _ => false
+    (expr, i)
+  } else {
+    let maybe_arg = Some(parse_expr(tokens, i)) catch {
+      SyntaxErrorAt(message, span) => {
+        let (error_start, _) = span
+        let (token_start, _) = token_span_at(tokens, i)
+        if error_start == token_start {
+          None
+        } else {
+          raise SyntaxErrorAt(message, span)
+        }
+      }
+      _ => None
+    }
+    match maybe_arg {
+      Some((arg_expr, j)) =>
+        parse_trailing_apply_tail(
+          located_expr_from_left(expr, tokens, j, STrailingCall(expr, arg_expr)),
+          tokens,
+          j,
+        )
+      None => (expr, i)
+    }
   }
 }
 

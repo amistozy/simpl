@@ -354,6 +354,22 @@ test "parse error includes source position" {
 }
 
 ///|
+test "trailing apply stops when next token cannot start argument expression" {
+  assert_eq(
+    @simpl.parse_error_text("f )"),
+    Some("unexpected token after expression: ) at 1:3-4"),
+  )
+}
+
+///|
+test "trailing apply propagates inner parse errors from argument expression" {
+  assert_eq(
+    @simpl.parse_error_text("f with 3 4"),
+    Some("expected ';' after with target expression at 1:11-11"),
+  )
+}
+
+///|
 test "invalid string escape reports source position" {
   assert_eq(
     @simpl.parse_error_text("\"a\\q\""),
