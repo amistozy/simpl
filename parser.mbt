@@ -176,7 +176,7 @@ fn lex_loop(
   }
   if c.is_ascii_digit() {
     let end = scan_digits(source, i)
-    let num_text = source[i:end].to_string()
+    let num_text = source[i:end]
     let value = parse_digits_to_int(num_text, 0, 0)
     let span = make_span(source, i, end, line, column)
     acc.push((IntTok(value), span))
@@ -186,7 +186,7 @@ fn lex_loop(
   }
   if is_ident_start(c) {
     let end = scan_ident(source, i)
-    let text = source[i:end].to_string()
+    let text = source[i:end]
     let tok = keyword_or_ident(text)
     let span = make_span(source, i, end, line, column)
     acc.push((tok, span))
@@ -701,7 +701,7 @@ fn lex_string_escape(
 }
 
 ///|
-fn parse_digits_to_int(text : String, i : Int, acc : Int) -> Int {
+fn parse_digits_to_int(text : StringView, i : Int, acc : Int) -> Int {
   if i >= text.length() {
     return acc
   }
@@ -720,7 +720,7 @@ fn is_ident_continue(c : Char) -> Bool {
 }
 
 ///|
-fn keyword_or_ident(text : String) -> Token {
+fn keyword_or_ident(text : StringView) -> Token {
   match text {
     "true" => TrueTok
     "false" => FalseTok
@@ -737,7 +737,7 @@ fn keyword_or_ident(text : String) -> Token {
     "is" => IsTok
     "and" => AndWordTok
     "or" => OrWordTok
-    _ => IdentTok(text)
+    _ => IdentTok(text.to_owned())
   }
 }
 

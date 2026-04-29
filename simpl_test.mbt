@@ -1,4 +1,7 @@
 ///|
+using @test {assert_eq}
+
+///|
 /// Blackbox: basic arithmetic and dynamic type checks
 test "int arithmetic" {
   assert_true(@simpl.eval_source_is_int("1 + 2", 3))

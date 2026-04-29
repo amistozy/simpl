@@ -203,7 +203,7 @@ fn split_source_blocks_with_separator(
   let line_end = scan_line_end(source, i)
   let has_newline = line_end < source.length() &&
     source.unsafe_get(line_end).unsafe_to_char() == '\n'
-  let line_no_newline = source[i:line_end].to_string()
+  let line_no_newline = source[i:line_end]
   let next_i = if has_newline { line_end + 1 } else { line_end }
   if is_block_separator_line(line_no_newline, 0, 0, false) {
     if !is_blank_block(current, 0) {
@@ -219,14 +219,14 @@ fn split_source_blocks_with_separator(
     )
   }
   let line_with_newline = if has_newline {
-    source[i:next_i].to_string()
+    source[i:next_i]
   } else {
     line_no_newline
   }
   split_source_blocks_with_separator(
     source,
     next_i,
-    current + line_with_newline,
+    current + line_with_newline.to_owned(),
     acc,
     line_no + 1,
     block_start_line,
@@ -239,7 +239,7 @@ fn has_block_separator(source : String, i : Int, end_ : Int) -> Bool {
     return false
   }
   let line_end = scan_line_end(source, i)
-  let line_no_newline = source[i:line_end].to_string()
+  let line_no_newline = source[i:line_end]
   if is_block_separator_line(line_no_newline, 0, 0, false) {
     return true
   }
@@ -266,7 +266,7 @@ fn scan_line_end(source : String, i : Int) -> Int {
 
 ///|
 fn is_block_separator_line(
-  line : String,
+  line : StringView,
   i : Int,
   dash_count : Int,
   has_other_char : Bool,
