@@ -2,26 +2,36 @@
 
 `simpl` is a compact expression language implemented in MoonBit.
 
-This repository provides:
+This repository provides both:
 
-- A reusable library for parsing and evaluating Simpl source code
-- A small CLI interpreter for running and inspecting Simpl programs
+- a reusable library for parsing and evaluating Simpl programs
+- a CLI interpreter for running `.simpl` files or inline source
 
 Module: `amistozy/simpl`
 
-## Goals
+## Highlights
 
-- Keep syntax compact and expression-oriented
-- Support composable condition splits (`if / is / and / or`)
-- Preserve a clear surface-to-core desugaring pipeline
-- Provide source-positioned parse diagnostics
+- Expression-oriented syntax with first-class functions
+- Pattern matching in `let`, function parameters, and `if ... is`
+- Structured conditional splitting with `if / and / is / or / else / end`
+- Records, variants, lists, references, and UFCS-style fallback calls
+- Parse and runtime errors with source positions
+
+## Requirements
+
+- [MoonBit](https://docs.moonbitlang.com)
 
 ## Quick Start
 
-From the repository root:
+Run tests:
 
 ```powershell
 moon test
+```
+
+Evaluate inline code:
+
+```powershell
 moon run cmd/main -- --eval "1 + 2 * 3"
 ```
 
@@ -31,136 +41,91 @@ Parse only:
 moon run cmd/main -- --parse --eval "let x = 1; x"
 ```
 
-Run a file:
+Run a source file:
 
 ```powershell
 moon run cmd/main -- path/to/program.simpl
 ```
 
-Update snapshots when behavior intentionally changes:
-
-```powershell
-moon test --update
-```
-
-Before finalizing changes:
-
-```powershell
-moon info && moon fmt
-```
-
 ## CLI Usage
 
-Entry: `cmd/main/main.mbt`
+Entry point: `cmd/main/main.mbt`
 
-- `-e, --eval <source>`: evaluate inline source
-- `-f, --file <path>`: read source from file
-- positional `path`: read source from file (preferred)
+```text
+simpl [options] [path]
+```
+
+Options:
+
+- `-e, --eval <source>`: evaluate inline source code
+- `-f, --file <path>`: evaluate source from file
 - `-p, --parse`: parse only and print `SurfaceExpr`
+- positional `path`: source file path (recommended for file input)
 
-Rules:
+Input rules:
 
 - Do not combine `--eval` with file input
-- Do not pass file input twice (`--file` + positional path)
-- No input prints help
+- Do not provide file input twice (`--file` + positional path)
+- If no input is provided, help text is shown
 
-Examples:
+### Multi-block input in CLI
 
-```powershell
-moon run cmd/main -- -e "let x = 10; x + 1"
-moon run cmd/main -- -p -e "if true then 1 else 2"
-moon run cmd/main -- examples/basic.simpl
-```
+The CLI supports splitting one source into multiple blocks by lines made of at least three dashes (for example `---`).
+Each block is parsed/evaluated independently, and errors are reported with adjusted line offsets.
 
 ## Language Overview
 
-### Values and Operators
+### Literals and Values
 
-- Literals: `Int`, `Bool`, `String`, `nil`
+- Integers: `1`, `42`
+- Booleans: `true`, `false`
+- Strings: `"hello"`
+- Nil: `nil`
+- Lists: `[1; 2; 3]`
+- Records: `{x = 1; y = 2}`
+- Variants: `#Some(1)`, `#Left("err")`
+
+### Operators
+
 - Arithmetic: `+ - * / %`
 - Comparison: `== != < <= > >=`
 - Boolean: `&& ||` (short-circuit, returns operand values)
-- Unary: `-` (negate), `!` (not/deref), `$` (to string)
+- Unary:
+  - `-x` numeric negate
+  - `!x` boolean-not; if `x` is a ref, dereference
+  - `$x` convert value to string
 
-Runtime notes:
+Runtime details:
 
-- Division by zero returns `0`
-- Modulo by zero returns the dividend
+- `a / 0` returns `0`
+- `a % 0` returns `a`
 
-### Bindings, Functions, and Calls
+### Bindings and Functions
 
-- `let ...; body` and `do ...; body`
-- `let ... and ...` grouped bindings
-- `let rec` and `let rec ... and ...` (mutual recursion)
-- Lambdas: `fn(params) = body` and `fn x = body`
-- Function sugar: `f(x) = ...` and `f x = ...`
-- Default parameters (required params must come first)
-- Named and positional args (named bound first)
-- Trailing call sugar: `f x`, `f(1; 2) 3`
-- `with` sugar: `with(params) = call(...); body`
+- `let` bindings and sequencing with `;`
+- grouped bindings with `let ... and ...`
+- recursive and mutually recursive functions via `let rec` / `let rec ... and ...`
+- lambdas: `fn(x) = x + 1`, `fn x = x + 1`
+- function-definition sugar: `f(x) = ...`, `f x = ...`
+- default parameters are supported (required parameters must come first)
+- positional and named call arguments are both supported
 
 ### Pattern Matching
 
-Supported in `let`, function params, and `if ... is` branches:
+Patterns are available in bindings, parameters, and `if ... is` arms.
 
-- Variable binders and `_`
-- Literal patterns
-- Variant patterns (for example `#Some(x)`)
-- List patterns and rest patterns (`[head; ..rest]`)
-- Record patterns and shorthand fields
-- Pattern alternatives with `|`
+Supported pattern forms:
 
-### Data Structures
+- variable binders and wildcard `_`
+- literal patterns (`1`, `true`, `"ok"`, `nil`)
+- variant patterns (`#Some(x)`)
+- list patterns and rest patterns (`[head; ..tail]`)
+- record patterns
+- pattern alternatives with `|`
 
-- Variants: `#Left(1)`, `#Right("ok")`
-- Records: `{x = 1; y = 2}`, shorthand `{x; y = 2}`
-- Lists: `[1; 2; 3]`
+### Condition Split Syntax
 
-### References and Updates
-
-- Create: `ref(expr)`
-- Dereference: `!r`
-- Assign: `r := value`
-- Update: `+= -= *= /= %= &&= ||=`
-
-Note: `let x += y` is rebinding sugar, equivalent to `let x = x + y`.
-
-### UFCS Fallback
-
-- `x.foo` may resolve to `foo(x)`
-- `x.foo(y; z)` may resolve to `foo(x; y; z)`
-- Record field lookup has priority over UFCS fallback
-
-### String Calls and Interpolation
-
-Simpl has no dedicated template string syntax. Interpolation is expression-based:
-
-- If `a` is `String`, `a(str)` means concatenation
-- If `a` is `String`, `a(list)` joins list items with `a` as separator
-- `$expr` converts a value to string (`$"text"` returns `"text"` without extra quotes)
-
-Example:
-
-```simpl
-let name = "Alice";
-let age = 18;
-name" is "$age" years old"
-```
-
-### Builtins
-
-- `ref(value)`: reference cell
-- `say(value)`: prints a value and returns `nil` (strings are printed as raw text)
-- `map(list; f)`: maps a function over a list
-
-Builtins do not accept named arguments.
-
-## Conditional Syntax (UCS Subset)
-
-Simpl supports split points `if`, `is`, and `and`.  
-`or` closes the current split; `else` and `end` close with fallback behavior.
-
-Examples:
+Simpl supports structured branch splitting with `if`, `and`, `is`, `or`, `else`, and `end`.
 
 ```simpl
 if
@@ -176,17 +141,49 @@ if value is
 else 0
 ```
 
+See detailed syntax notes in [docs/syntax/IF_SYNTAX.md](docs/syntax/IF_SYNTAX.md) and [docs/syntax/README.md](docs/syntax/README.md).
+
+### References and Updates
+
+- Create: `ref(expr)`
+- Dereference: `!r`
+- Assign: `r := value`
+- Update in place: `+= -= *= /= %= &&= ||=`
+
+### UFCS-style Fallback
+
+- `x.foo` can fall back to `foo(x)`
+- `x.foo(y; z)` can fall back to `foo(x; y; z)`
+- Real record fields take priority over fallback
+
+### String Calls
+
+Simpl uses expression-based string composition:
+
+- if `a` is `String`, `a(str)` performs concatenation
+- if `a` is `String`, `a(list)` joins list items with `a` as separator
+
 ```simpl
-if ready and
-  | has_cache then "cache"
-  | has_network then "network"
-  or
-else "idle"
+let name = "Alice";
+let age = 18;
+name" is "$age" years old"
 ```
 
-See full details in `docs/syntax/IF_SYNTAX.md`.
+## Built-in Functions
 
-## Public API
+Current built-ins:
+
+- `ref(value)`
+- `say(value)`
+- `map(list; f)`
+- `length(list_or_string)`
+- `max(list_of_int)`
+- `min(list_of_int)`
+- `sum(list_of_int)`
+
+Note: built-ins do not accept named arguments.
+
+## Public Library API
 
 Primary functions:
 
@@ -196,7 +193,7 @@ Primary functions:
 - `parse_error_text(String) -> String?`
 - `eval_error_text(String) -> String?`
 
-Test helpers:
+Common testing helpers:
 
 - `parse_is_ok(String) -> Bool`
 - `parse_is_error(String) -> Bool`
@@ -205,66 +202,50 @@ Test helpers:
 - `eval_source_is_bool(String, Bool) -> Bool`
 - `eval_source_is_error(String) -> Bool`
 
-Public types:
+Key exposed types:
 
 - `SurfaceExpr`
 - `Expr`
 - `Value`
 - `ParseError`
 
-## Library Examples
-
-Evaluate source:
-
-```moonbit nocheck
-///|
-let value = @simpl.eval_source("1 + 2 * 3")
-// => VInt(7)
-```
-
-Lexical closure capture:
-
-```moonbit nocheck
-///|
-let value = @simpl.eval_source(
-  (
-    #| let x = 10;
-    #| let f(y) = x + y;
-    #| let x = 100;
-    #| f(5)
-  ),
-)
-// => VInt(15)
-```
-
-Pattern split with `if is`:
-
-```moonbit nocheck
-///|
-let value = @simpl.eval_source(
-  (
-    #| if #Left(41) is
-    #| | #Left(x) then x + 1
-    #| | #Right(y) then y
-    #| end
-  ),
-)
-// => VInt(42)
-```
-
 ## Repository Layout
 
-- `parser.mbt`: lexer, parser, parse diagnostics, parse/eval wrappers
-- `simpl.mbt`: AST, desugaring, evaluator, runtime semantics
-- `simpl_test.mbt`: blackbox tests
-- `simpl_wbtest.mbt`: whitebox tests
+- `simpl.mbt`: AST, desugaring, evaluator, runtime model
+- `parser.mbt`: lexer/parser integration and parse diagnostics
+- `lexer.mbt`: lexical analysis
+- `desugar.mbt`: surface-to-core transformation
+- `pattern.mbt`: pattern utilities
+- `apply.mbt`: function/application-related logic
+- `pretty.mbt`: pretty-printing support
+- `simpl_test.mbt`: black-box tests
+- `simpl_wbtest.mbt`: white-box tests
 - `cmd/main/main.mbt`: CLI implementation
-- `docs/syntax/*.md`: focused syntax notes
-- `editors/vscode-simpl`: VS Code syntax highlighting extension
+- `docs/syntax/`: focused syntax references
+- `editors/vscode-simpl/`: VS Code syntax-highlighting extension
 
-## Development Notes
+## Development Workflow
 
-- Keep MoonBit files block-structured with `///|`
-- Prefer stable assertions (`assert_eq`, `assert_true`)
-- Update snapshots only for intentional output changes
-- Move deprecated blocks to `deprecated.mbt` when needed
+Recommended loop:
+
+```powershell
+moon test
+moon info
+moon fmt
+```
+
+If snapshot output intentionally changes:
+
+```powershell
+moon test --update
+```
+
+Tips:
+
+- Keep MoonBit files in block style (`///|`)
+- Prefer stable assertion tests (`assert_eq`, `assert_true`) where possible
+- Check `.mbti` diffs after `moon info` to confirm intended public API changes
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
