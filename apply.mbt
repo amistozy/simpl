@@ -31,19 +31,47 @@ fn apply_list_call(
   args : Array[EvaluatedCallArg],
 ) -> Value raise {
   guard args.length() == 1 else { arity_error(1, args.length()) }
-  guard args is [EArgPos(func_value)] else {
+  guard args is [EArgPos(arg)] else {
     runtime_error("list call only accepts positional arguments")
   }
-  guard value_is_function(func_value) else {
-    runtime_error(
-      "list call expected Function, got \{typed_value_summary(func_value)}",
-    )
+  if value_is_function(arg) {
+    let acc = []
+    for item in items {
+      append_result(acc, apply(arg, [EArgPos(item)]))
+    }
+    return VList(acc)
   }
-  let acc = []
-  for item in items {
-    append_result(acc, apply(func_value, [EArgPos(item)]))
+  match arg {
+    VInt(index) => list_get_by_index(items, index)
+    VList(index_values) => {
+      let acc = []
+      for index_value in index_values {
+        match index_value {
+          VInt(index) => acc.push(list_get_by_index(items, index))
+          _ =>
+            runtime_error(
+              "list call expected Int, List[Int], or Function, got \{typed_value_summary(arg)}",
+            )
+        }
+      }
+      VList(acc)
+    }
+    _ =>
+      runtime_error(
+        "list call expected Int, List[Int], or Function, got \{typed_value_summary(arg)}",
+      )
   }
-  VList(acc)
+}
+
+///|
+fn list_get_by_index(items : Array[Value], index : Int) -> Value {
+  let len = items.length()
+  let normalized = if index < 0 { len + index } else { index }
+  if normalized < 0 || normalized >= len {
+    VNil
+  } else {
+    items[normalized]
+  }
 }
 
 ///|

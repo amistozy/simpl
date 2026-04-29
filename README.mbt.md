@@ -150,6 +150,13 @@ See detailed syntax notes in [docs/syntax/IF_SYNTAX.md](docs/syntax/IF_SYNTAX.md
 - Assign: `r := value`
 - Update in place: `+= -= *= /= %= &&= ||=`
 
+### List Calls
+
+- `list(n)`: index into list by `n`
+- negative indices are supported (`-1` means last element)
+- out-of-range indices return `nil`
+- `list(xs)` where `xs` is `List[Int]`: batch indexing, equivalent to mapping each index over `list`
+
 ### UFCS-style Fallback
 
 - `x.foo` can fall back to `foo(x)`

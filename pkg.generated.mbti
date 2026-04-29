@@ -33,8 +33,6 @@ pub fn value_is_nil_or_nil_only_list(Value) -> Bool
 // Errors
 
 // Types and methods
-type Expr derive(@debug.Debug)
-
 type SurfaceExpr derive(@debug.Debug)
 pub impl Show for SurfaceExpr
 
