@@ -434,7 +434,7 @@ test "map validates argument types" {
   )
   assert_eq(
     @simpl.eval_error_text("map([1]; 1)"),
-    Some("builtin 'map' expected Function, got Int(1) at 1:1-12"),
+    Some("int call expected String, List, or Function, got Int(1) at 1:1-12"),
   )
 }
 
