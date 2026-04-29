@@ -151,7 +151,7 @@
     "operators": {
       "patterns": [
         {
-          "name": "keyword.operator.assignment.compound.simpl",
+          "name": "keyword.operator.assignment.simpl",
           "match": "(?<![|&])(?:\\+=|-=|\\*=|/=|%=|:=|&&=|\\|\\|=)"
         },
         {
