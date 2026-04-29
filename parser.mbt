@@ -9,7 +9,7 @@ type SpannedToken = (Token, SourceSpan)
 
 ///|
 /// Parser error type
-suberror ParseError {
+priv suberror ParseError {
   SyntaxErrorAt(String, SourceSpan)
 } derive(Debug)
 

@@ -82,7 +82,7 @@ priv enum SurfaceRecordPatternField {
 
 ///|
 /// Core AST definitions
-enum Expr {
+priv enum Expr {
   Located(SourceSpan, Expr)
   IntLit(Int)
   BoolLit(Bool)

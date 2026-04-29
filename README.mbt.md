@@ -205,9 +205,7 @@ Common testing helpers:
 Key exposed types:
 
 - `SurfaceExpr`
-- `Expr`
 - `Value`
-- `ParseError`
 
 ## Repository Layout
 
