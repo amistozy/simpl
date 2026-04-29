@@ -212,6 +212,7 @@ priv enum Builtin {
   BLength
   BMax
   BMin
+  BSum
 } derive(Debug)
 
 ///|
@@ -537,6 +538,7 @@ fn builtin_bindings() -> Array[(String, Builtin)] {
     ("length", BLength),
     ("max", BMax),
     ("min", BMin),
+    ("sum", BSum),
   ]
 }
 
@@ -1162,6 +1164,7 @@ fn apply_builtin(
     }
     BMax => apply_builtin_max_or_min(true, args)
     BMin => apply_builtin_max_or_min(false, args)
+    BSum => apply_builtin_sum(args)
     _ => {
       guard args.length() == 1 else { arity_error(1, args.length()) }
       guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
@@ -1196,6 +1199,22 @@ fn builtin_name(builtin : Builtin) -> String {
     BLength => "length"
     BMax => "max"
     BMin => "min"
+    BSum => "sum"
+  }
+}
+
+///|
+fn apply_builtin_sum(args : Array[EvaluatedCallArg]) -> Value raise {
+  match args {
+    [EArgPos(VList(items))] =>
+      VInt(
+        items
+        .map(item => value_as_int_for_builtin("sum", item))
+        .fold(init=0, Int::add),
+      )
+    [EArgPos(v)] => builtin_type_error("sum", "List", v)
+    [_] => runtime_error("builtin 'sum' does not accept named arguments")
+    _ => arity_error(1, args.length())
   }
 }
 

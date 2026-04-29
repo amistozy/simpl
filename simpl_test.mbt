@@ -481,6 +481,25 @@ test "max and min validate argument shape and types" {
 }
 
 ///|
+test "sum supports list and ufcs" {
+  assert_true(@simpl.eval_source_is_int("sum([1; 2; 3])", 6))
+  assert_true(@simpl.eval_source_is_int("[1; 2; 3].sum", 6))
+  assert_true(@simpl.eval_source_is_int("sum([])", 0))
+}
+
+///|
+test "sum validates argument type and list element type" {
+  assert_eq(
+    @simpl.eval_error_text("sum(1)"),
+    Some("builtin 'sum' expected List, got Int(1) at 1:1-7"),
+  )
+  assert_eq(
+    @simpl.eval_error_text("sum([1; true])"),
+    Some("builtin 'sum' expected Int, got Bool(true) at 1:1-15"),
+  )
+}
+
+///|
 test "say does not accept named arguments" {
   assert_true(@simpl.eval_source_is_error("say(x = 1)"))
 }
