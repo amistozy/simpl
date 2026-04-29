@@ -1215,7 +1215,13 @@ fn apply_builtin_max_or_min(
         ),
       )
     [EArgPos(VList(items))] =>
-      VInt(reduce_max_or_min_int_list(is_max, items, name))
+      VInt(
+        reduce_max_or_min_int_list(
+          is_max,
+          items.map(item => value_as_int_for_builtin(name, item)),
+          name,
+        ),
+      )
     [EArgPos(v)] => builtin_type_error(name, "List or (Int, Int)", v)
     _ if args.length() == 1 || args.length() == 2 =>
       runtime_error("builtin '\{name}' does not accept named arguments")
@@ -1246,15 +1252,13 @@ fn select_max_or_min_ints(is_max : Bool, a : Int, b : Int) -> Int {
 ///|
 fn reduce_max_or_min_int_list(
   is_max : Bool,
-  items : Array[Value],
+  items : Array[Int],
   name : String,
 ) -> Int raise {
   guard items is [head, .. tail] else {
     runtime_error("builtin '\{name}' expected non-empty List")
   }
-  tail.fold(init=value_as_int_for_builtin(name, head), (acc, item) => {
-    select_max_or_min_ints(is_max, acc, value_as_int_for_builtin(name, item))
-  })
+  tail.fold(init=head, (acc, item) => select_max_or_min_ints(is_max, acc, item))
 }
 
 ///|
