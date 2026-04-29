@@ -455,6 +455,32 @@ test "length validates argument type" {
 }
 
 ///|
+test "max and min support two args and one list arg" {
+  assert_true(@simpl.eval_source_is_int("max(3; 5)", 5))
+  assert_true(@simpl.eval_source_is_int("min(3; 5)", 3))
+  assert_true(@simpl.eval_source_is_int("max([3; 5; 2])", 5))
+  assert_true(@simpl.eval_source_is_int("min([3; 5; 2])", 2))
+  assert_true(@simpl.eval_source_is_int("[3; 5; 2].max", 5))
+  assert_true(@simpl.eval_source_is_int("[3; 5; 2].min", 2))
+}
+
+///|
+test "max and min validate argument shape and types" {
+  assert_eq(
+    @simpl.eval_error_text("max([])"),
+    Some("builtin 'max' expected non-empty List at 1:1-8"),
+  )
+  assert_eq(
+    @simpl.eval_error_text("min(1)"),
+    Some("builtin 'min' expected List or (Int, Int), got Int(1) at 1:1-7"),
+  )
+  assert_eq(
+    @simpl.eval_error_text("max([1; true])"),
+    Some("builtin 'max' expected Int, got Bool(true) at 1:1-15"),
+  )
+}
+
+///|
 test "say does not accept named arguments" {
   assert_true(@simpl.eval_source_is_error("say(x = 1)"))
 }

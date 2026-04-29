@@ -210,6 +210,8 @@ priv enum Builtin {
   BSay
   BMap
   BLength
+  BMax
+  BMin
 } derive(Debug)
 
 ///|
@@ -528,7 +530,14 @@ fn initial_env() -> Env {
 
 ///|
 fn builtin_bindings() -> Array[(String, Builtin)] {
-  [("ref", BRef), ("say", BSay), ("map", BMap), ("length", BLength)]
+  [
+    ("ref", BRef),
+    ("say", BSay),
+    ("map", BMap),
+    ("length", BLength),
+    ("max", BMax),
+    ("min", BMin),
+  ]
 }
 
 ///|
@@ -1151,6 +1160,8 @@ fn apply_builtin(
         _ => builtin_type_error("length", "String or List", v)
       }
     }
+    BMax => apply_builtin_max_or_min(true, args)
+    BMin => apply_builtin_max_or_min(false, args)
     _ => {
       guard args.length() == 1 else { arity_error(1, args.length()) }
       guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
@@ -1183,7 +1194,67 @@ fn builtin_name(builtin : Builtin) -> String {
     BSay => "say"
     BMap => "map"
     BLength => "length"
+    BMax => "max"
+    BMin => "min"
   }
+}
+
+///|
+fn apply_builtin_max_or_min(
+  is_max : Bool,
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  let name = if is_max { "max" } else { "min" }
+  match args {
+    [EArgPos(a), EArgPos(b)] =>
+      VInt(
+        select_max_or_min_ints(
+          is_max,
+          value_as_int_for_builtin(name, a),
+          value_as_int_for_builtin(name, b),
+        ),
+      )
+    [EArgPos(VList(items))] =>
+      VInt(reduce_max_or_min_int_list(is_max, items, name))
+    [EArgPos(v)] => builtin_type_error(name, "List or (Int, Int)", v)
+    _ if args.length() == 1 || args.length() == 2 =>
+      runtime_error("builtin '\{name}' does not accept named arguments")
+    _ =>
+      runtime_error(
+        "arity error: expected 1 or 2 arguments, got \{args.length()}",
+      )
+  }
+}
+
+///|
+fn value_as_int_for_builtin(name : String, value : Value) -> Int raise {
+  match value {
+    VInt(v) => v
+    _ => builtin_type_error(name, "Int", value)
+  }
+}
+
+///|
+fn select_max_or_min_ints(is_max : Bool, a : Int, b : Int) -> Int {
+  if is_max {
+    a.max(b)
+  } else {
+    a.min(b)
+  }
+}
+
+///|
+fn reduce_max_or_min_int_list(
+  is_max : Bool,
+  items : Array[Value],
+  name : String,
+) -> Int raise {
+  guard items is [head, .. tail] else {
+    runtime_error("builtin '\{name}' expected non-empty List")
+  }
+  tail.fold(init=value_as_int_for_builtin(name, head), (acc, item) => {
+    select_max_or_min_ints(is_max, acc, value_as_int_for_builtin(name, item))
+  })
 }
 
 ///|
