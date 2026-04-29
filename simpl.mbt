@@ -209,6 +209,7 @@ priv enum Builtin {
   BRef
   BSay
   BMap
+  BLength
 } derive(Debug)
 
 ///|
@@ -527,7 +528,7 @@ fn initial_env() -> Env {
 
 ///|
 fn builtin_bindings() -> Array[(String, Builtin)] {
-  [("ref", BRef), ("say", BSay), ("map", BMap)]
+  [("ref", BRef), ("say", BSay), ("map", BMap), ("length", BLength)]
 }
 
 ///|
@@ -1170,6 +1171,15 @@ fn apply_builtin(
       }
       VList(items.map(item => apply(func_value, [EArgPos(item)])))
     }
+    BLength => {
+      guard args.length() == 1 else { arity_error(1, args.length()) }
+      guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
+      match v {
+        VString(text) => VInt(text.length())
+        VList(items) => VInt(items.length())
+        _ => builtin_type_error("length", "String or List", v)
+      }
+    }
     _ => {
       guard args.length() == 1 else { arity_error(1, args.length()) }
       guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
@@ -1201,6 +1211,7 @@ fn builtin_name(builtin : Builtin) -> String {
     BRef => "ref"
     BSay => "say"
     BMap => "map"
+    BLength => "length"
   }
 }
 
@@ -1444,6 +1455,7 @@ fn function_param_count(value : Value) -> Int? {
     VBuiltin(BRef) => Some(1)
     VBuiltin(BSay) => Some(1)
     VBuiltin(BMap) => Some(2)
+    VBuiltin(BLength) => Some(1)
     _ => None
   }
 }

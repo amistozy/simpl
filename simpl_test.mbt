@@ -420,6 +420,22 @@ test "map validates argument types" {
 }
 
 ///|
+test "length supports string and list, including ufcs" {
+  assert_true(@simpl.eval_source_is_int("length(\"hello\")", 5))
+  assert_true(@simpl.eval_source_is_int("length([1; 2; 3])", 3))
+  assert_true(@simpl.eval_source_is_int("\"moon\".length", 4))
+  assert_true(@simpl.eval_source_is_int("[1; 2].length", 2))
+}
+
+///|
+test "length validates argument type" {
+  assert_eq(
+    @simpl.eval_error_text("length(1)"),
+    Some("builtin 'length' expected String or List, got Int(1) at 1:1-10"),
+  )
+}
+
+///|
 test "say does not accept named arguments" {
   assert_true(@simpl.eval_source_is_error("say(x = 1)"))
 }
