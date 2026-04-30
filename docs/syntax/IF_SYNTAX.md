@@ -87,7 +87,7 @@ In multi-route mode, branches attach until closed by one of:
 ### Compact one-line style
 
 ```simpl
-if x > 0 then x else -x
+if x > 0 then x else ~x
 ```
 
 ### Multi-way `if`

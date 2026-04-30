@@ -237,7 +237,7 @@ fn surface_bin_op_text(op : BinOp) -> String {
 ///|
 fn surface_unary_op_text(op : UnOp) -> String {
   match op {
-    Neg => "-"
+    Neg => "~"
     Bang => "!"
     Dollar => "$"
   }

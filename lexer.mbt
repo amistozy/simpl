@@ -92,6 +92,16 @@ fn lex_loop(
           MinusAssignTok,
           acc,
         )
+      } else if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char().is_ascii_digit() {
+        let end = scan_digits(source, i + 1)
+        let num_text = source[i + 1:end]
+        let value = -parse_digits_to_int(num_text, 0, 0)
+        let span = make_span(source, i, end, line, column)
+        acc.push((IntTok(value), span))
+        let (_, end_pos) = span
+        let (_, next_line, next_column) = end_pos
+        lex_loop(source, end, next_line, next_column, acc)
       } else {
         push_single_char_token(source, i, line, column, MinusTok, acc)
       }
@@ -180,6 +190,7 @@ fn lex_loop(
       } else {
         push_single_char_token(source, i, line, column, ColonTok, acc)
       }
+    '~' => push_single_char_token(source, i, line, column, TildeTok, acc)
     '!' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '=' {

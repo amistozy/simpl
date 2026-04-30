@@ -187,6 +187,33 @@ test "parser supports fn param shorthand without parentheses" {
 }
 
 ///|
+test "parser preserves unary tilde in surface ast" {
+  match parse("~1") {
+    SLocated(_, SUnary(Neg, SLocated(_, SIntLit(1)))) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser preserves negative int literal in surface ast" {
+  match parse("-42") {
+    SLocated(_, SIntLit(-42)) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "lexer-driven negative literal makes 1-42 trailing application" {
+  match parse("1-42") {
+    SLocated(
+      _,
+      STrailingCall(SLocated(_, SIntLit(1)), SLocated(_, SIntLit(-42)))
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "parser preserves with(params) sugar in surface ast" {
   match parse("with(v) = use(41); v + 1") {
     SLocated(

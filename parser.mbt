@@ -56,6 +56,7 @@ priv enum Token {
   PercentAssignTok
   AndAndAssignTok
   OrOrAssignTok
+  TildeTok
   BangTok
   DollarTok
   DotDotTok
@@ -287,6 +288,7 @@ fn token_name(tok : Token) -> String {
     PercentAssignTok => "%="
     AndAndAssignTok => "&&="
     OrOrAssignTok => "||="
+    TildeTok => "~"
     BangTok => "!"
     DollarTok => "$"
     DotDotTok => ".."
@@ -1306,7 +1308,7 @@ fn parse_unary_expr(
   } else if i < tokens.length() && token_kind(tokens, i) == DollarTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (located_expr(tokens, i, j, SUnary(Dollar, expr)), j)
-  } else if i < tokens.length() && token_kind(tokens, i) == MinusTok {
+  } else if i < tokens.length() && token_kind(tokens, i) == TildeTok {
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (located_expr(tokens, i, j, SUnary(Neg, expr)), j)
   } else {

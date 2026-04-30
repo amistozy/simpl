@@ -850,7 +850,7 @@ fn eval_unary(op : UnOp, value : Value) -> Value raise {
     Neg =>
       match value {
         VInt(v) => VInt(-v)
-        _ => type_error_unary("unary '-'", "Int", value)
+        _ => type_error_unary("unary '~'", "Int", value)
       }
     Bang =>
       match value {

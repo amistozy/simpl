@@ -325,6 +325,21 @@ test "eval_source honors operator precedence" {
 }
 
 ///|
+test "negative integer literal is supported" {
+  assert_true(@simpl.eval_source_is_int("-42", -42))
+}
+
+///|
+test "spaced minus is not a negative literal" {
+  assert_true(@simpl.parse_is_error("- 42"))
+}
+
+///|
+test "unary minus stays reserved for literals only" {
+  assert_true(@simpl.parse_is_error("-x"))
+}
+
+///|
 test "parse error is reported" {
   assert_true(@simpl.eval_source_is_error("let x = 1 x + 2"))
   assert_true(@simpl.parse_is_error("let x = 1 x + 2"))
@@ -658,8 +673,8 @@ test "list call validates index argument types" {
 ///|
 test "unary type error reports expected and actual value" {
   assert_eq(
-    @simpl.eval_error_text("-true"),
-    Some("type error: unary '-' expected Int, got Bool(true) at 1:1-6"),
+    @simpl.eval_error_text("~true"),
+    Some("type error: unary '~' expected Int, got Bool(true) at 1:1-6"),
   )
 }
 

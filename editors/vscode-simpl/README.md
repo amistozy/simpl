@@ -6,14 +6,14 @@ This extension provides language support for Simpl files (`.simpl`) in Visual St
 
 - Syntax highlighting for core Simpl syntax:
   - keywords (`let`, `rec`, `if`, `then`, `else`, `fn`, `do`, `with`, `end`, `is`, `and`, `or`)
-  - literals (integers, strings, `true`, `false`, `nil`)
+  - literals (integers, negative integer literals, strings, `true`, `false`, `nil`)
   - operators (arithmetic, comparison, logical, assignment, reference updates)
   - variant tags (for example `#Tag`)
 - Function-call highlighting for both styles:
   - parenthesized call: `f(...)`
   - trailing application: `f x`
   - grouped trailing call: `say: (1 + 2) * 3`
-  - prefix-operator arguments: `f !x`, `f -1`, `f $value`
+  - prefix-operator and negative-literal arguments: `f !x`, `f -1`, `f ~x`, `f $value`
 - Function-definition highlighting for sugar in multiple positions:
   - top-level/local bindings: `let inc(x) = x + 1`, `let inc x = x + 1`
   - record fields: `{ inc(x) = x + 1 }`

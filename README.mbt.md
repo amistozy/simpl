@@ -91,9 +91,10 @@ Each block is parsed/evaluated independently, and errors are reported with adjus
 - Comparison: `== != < <= > >=`
 - Boolean: `&& ||` (short-circuit, returns operand values)
 - Unary:
-  - `-x` numeric negate
+  - `~x` numeric negate
   - `!x` boolean-not; if `x` is a ref, dereference
   - `$x` convert value to string
+- Negative integer literals: `-1`, `-42`
 
 Runtime details:
 
