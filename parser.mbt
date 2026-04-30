@@ -1340,7 +1340,7 @@ fn parse_trailing_apply_tail(
     match maybe_arg {
       Some((arg_expr, j)) =>
         parse_trailing_apply_tail(
-          append_or_chain_trailing_call(expr, arg_expr, tokens, j),
+          apply_trailing_arg_surface(expr, arg_expr, tokens, j),
           tokens,
           j,
         )
@@ -1350,7 +1350,7 @@ fn parse_trailing_apply_tail(
 }
 
 ///|
-fn append_or_chain_trailing_call(
+fn apply_trailing_arg_surface(
   func_expr : SurfaceExpr,
   arg_expr : SurfaceExpr,
   tokens : Array[SpannedToken],
