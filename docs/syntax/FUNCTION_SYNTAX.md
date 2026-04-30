@@ -123,6 +123,7 @@ Examples:
 ```simpl
 inc 41
 add3(1; 2) 3
+(make_adder 1) 2
 ```
 
 When trailing application would otherwise capture too little, `:(expr)` can be

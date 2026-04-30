@@ -1340,13 +1340,47 @@ fn parse_trailing_apply_tail(
     match maybe_arg {
       Some((arg_expr, j)) =>
         parse_trailing_apply_tail(
-          located_expr_from_left(expr, tokens, j, STrailingCall(expr, arg_expr)),
+          append_or_chain_trailing_call(expr, arg_expr, tokens, j),
           tokens,
           j,
         )
       None => (expr, i)
     }
   }
+}
+
+///|
+fn append_or_chain_trailing_call(
+  func_expr : SurfaceExpr,
+  arg_expr : SurfaceExpr,
+  tokens : Array[SpannedToken],
+  end_i : Int,
+) -> SurfaceExpr {
+  match func_expr {
+    SLocated(span, SCall(inner_func, args)) =>
+      SLocated(
+        span_extend_to_token(span, tokens, end_i),
+        SCall(inner_func, args + [SArgPos(arg_expr)]),
+      )
+    _ =>
+      located_expr_from_left(
+        func_expr,
+        tokens,
+        end_i,
+        SCall(func_expr, [SArgPos(arg_expr)]),
+      )
+  }
+}
+
+///|
+fn span_extend_to_token(
+  span : SourceSpan,
+  tokens : Array[SpannedToken],
+  end_i : Int,
+) -> SourceSpan {
+  let (start_pos, _) = span
+  let (_, end_pos) = token_span_at(tokens, end_i - 1)
+  (start_pos, end_pos)
 }
 
 ///|

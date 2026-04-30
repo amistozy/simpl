@@ -36,12 +36,10 @@ fn desugar(expr : SurfaceExpr) -> Expr {
     SLetRecAnd(defs, body) =>
       LetRecAnd(defs.map(def => desugar_let_rec_def(def)), desugar(body))
     SWith(params, target_expr, body) =>
-      append_trailing_arg_core(
+      append_call_arg_core(
         desugar(target_expr),
         Lambda(params.map(param => desugar_param(param)), desugar(body)),
       )
-    STrailingCall(func_expr, arg_expr) =>
-      append_trailing_arg_core(desugar(func_expr), desugar(arg_expr))
     SLambda(params, body) =>
       Lambda(params.map(param => desugar_param(param)), desugar(body))
     SCall(func_expr, arg_exprs) =>
@@ -53,10 +51,9 @@ fn desugar(expr : SurfaceExpr) -> Expr {
 }
 
 ///|
-fn append_trailing_arg_core(target_expr : Expr, arg_expr : Expr) -> Expr {
+fn append_call_arg_core(target_expr : Expr, arg_expr : Expr) -> Expr {
   match target_expr {
-    Located(span, inner) =>
-      Located(span, append_trailing_arg_core(inner, arg_expr))
+    Located(span, inner) => Located(span, append_call_arg_core(inner, arg_expr))
     Call(func_expr, args) => Call(func_expr, args + [ArgPos(arg_expr)])
     _ => Call(target_expr, [ArgPos(arg_expr)])
   }

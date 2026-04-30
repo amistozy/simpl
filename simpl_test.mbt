@@ -86,7 +86,7 @@ test "single-parameter lambda can omit parentheses" {
 }
 
 ///|
-test "trailing arg sugar rewrites f x to f(x)" {
+test "trailing application applies one argument" {
   let code =
     #| let inc x = x + 1;
     #| inc 41
@@ -94,11 +94,19 @@ test "trailing arg sugar rewrites f x to f(x)" {
 }
 
 ///|
-test "trailing arg sugar appends to existing arg list" {
+test "trailing arg after direct call appends to same call" {
   let code =
     #| let add3(a; b; c) = a + b + c;
     #| add3(1; 2) 3
   assert_true(@simpl.eval_source_is_int(code, 6))
+}
+
+///|
+test "grouped trailing application produces nested call" {
+  let code =
+    #| let f(x) = fn(y) = x + y;
+    #| (f 2) 3
+  assert_true(@simpl.eval_source_is_int(code, 5))
 }
 
 ///|
@@ -110,7 +118,7 @@ test "trailing arg has lowest precedence over infix operators" {
 }
 
 ///|
-test "trailing lambda works with lowest precedence application" {
+test "trailing lambda is passed as one argument" {
   let code =
     #| let foo f = f 42;
     #| foo fn x = x + 1
@@ -118,7 +126,7 @@ test "trailing lambda works with lowest precedence application" {
 }
 
 ///|
-test "with(params) sugar appends lambda as last argument" {
+test "with(params) appends lambda as last call argument" {
   let code =
     #| let use(x; f) = f x;
     #| with(v) = use 41; v + 1
@@ -126,7 +134,7 @@ test "with(params) sugar appends lambda as last argument" {
 }
 
 ///|
-test "with x = ... sugar supports single param without parentheses" {
+test "with single parameter shorthand works" {
   let code =
     #| let use(x; f) = f x;
     #| with v = use 41; v + 1
@@ -134,7 +142,7 @@ test "with x = ... sugar supports single param without parentheses" {
 }
 
 ///|
-test "with foo(...); ... sugar supports zero-parameter lambda" {
+test "with target shorthand supports zero-parameter lambda" {
   let code =
     #| let run f = f();
     #| with run; 42
@@ -142,7 +150,7 @@ test "with foo(...); ... sugar supports zero-parameter lambda" {
 }
 
 ///|
-test "trailing application is right-associative" {
+test "trailing application associates to the right" {
   let code =
     #| let f v = v * 10;
     #| let g x = x + 2;
@@ -457,7 +465,7 @@ test "length supports string and list, including ufcs" {
 test "length validates argument type" {
   assert_eq(
     @simpl.eval_error_text("length 1"),
-    Some("builtin 'length' expected String or List, got Int(1) at 1:1-7"),
+    Some("builtin 'length' expected String or List, got Int(1) at 1:1-9"),
   )
 }
 
@@ -475,15 +483,15 @@ test "max and min support two args and one list arg" {
 test "max and min validate argument shape and types" {
   assert_eq(
     @simpl.eval_error_text("max []"),
-    Some("builtin 'max' expected non-empty List at 1:1-4"),
+    Some("builtin 'max' expected non-empty List at 1:1-7"),
   )
   assert_eq(
     @simpl.eval_error_text("min 1"),
-    Some("builtin 'min' expected List or (Int, Int), got Int(1) at 1:1-4"),
+    Some("builtin 'min' expected List or (Int, Int), got Int(1) at 1:1-6"),
   )
   assert_eq(
     @simpl.eval_error_text("max [1; true]"),
-    Some("builtin 'max' expected Int, got Bool(true) at 1:1-4"),
+    Some("builtin 'max' expected Int, got Bool(true) at 1:1-14"),
   )
 }
 
@@ -498,11 +506,11 @@ test "sum supports list and ufcs" {
 test "sum validates argument type and list element type" {
   assert_eq(
     @simpl.eval_error_text("sum 1"),
-    Some("builtin 'sum' expected List, got Int(1) at 1:1-4"),
+    Some("builtin 'sum' expected List, got Int(1) at 1:1-6"),
   )
   assert_eq(
     @simpl.eval_error_text("sum [1; true]"),
-    Some("builtin 'sum' expected Int, got Bool(true) at 1:1-4"),
+    Some("builtin 'sum' expected Int, got Bool(true) at 1:1-14"),
   )
 }
 
@@ -614,7 +622,7 @@ test "int call on function collects results into list" {
 test "int call on function passes no arguments" {
   assert_eq(
     @simpl.eval_error_text("3 fn a = a"),
-    Some("arity error: expected 1 arguments, got 0 at 1:1-2"),
+    Some("arity error: expected 1 arguments, got 0 at 1:1-11"),
   )
 }
 
@@ -659,13 +667,13 @@ test "list call validates index argument types" {
   assert_eq(
     @simpl.eval_error_text("[1] true"),
     Some(
-      "list call expected Int, List[Int], or Function, got Bool(true) at 1:1-4",
+      "list call expected Int, List[Int], or Function, got Bool(true) at 1:1-9",
     ),
   )
   assert_eq(
     @simpl.eval_error_text("[1] [0; true]"),
     Some(
-      "list call expected Int, List[Int], or Function, got List([0; true]) at 1:1-4",
+      "list call expected Int, List[Int], or Function, got List([0; true]) at 1:1-14",
     ),
   )
 }
@@ -716,7 +724,7 @@ test "missing field reports field name and record summary" {
 test "calling non-function reports actual value" {
   assert_eq(
     @simpl.eval_error_text("true 1"),
-    Some("call error: expected Function, got Bool(true) at 1:1-5"),
+    Some("call error: expected Function, got Bool(true) at 1:1-7"),
   )
 }
 

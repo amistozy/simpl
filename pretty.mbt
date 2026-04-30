@@ -26,8 +26,6 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
       "let rec \{surface_let_rec_defs_pretty(defs)}; \{surface_expr_pretty(body)}"
     SWith(params, target_expr, body) =>
       "with(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(target_expr)}; \{surface_expr_pretty(body)}"
-    STrailingCall(func_expr, arg_expr) =>
-      "\{surface_expr_pretty(func_expr)} \{surface_expr_pretty(arg_expr)}"
     SLambda(params, body) =>
       "fn(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(body)}"
     SCall(func_expr, arg_exprs) =>

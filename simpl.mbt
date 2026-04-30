@@ -18,7 +18,6 @@ enum SurfaceExpr {
   SLetRec(String, Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
   SLetRecAnd(Array[(String, Array[SurfaceParam], SurfaceExpr)], SurfaceExpr)
   SWith(Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
-  STrailingCall(SurfaceExpr, SurfaceExpr)
   SLambda(Array[SurfaceParam], SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceCallArg])
   SField(SurfaceExpr, String)

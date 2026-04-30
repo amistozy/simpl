@@ -1,4 +1,24 @@
 ///|
+
+///|
+fn expr_is_located_int(expr : Expr, expected : Int) -> Bool {
+  match expr {
+    Located(_, IntLit(value)) => value == expected
+    IntLit(value) => value == expected
+    _ => false
+  }
+}
+
+///|
+fn expr_is_located_var(expr : Expr, expected : String) -> Bool {
+  match expr {
+    Located(_, Var(name)) => name == expected
+    Var(name) => name == expected
+    _ => false
+  }
+}
+
+///|
 /// Whitebox: evaluate with preloaded environment
 test "eval_with_env reads env chain" {
   let env = @hashmap.singleton("x", VInt(7))
@@ -120,28 +140,28 @@ test "parser lowers single-param default lambda sugar to default lambda expr" {
 }
 
 ///|
-test "parser preserves trailing arg sugar in surface ast" {
+test "parser lowers f x into a one-arg call" {
   match parse("f x") {
-    SLocated(_, STrailingCall(SLocated(_, SVar("f")), SLocated(_, SVar("x")))) =>
-      assert_true(true)
+    SLocated(
+      _,
+      SCall(SLocated(_, SVar("f")), [SArgPos(SLocated(_, SVar("x")))])
+    ) => assert_true(true)
     _ => assert_true(false)
   }
 }
 
 ///|
-test "parser preserves trailing arg after parenthesized call" {
+test "parser appends trailing arg to direct call" {
   match parse("f(1; 2) 3") {
     SLocated(
       _,
-      STrailingCall(
-        SLocated(
-          _,
-          SCall(
-            SLocated(_, SVar("f")),
-            [SArgPos(SLocated(_, SIntLit(1))), SArgPos(SLocated(_, SIntLit(2)))]
-          )
-        ),
-        SLocated(_, SIntLit(3))
+      SCall(
+        SLocated(_, SVar("f")),
+        [
+          SArgPos(SLocated(_, SIntLit(1))),
+          SArgPos(SLocated(_, SIntLit(2))),
+          SArgPos(SLocated(_, SIntLit(3))),
+        ]
       )
     ) => assert_true(true)
     _ => assert_true(false)
@@ -149,8 +169,50 @@ test "parser preserves trailing arg after parenthesized call" {
 }
 
 ///|
-test "parser treats :(...) as grouped trailing arg" {
-  assert_eq(surface_expr_pretty(parse("say: (1 + 2) * 3")), "say ((1 + 2) * 3)")
+test "desugar turns trailing arg after call into chained call" {
+  let expr = desugar(parse("(f 1) 3"))
+  let env = initial_env().add(
+    "f",
+    VClosure(
+      [Param(PBind("x"), None, Some("x"))],
+      Lambda(
+        [Param(PBind("y"), None, Some("y"))],
+        Binary(Add, Var("x"), Var("y")),
+      ),
+      initial_env(),
+      [None],
+    ),
+  )
+  assert_true(
+    try eval_with_env(expr, env) catch {
+      _ => false
+    } noraise {
+      VInt(v) => v == 4
+      _ => false
+    },
+  )
+}
+
+///|
+test "desugar keeps parser-built appended call shape" {
+  match desugar(parse("f(1; 2) 3")) {
+    Located(_, Call(callee, [ArgPos(arg1), ArgPos(arg2), ArgPos(arg3)])) =>
+      assert_true(
+        expr_is_located_var(callee, "f") &&
+        expr_is_located_int(arg1, 1) &&
+        expr_is_located_int(arg2, 2) &&
+        expr_is_located_int(arg3, 3),
+      )
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser turns :(...) into ordinary grouped call arg" {
+  assert_eq(
+    surface_expr_pretty(parse("say: (1 + 2) * 3")),
+    "say(((1 + 2) * 3))",
+  )
 }
 
 ///|
@@ -168,11 +230,11 @@ test "parser supports single-param named arg lambda sugar" {
 }
 
 ///|
-test "parser binds trailing lambda as a single lowest-precedence arg" {
+test "parser passes trailing lambda as one call arg" {
   match parse("foo fn(x) = x + 1") {
     SLocated(
       _,
-      STrailingCall(SLocated(_, SVar("foo")), SLocated(_, SLambda(_, _)))
+      SCall(SLocated(_, SVar("foo")), [SArgPos(SLocated(_, SLambda(_, _)))])
     ) => assert_true(true)
     _ => assert_true(false)
   }
@@ -203,18 +265,18 @@ test "parser preserves negative int literal in surface ast" {
 }
 
 ///|
-test "lexer-driven negative literal makes 1-42 trailing application" {
+test "negative literal can be the argument of trailing application" {
   match parse("1-42") {
     SLocated(
       _,
-      STrailingCall(SLocated(_, SIntLit(1)), SLocated(_, SIntLit(-42)))
+      SCall(SLocated(_, SIntLit(1)), [SArgPos(SLocated(_, SIntLit(-42)))])
     ) => assert_true(true)
     _ => assert_true(false)
   }
 }
 
 ///|
-test "parser preserves with(params) sugar in surface ast" {
+test "parser preserves with(params) surface form" {
   match parse("with(v) = use(41); v + 1") {
     SLocated(
       _,
@@ -235,7 +297,7 @@ test "parser preserves with(params) sugar in surface ast" {
 }
 
 ///|
-test "parser preserves with foo(...); ... sugar in surface ast" {
+test "parser preserves zero-parameter with surface form" {
   match parse("with run(); 42") {
     SLocated(
       _,
@@ -254,12 +316,16 @@ test "parser makes trailing application right-associative" {
   match parse("f g x") {
     SLocated(
       _,
-      STrailingCall(
+      SCall(
         SLocated(_, SVar("f")),
-        SLocated(
-          _,
-          STrailingCall(SLocated(_, SVar("g")), SLocated(_, SVar("x")))
-        )
+        [
+          SArgPos(
+            SLocated(
+              _,
+              SCall(SLocated(_, SVar("g")), [SArgPos(SLocated(_, SVar("x")))])
+            )
+          ),
+        ]
       )
     ) => assert_true(true)
     _ => assert_true(false)
