@@ -12,6 +12,12 @@ This extension provides language support for Simpl files (`.simpl`) in Visual St
 - Function-call highlighting for both styles:
   - parenthesized call: `f(...)`
   - trailing application: `f x`
+  - grouped trailing call: `say: (1 + 2) * 3`
+  - prefix-operator arguments: `f !x`, `f -1`, `f $value`
+- Function-definition highlighting for sugar in multiple positions:
+  - top-level/local bindings: `let inc(x) = x + 1`, `let inc x = x + 1`
+  - record fields: `{ inc(x) = x + 1 }`
+  - named lambda arguments: `apply(f(x) = x + 1)`
 - Built-in language configuration:
   - bracket matching
   - auto-closing pairs
