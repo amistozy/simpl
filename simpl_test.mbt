@@ -497,6 +497,11 @@ test "say does not accept named arguments" {
 }
 
 ///|
+test "say trailing arg can be disambiguated with colon grouping" {
+  assert_true(@simpl.eval_source_is_int("do say: (1 + 2) * 3; 42", 42))
+}
+
+///|
 test "string interpolation uses call chaining without spaces" {
   let code =
     #| let name = "Alice";
@@ -638,7 +643,9 @@ test "list call on function maps each element and collects results" {
 test "list call validates index argument types" {
   assert_eq(
     @simpl.eval_error_text("[1] true"),
-    Some("list call expected Int, List[Int], or Function, got Bool(true) at 1:1-4"),
+    Some(
+      "list call expected Int, List[Int], or Function, got Bool(true) at 1:1-4",
+    ),
   )
   assert_eq(
     @simpl.eval_error_text("[1] [0; true]"),

@@ -149,6 +149,11 @@ test "parser preserves trailing arg after parenthesized call" {
 }
 
 ///|
+test "parser treats :(...) as grouped trailing arg" {
+  assert_eq(surface_expr_pretty(parse("say: (1 + 2) * 3")), "say ((1 + 2) * 3)")
+}
+
+///|
 test "parser supports single-param named arg lambda sugar" {
   match parse("apply(f x = x + 1)") {
     SLocated(

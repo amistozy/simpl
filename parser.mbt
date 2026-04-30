@@ -47,6 +47,7 @@ priv enum Token {
   AndAndTok
   OrOrTok
   AssignTok
+  ColonTok
   ColonAssignTok
   PlusAssignTok
   MinusAssignTok
@@ -277,6 +278,7 @@ fn token_name(tok : Token) -> String {
     AndAndTok => "&&"
     OrOrTok => "||"
     AssignTok => "="
+    ColonTok => ":"
     ColonAssignTok => ":="
     PlusAssignTok => "+="
     MinusAssignTok => "-="
@@ -1575,6 +1577,23 @@ fn parse_primary_expr(
     HashTok => parse_variant_literal(tokens, i + 1)
     LBraceTok => parse_record_literal(tokens, i + 1)
     LBracketTok => parse_list_literal(tokens, i + 1)
+    ColonTok => {
+      if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
+        syntax_error_at(tokens, i + 1, "expected '(' after ':'")
+      }
+      let (expr, j) = parse_expr(tokens, i + 2)
+      if j < tokens.length() && token_kind(tokens, j) == RParenTok {
+        (located_expr(tokens, i, j + 1, expr), j + 1)
+      } else if j < tokens.length() {
+        syntax_error_at(
+          tokens,
+          j,
+          "expected ')', found: \{token_name(token_kind(tokens, j))}",
+        )
+      } else {
+        syntax_error_eof(tokens, "expected ')' but found end")
+      }
+    }
     LParenTok => {
       let (expr, j) = parse_expr(tokens, i + 1)
       if j < tokens.length() && token_kind(tokens, j) == RParenTok {

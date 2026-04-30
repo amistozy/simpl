@@ -178,8 +178,7 @@ fn lex_loop(
           acc,
         )
       } else {
-        let span = make_span(source, i, i + 1, line, column)
-        raise SyntaxErrorAt("unexpected character: \{c}", span)
+        push_single_char_token(source, i, line, column, ColonTok, acc)
       }
     '!' =>
       if i + 1 < source.length() &&

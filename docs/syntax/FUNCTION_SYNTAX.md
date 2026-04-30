@@ -125,6 +125,14 @@ inc 41
 add3(1; 2) 3
 ```
 
+When trailing application would otherwise capture too little, `:(expr)` can be
+used as an explicit grouped argument. It is equivalent to `expr`.
+
+```simpl
+say: (1 + 2) * 3
+// same as: say((1 + 2) * 3)
+```
+
 This style is also what enables expression-based string interpolation chains.
 
 ## 7. `with` Lambda Sugar
