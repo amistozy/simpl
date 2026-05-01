@@ -26,13 +26,15 @@ fn validate_expr(expr : Expr, span : SourceSpan) -> Unit raise {
       cases.each(arm => validate_if_cond_arm(arm, span))
       validate_expr(else_expr, span)
     }
-    Let(_, value_expr, body) => {
+    Let(pattern, value_expr, body) => {
+      validate_pattern_bindings_unique(pattern, span)
       validate_expr(value_expr, span)
       validate_expr(body, span)
     }
     LetAnd(bindings, body) => {
       bindings.each(binding => {
-        let (_, value_expr) = binding
+        let (pattern, value_expr) = binding
+        validate_pattern_bindings_unique(pattern, span)
         validate_expr(value_expr, span)
       })
       validate_expr(body, span)
@@ -77,7 +79,8 @@ fn validate_if_cond_arm(arm : IfCondArm, span : SourceSpan) -> Unit raise {
 
 ///|
 fn validate_if_pattern_arm(arm : IfPatternArm, span : SourceSpan) -> Unit raise {
-  let IfPatternArm(_, guard_) = arm
+  let IfPatternArm(pattern, guard_) = arm
+  validate_pattern_bindings_unique(pattern, span)
   validate_if_guard_static(guard_, span)
 }
 
@@ -119,7 +122,8 @@ fn validate_unique_named_args(
 fn validate_params(params : Array[Param], span : SourceSpan) -> Unit raise {
   let seen_names = Set::new()
   for param in params; seen_default = false {
-    let Param(_, default_expr, param_name) = param
+    let Param(pattern, default_expr, param_name) = param
+    validate_pattern_bindings_unique(pattern, span)
     let has_default_expr = default_expr is Some(_)
     if seen_default && !has_default_expr {
       static_error_at("required params must appear before default params", span)
@@ -128,6 +132,57 @@ fn validate_params(params : Array[Param], span : SourceSpan) -> Unit raise {
       static_error_at("duplicate parameter: \{name}", span)
     }
     continue seen_default || has_default_expr
+  }
+}
+
+///|
+fn validate_pattern_bindings_unique(
+  pattern : MatchPattern,
+  span : SourceSpan,
+) -> Unit raise {
+  let seen = Set::new()
+  let names = []
+  core_pattern_binding_names(pattern, names)
+  for name in names {
+    if !seen.add_and_check(name) {
+      static_error_at("duplicate pattern binding: \{name}", span)
+    }
+  }
+}
+
+///|
+fn core_pattern_binding_names(
+  pattern : MatchPattern,
+  names : Array[String],
+) -> Unit {
+  match pattern {
+    PBind(name) => if name != "_" { names.push(name) }
+    PInt(_) | PBool(_) | PString(_) | PNil => ()
+    POr(patterns) =>
+      if patterns.length() != 0 {
+        core_pattern_binding_names(patterns[0], names)
+      }
+    PVariant(_, inner) => core_pattern_binding_names(inner, names)
+    PList(items) =>
+      for item in items {
+        core_pattern_binding_names(item, names)
+      }
+    PListRest(prefix, rest_name, suffix) => {
+      for item in prefix {
+        core_pattern_binding_names(item, names)
+      }
+      if rest_name != "_" {
+        names.push(rest_name)
+      }
+      for item in suffix {
+        core_pattern_binding_names(item, names)
+      }
+    }
+    PRecord(fields) =>
+      for field in fields {
+        let (_, field_pattern) = field
+        core_pattern_binding_names(field_pattern, names)
+      }
   }
 }
 

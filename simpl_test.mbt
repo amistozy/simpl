@@ -342,6 +342,28 @@ test "duplicate function parameters are rejected statically" {
 }
 
 ///|
+test "duplicate names in let pattern are rejected statically" {
+  assert_true(@simpl.parse_is_ok("let [x; x] = [1; 2]; x"))
+  assert_true(@simpl.eval_source_is_error("let [x; x] = [1; 2]; x"))
+}
+
+///|
+test "duplicate names in parameter pattern are rejected statically" {
+  assert_true(@simpl.parse_is_ok("let f([x; x]) = x; 0"))
+  assert_true(@simpl.eval_source_is_error("let f([x; x]) = x; 0"))
+}
+
+///|
+test "duplicate names in if-is pattern are rejected statically" {
+  let code =
+    #| if [1; 2] is
+    #| | [x; x] then x
+    #| else 0
+  assert_true(@simpl.parse_is_ok(code))
+  assert_true(@simpl.eval_source_is_error(code))
+}
+
+///|
 test "duplicate record fields are rejected statically" {
   assert_true(@simpl.parse_is_ok("let r = {x = 1; x = missing}; 0"))
   assert_true(@simpl.eval_source_is_error("let r = {x = 1; x = missing}; 0"))
