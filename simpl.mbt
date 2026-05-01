@@ -862,9 +862,13 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
       match (left, right) {
         (VInt(a), VInt(b)) => VInt(a + b)
         (VString(a), VString(b)) => VString(a + b)
+        (VList(a), VList(b)) => VList(a + b)
         _ =>
           type_error_binary(
-            "operator '+'", "(Int, Int) or (String, String)", left, right,
+            "operator '+'",
+            "(Int, Int) or (String, String) or (List, List)",
+            left,
+            right,
           )
       }
     Sub =>

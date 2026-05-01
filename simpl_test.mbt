@@ -15,6 +15,11 @@ test "string concatenation" {
 }
 
 ///|
+test "list concatenation" {
+  assert_true(@simpl.eval_source_is_bool("[1; 2] + [3; 4] == [1; 2; 3; 4]", true))
+}
+
+///|
 test "string literals support common escape sequences" {
   let code =
     #| "line1\nline2\t\"quote\"\\slash\rend"
@@ -734,7 +739,7 @@ test "binary type error reports expected and actual values" {
   assert_eq(
     @simpl.eval_error_text("1 + true"),
     Some(
-      "type error: operator '+' expected (Int, Int) or (String, String), got (Int(1), Bool(true)) at 1:1-9",
+      "type error: operator '+' expected (Int, Int) or (String, String) or (List, List), got (Int(1), Bool(true)) at 1:1-9",
     ),
   )
 }
