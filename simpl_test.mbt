@@ -753,6 +753,22 @@ test "arity error reports expected and actual argument counts" {
 }
 
 ///|
+test "duplicate named args are rejected before function arg evaluation" {
+  assert_eq(
+    @simpl.eval_error_text("let f(a) = a; f(a = 1; a = missing)"),
+    Some("duplicate argument: a at 1:15-36"),
+  )
+}
+
+///|
+test "duplicate named args are rejected before record arg evaluation" {
+  assert_eq(
+    @simpl.eval_error_text("let r = {x = 1}; r(x = 1; x = missing)"),
+    Some("duplicate argument: x at 1:18-39"),
+  )
+}
+
+///|
 test "pattern match failure reports expected pattern and actual value" {
   assert_eq(
     @simpl.eval_error_text("let [x; y] = [1]; x"),

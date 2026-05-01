@@ -298,6 +298,7 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     }
     Lambda(params, body) => VClosure(params, body, env)
     Call(func_expr, arg_exprs) => {
+      validate_call_args_static(arg_exprs)
       guard as_ufcs_field_callee(func_expr) is Some((target, name)) else {
         let func_value = eval_with_env(func_expr, env)
         let args = eval_call_args(arg_exprs, env)
@@ -664,6 +665,18 @@ fn eval_call_arg(arg : CallArg, env : Env) -> EvaluatedCallArg raise {
   match arg {
     ArgPos(expr) => EArgPos(eval_with_env(expr, env))
     ArgNamed(name, expr) => EArgNamed(name, eval_with_env(expr, env))
+  }
+}
+
+///|
+fn validate_call_args_static(args : Array[CallArg]) -> Unit raise {
+  let seen_names = []
+  for arg in args {
+    guard arg is ArgNamed(name, _) else {  }
+    if seen_names.contains(name) {
+      runtime_error("duplicate argument: \{name}")
+    }
+    seen_names.push(name)
   }
 }
 
