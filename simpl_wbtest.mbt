@@ -180,7 +180,6 @@ test "desugar turns trailing arg after call into chained call" {
         Binary(Add, Var("x"), Var("y")),
       ),
       initial_env(),
-      [None],
     ),
   )
   assert_true(

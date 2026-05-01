@@ -138,6 +138,22 @@ greet("MoonBit")
 greet(name = "MoonBit"; title = "team")
 ```
 
+Default values are evaluated when the call happens, not when the function is
+defined. That means they can observe current mutable state and can refer to
+earlier parameters:
+
+```simpl
+let f(a = 1; b = a + 1) = b;
+f()
+```
+
+For `let rec`, default values can also refer to recursive bindings:
+
+```simpl
+let rec f(x = f(1)) = x;
+f()
+```
+
 ### Patterns
 
 Patterns work in bindings, function parameters, and `if ... is` branches:

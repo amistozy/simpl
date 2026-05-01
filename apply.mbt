@@ -11,13 +11,13 @@ fn apply(func_value : Value, args : Array[EvaluatedCallArg]) -> Value raise {
     VList(items) => apply_list_call(items, args)
     VString(prefix_or_sep) => apply_string_call(prefix_or_sep, args)
     VRecord(fields) => apply_record_with_named_args(fields, args)
-    VClosure(params, body, closure_env, default_values) => {
-      let call_env = bind_params(params, args, closure_env, default_values)
+    VClosure(params, body, closure_env) => {
+      let call_env = bind_params(params, args, closure_env)
       eval_with_env(body, call_env)
     }
-    VRecClosure(_, params, body, closure_env, defs, default_values) => {
+    VRecClosure(_, params, body, closure_env, defs) => {
       let call_base_env = build_rec_env(defs, closure_env)
-      let call_env = bind_params(params, args, call_base_env, default_values)
+      let call_env = bind_params(params, args, call_base_env)
       eval_with_env(body, call_env)
     }
     VBuiltin(builtin) => apply_builtin(builtin, args)

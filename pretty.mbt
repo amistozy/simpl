@@ -256,7 +256,7 @@ fn value_pretty(value : Value, depth : Int) -> String {
     VVariant(tag, payload) => "#\{tag}(\{value_pretty(payload, depth - 1)})"
     VRef(_) as cell => "ref(\{value_pretty(cell.value, depth - 1)})"
     VClosure(_) => "<fn>"
-    VRecClosure(name, _, _, _, _, _) => "<rec \{name}>"
+    VRecClosure(name, _, _, _, _) => "<rec \{name}>"
     VBuiltin(builtin) => "<builtin \{builtin_name(builtin)}>"
   }
 }

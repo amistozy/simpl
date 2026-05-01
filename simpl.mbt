@@ -188,14 +188,13 @@ enum Value {
   VRecord(@hashmap.HashMap[String, Value])
   VVariant(String, Value)
   VRef(mut value~ : Value)
-  VClosure(Array[Param], Expr, Env, Array[Value?])
+  VClosure(Array[Param], Expr, Env)
   VRecClosure(
     String,
     Array[Param],
     Expr,
     Env,
-    Array[(String, Array[Param], Expr)],
-    Array[Value?]
+    Array[(String, Array[Param], Expr)]
   )
   VBuiltin(Builtin)
 } derive(Debug)
@@ -297,10 +296,7 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       let rec_env = build_rec_env(defs, env)
       eval_with_env(body, rec_env)
     }
-    Lambda(params, body) => {
-      let defaults = eval_param_defaults(params, env)
-      VClosure(params, body, env, defaults)
-    }
+    Lambda(params, body) => VClosure(params, body, env)
     Call(func_expr, arg_exprs) => {
       guard as_ufcs_field_callee(func_expr) is Some((target, name)) else {
         let func_value = eval_with_env(func_expr, env)
@@ -501,7 +497,7 @@ fn eval_let_and_bindings(
 fn build_rec_env(
   defs : Array[(String, Array[Param], Expr)],
   closure_env : Env,
-) -> Env raise {
+) -> Env {
   defs.fold(init=closure_env, (env, def) => {
     let (name, _, _) = def
     let closure = rec_closure_def(def, closure_env, defs)
@@ -514,10 +510,9 @@ fn rec_closure_def(
   def : (String, Array[Param], Expr),
   closure_env : Env,
   defs : Array[(String, Array[Param], Expr)],
-) -> Value raise {
+) -> Value {
   let (name, params, body) = def
-  let defaults = eval_param_defaults(params, closure_env)
-  VRecClosure(name, params, body, closure_env, defs, defaults)
+  VRecClosure(name, params, body, closure_env, defs)
 }
 
 ///|
@@ -532,31 +527,18 @@ fn[T] builtin_type_error(
 }
 
 ///|
-fn eval_param_defaults(params : Array[Param], env : Env) -> Array[Value?] raise {
-  params.map(param => eval_param_default_at_definition(param, env))
-}
-
-///|
-fn eval_param_default_at_definition(param : Param, env : Env) -> Value? raise {
-  let Param(_, default_expr, _) = param
-  guard default_expr is Some(expr) else { return None }
-  Some(eval_with_env(expr, env))
-}
-
-///|
 fn bind_params(
   params : Array[Param],
   args : Array[EvaluatedCallArg],
   base : Env,
-  default_values : Array[Value?],
 ) -> Env raise {
   let assigned = params.map(_ => None)
   bind_named_args(params, args, assigned)
   bind_positional_args(params, args, assigned, 0, 0)
   let provided_count = count_assigned_values(assigned, 0, 0)
-  let required_count = count_required_params(default_values, 0, 0)
+  let required_count = count_required_params(params, 0, 0)
   finalize_param_bindings(
-    params, assigned, default_values, provided_count, required_count, base, 0,
+    params, assigned, provided_count, required_count, base, 0,
   )
 }
 
@@ -618,19 +600,18 @@ fn find_next_unassigned_param(assigned : Array[Value?], i : Int) -> Int? {
 fn finalize_param_bindings(
   params : Array[Param],
   assigned : Array[Value?],
-  default_values : Array[Value?],
   provided_count : Int,
   required_count : Int,
   env : Env,
   i : Int,
 ) -> Env raise {
   guard i < params.length() else { env }
-  let Param(pattern, _, _) = params[i]
+  let Param(pattern, default_expr, _) = params[i]
   let value = match assigned[i] {
     Some(v) => v
     None =>
-      match default_values[i] {
-        Some(v) => v
+      match default_expr {
+        Some(expr) => eval_with_env(expr, env)
         None => arity_error(required_count, provided_count)
       }
   }
@@ -638,7 +619,6 @@ fn finalize_param_bindings(
   finalize_param_bindings(
     params,
     assigned,
-    default_values,
     provided_count,
     required_count,
     next_env,
@@ -656,15 +636,12 @@ fn count_assigned_values(assigned : Array[Value?], i : Int, acc : Int) -> Int {
 }
 
 ///|
-fn count_required_params(
-  default_values : Array[Value?],
-  i : Int,
-  acc : Int,
-) -> Int {
-  guard i < default_values.length() else { acc }
-  match default_values[i] {
-    Some(_) => count_required_params(default_values, i + 1, acc)
-    None => count_required_params(default_values, i + 1, acc + 1)
+fn count_required_params(params : Array[Param], i : Int, acc : Int) -> Int {
+  guard i < params.length() else { acc }
+  let Param(_, default_expr, _) = params[i]
+  match default_expr {
+    Some(_) => count_required_params(params, i + 1, acc)
+    None => count_required_params(params, i + 1, acc + 1)
   }
 }
 

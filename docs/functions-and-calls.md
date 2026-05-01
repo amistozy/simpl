@@ -48,8 +48,8 @@ Required parameters must come before optional ones.
 
 ## Default Arguments
 
-Defaults are captured when the function is created, not re-evaluated on every
-call.
+Defaults are evaluated when the call happens and only for parameters that were
+not explicitly provided.
 
 ```simpl
 let r = ref 1;
@@ -58,7 +58,25 @@ do r := 2;
 f()
 ```
 
-This returns `1`.
+This returns `2`.
+
+Because defaults are evaluated during argument binding, they can refer to
+earlier parameters that have already been bound:
+
+```simpl
+let f(a = 1; b = a + 1) = b;
+f()
+```
+
+This returns `2`.
+
+The same rule also means recursive functions can use recursive bindings inside
+default expressions:
+
+```simpl
+let rec f(x = f(1)) = x;
+f()
+```
 
 ## Calling Functions
 

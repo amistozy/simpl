@@ -288,11 +288,11 @@ test "named args are matched before positional args" {
 }
 
 ///|
-test "default expressions cannot reference params" {
+test "default expressions can reference earlier params at call time" {
   let code =
     #| let f(a = 1; b = a + 1) = b;
     #| f()
-  assert_true(@simpl.eval_source_is_error(code))
+  assert_true(@simpl.eval_source_is_int(code, 2))
 }
 
 ///|
@@ -312,11 +312,19 @@ test "param default lambda sugar supports single-param f x = ..." {
 }
 
 ///|
-test "default expressions are evaluated at definition time" {
+test "default expressions are evaluated at call time" {
   let code =
     #| let r = ref 1;
     #| let f(x = !r) = x;
     #| do r := 2;
+    #| f()
+  assert_true(@simpl.eval_source_is_int(code, 2))
+}
+
+///|
+test "recursive default expressions can reference recursive bindings" {
+  let code =
+    #| let rec f(x = f(1)) = x;
     #| f()
   assert_true(@simpl.eval_source_is_int(code, 1))
 }
