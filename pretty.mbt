@@ -128,6 +128,7 @@ fn surface_pattern_pretty(pattern : SurfacePattern) -> String {
     SPBool(v) => v.to_string()
     SPString(v) => "\"\{v}\""
     SPNil => "nil"
+    SPAs(inner, name) => "\{surface_pattern_pretty(inner)} as \{name}"
     SPOr(patterns) => surface_pattern_or_pretty(patterns)
     SPVariant(tag, inner) => "#\{tag}(\{surface_pattern_pretty(inner)})"
     SPList(items) => "[\{surface_pattern_list_pretty(items)}]"

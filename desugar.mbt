@@ -101,6 +101,7 @@ fn desugar_pattern(pattern : SurfacePattern) -> MatchPattern {
     SPBool(value) => PBool(value)
     SPString(value) => PString(value)
     SPNil => PNil
+    SPAs(inner, name) => PAs(desugar_pattern(inner), name)
     SPOr(patterns) => POr(patterns.map(item => desugar_pattern(item)))
     SPVariant(tag, inner) => PVariant(tag, desugar_pattern(inner))
     SPList(items) => PList(items.map(item => desugar_pattern(item)))

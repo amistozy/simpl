@@ -66,6 +66,7 @@ priv enum SurfacePattern {
   SPBool(Bool)
   SPString(String)
   SPNil
+  SPAs(SurfacePattern, String)
   SPOr(Array[SurfacePattern])
   SPVariant(String, SurfacePattern)
   SPList(Array[SurfacePattern])
@@ -138,6 +139,7 @@ priv enum MatchPattern {
   PBool(Bool)
   PString(String)
   PNil
+  PAs(MatchPattern, String)
   POr(Array[MatchPattern])
   PVariant(String, MatchPattern)
   PList(Array[MatchPattern])

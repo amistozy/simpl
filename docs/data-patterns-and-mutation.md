@@ -30,6 +30,12 @@ List-rest patterns can bind the middle slice:
 let [a; ..rest; z] = [1; 2; 3; 4]
 ```
 
+`as`-patterns let you keep both the refined pieces and the whole matched value:
+
+```simpl
+let #Ok(value) as whole = #Ok(1)
+```
+
 ## Records
 
 Record literals:
@@ -89,6 +95,7 @@ Available pattern forms include:
 - binders like `x`
 - wildcard `_`
 - literal patterns
+- `as`-patterns like `#Ok(x) as whole`
 - variant patterns
 - list patterns
 - list-rest patterns

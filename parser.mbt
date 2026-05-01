@@ -31,6 +31,7 @@ priv enum Token {
   WithTok
   EndKeywordTok
   IsTok
+  AsTok
   AndWordTok
   OrWordTok
   PlusTok
@@ -267,6 +268,7 @@ fn token_name(tok : Token) -> String {
     WithTok => "with"
     EndKeywordTok => "end"
     IsTok => "is"
+    AsTok => "as"
     AndWordTok => "and"
     OrWordTok => "or"
     PlusTok => "+"
@@ -1764,8 +1766,9 @@ fn parse_pattern(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfacePattern, Int) raise {
-  let (pattern, j) = parse_pattern_atom(tokens, i)
-  parse_pattern_or_tail(pattern, tokens, j)
+  let (atom_pattern, j) = parse_pattern_atom(tokens, i)
+  let (pattern, k) = parse_pattern_as_tail(atom_pattern, tokens, j)
+  parse_pattern_or_tail(pattern, tokens, k)
 }
 
 ///|
@@ -1775,16 +1778,40 @@ fn parse_pattern_or_tail(
   i : Int,
 ) -> (SurfacePattern, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == PipeTok {
-    let (right, j) = parse_pattern_atom(tokens, i + 1)
+    let (right_atom, j) = parse_pattern_atom(tokens, i + 1)
+    let (right, k) = parse_pattern_as_tail(right_atom, tokens, j)
     let combined = match left {
       SPOr(patterns) => SPOr(patterns + [right])
       _ => SPOr([left, right])
     }
     ensure_or_pattern_bindings(combined, tokens, i)
-    parse_pattern_or_tail(combined, tokens, j)
+    parse_pattern_or_tail(combined, tokens, k)
   } else {
     (left, i)
   }
+}
+
+///|
+fn parse_pattern_as_tail(
+  pattern : SurfacePattern,
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfacePattern, Int) raise {
+  guard i < tokens.length() && token_kind(tokens, i) == AsTok else { (pattern, i) }
+  let name_i = i + 1
+  guard name_i < tokens.length() else {
+    syntax_error_eof(tokens, "expected binding name after 'as' in pattern")
+  }
+  let name = match token_kind(tokens, name_i) {
+    IdentTok(binding_name) => binding_name
+    tok =>
+      syntax_error_at(
+        tokens,
+        name_i,
+        "expected binding name after 'as' in pattern, found: \{token_name(tok)}",
+      )
+  }
+  (SPAs(pattern, name), name_i + 1)
 }
 
 ///|
@@ -1858,6 +1885,14 @@ fn pattern_binding_names(pattern : SurfacePattern) -> Array[String] {
     SPBool(_) => []
     SPString(_) => []
     SPNil => []
+    SPAs(inner, name) => {
+      let names = pattern_binding_names(inner)
+      if name == "_" {
+        names
+      } else {
+        names + [name]
+      }
+    }
     SPOr(patterns) =>
       if patterns.length() == 0 {
         []

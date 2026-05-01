@@ -365,6 +365,15 @@ test "parser preserves record pattern shorthand before desugar" {
 }
 
 ///|
+test "parser preserves as-pattern before desugar" {
+  match parse("let #Ok(x) as whole = #Ok(1); whole") {
+    SLocated(_, SLet(SPAs(SPVariant("Ok", SPBind("x")), "whole"), _, _)) =>
+      assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "parser preserves let and group before desugar" {
   match parse("let x = 1 and y = 2; x + y") {
     SLocated(_, SLetAnd(bindings, _)) => assert_eq(bindings.length(), 2)
@@ -395,6 +404,14 @@ test "desugar lowers record pattern shorthand to field binding" {
       SPRecord([SPRecordShorthand("x"), SPRecordField("y", SPBind("z"))]),
     ) {
     PRecord([("x", PBind("x")), ("y", PBind("z"))]) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar lowers as-pattern to core as-pattern" {
+  match desugar_pattern(SPAs(SPVariant("Ok", SPBind("x")), "whole")) {
+    PAs(PVariant("Ok", PBind("x")), "whole") => assert_true(true)
     _ => assert_true(false)
   }
 }

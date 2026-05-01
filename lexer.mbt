@@ -501,6 +501,7 @@ fn keyword_or_ident(text : StringView) -> Token {
     "with" => WithTok
     "end" => EndKeywordTok
     "is" => IsTok
+    "as" => AsTok
     "and" => AndWordTok
     "or" => OrWordTok
     _ => IdentTok(text.to_owned())

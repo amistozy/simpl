@@ -158,6 +158,12 @@ fn core_pattern_binding_names(
   match pattern {
     PBind(name) => if name != "_" { names.push(name) }
     PInt(_) | PBool(_) | PString(_) | PNil => ()
+    PAs(inner, name) => {
+      core_pattern_binding_names(inner, names)
+      if name != "_" {
+        names.push(name)
+      }
+    }
     POr(patterns) =>
       if patterns.length() != 0 {
         core_pattern_binding_names(patterns[0], names)

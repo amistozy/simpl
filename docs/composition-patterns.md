@@ -64,6 +64,7 @@ When repeatedly calling a function:
 
 A list called with one positional argument can:
 
+- join using a string separator
 - index by `Int`
 - batch-index by `List[Int]`
 - map/collect with a function
@@ -71,6 +72,7 @@ A list called with one positional argument can:
 Examples:
 
 ```simpl
+[10; 20; 30](", ")
 [10; 20; 30](1)
 [10; 20; 30]([0; -1; 9])
 [1; 2; 3](fn x = x * 2)

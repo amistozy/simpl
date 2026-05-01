@@ -33,6 +33,7 @@ nil
 [1; 2; 3]
 {x = 1; y = 2}
 #Some(1)
+[1; 2] + [3; 4]
 ```
 
 ## Expressions, Not Statements
@@ -166,7 +167,7 @@ The most unusual part of Simpl is that several non-function values are callable.
 Examples:
 
 - strings can concatenate or join
-- lists can index, batch-index, or map
+- lists can concatenate, index, join, batch-index, or map
 - integers can repeat strings/lists or repeatedly invoke a function
 - records can accept named arguments to build an updated record
 

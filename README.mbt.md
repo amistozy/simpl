@@ -168,6 +168,7 @@ Supported pattern forms:
 
 - variable binders and `_`
 - literal patterns
+- `as`-patterns like `#Some(x) as whole`
 - variant patterns
 - list patterns and rest patterns
 - record patterns
@@ -260,7 +261,9 @@ Some values have call behavior:
 - `3("ha")` repeats a string
 - `3([1; 2])` repeats a list
 - `3(fn() = 1)` calls the function three times and collects results
+- `[1; 2] + [3; 4]` concatenates two lists
 - `[10; 20; 30](1)` indexes a list
+- `[1; 2; 3](", ")` joins values with a separator
 - `[1; 2; 3](fn x = x * 2)` maps over a list
 - `", "([1; 2; 3])` joins values with a separator
 - `{x = 1}(x = 2; y = 3)` returns an updated record

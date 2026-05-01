@@ -322,6 +322,31 @@ test "param default lambda sugar supports single-param f x = ..." {
 }
 
 ///|
+test "as-pattern binds the whole matched value in let" {
+  let code =
+    #| let #Ok(x) as whole = #Ok(1);
+    #| if whole == #Ok(1) then x else 0
+  assert_true(@simpl.eval_source_is_int(code, 1))
+}
+
+///|
+test "as-pattern binds the whole matched value in function params" {
+  let code =
+    #| let unwrap(#Ok(x) as whole) =
+    #|   if whole == #Ok(x) then x else 0;
+    #| unwrap(#Ok(2))
+  assert_true(@simpl.eval_source_is_int(code, 2))
+}
+
+///|
+test "as-pattern binds the whole matched value in if-is" {
+  let code =
+    #| if #Ok(3) is #Ok(x) as whole and whole == #Ok(x) 
+    #| then x else 0
+  assert_true(@simpl.eval_source_is_int(code, 3))
+}
+
+///|
 test "default expressions are evaluated at call time" {
   let code =
     #| let r = ref 1;
@@ -361,6 +386,12 @@ test "duplicate names in let pattern are rejected statically" {
 test "duplicate names in parameter pattern are rejected statically" {
   assert_true(@simpl.parse_is_ok("let f([x; x]) = x; 0"))
   assert_true(@simpl.eval_source_is_error("let f([x; x]) = x; 0"))
+}
+
+///|
+test "duplicate names introduced by as-pattern are rejected statically" {
+  assert_true(@simpl.parse_is_ok("let [x] as x = [1]; x"))
+  assert_true(@simpl.eval_source_is_error("let [x] as x = [1]; x"))
 }
 
 ///|

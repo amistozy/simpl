@@ -35,6 +35,14 @@ fn try_bind_pattern(pattern : MatchPattern, value : Value, env : Env) -> Env? {
       } else {
         Some(env.add(name, value))
       }
+    PAs(inner, name) => {
+      guard try_bind_pattern(inner, value, env) is Some(next_env) else { None }
+      if name == "_" {
+        Some(next_env)
+      } else {
+        Some(next_env.add(name, value))
+      }
+    }
     PInt(expected) =>
       match value {
         VInt(actual) if actual == expected => Some(env)
@@ -209,6 +217,7 @@ fn pattern_summary(pattern : MatchPattern) -> String {
     PBool(value) => value.to_string()
     PString(value) => "\"\{value}\""
     PNil => "nil"
+    PAs(inner, name) => "\{pattern_summary(inner)} as \{name}"
     POr(patterns) => join_pattern_summaries(patterns)
     PVariant(tag, inner) => "#\{tag}(\{pattern_summary(inner)})"
     PList(items) => "[\{join_pattern_list(items)}]"
