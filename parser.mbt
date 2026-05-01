@@ -109,13 +109,17 @@ pub fn parse_is_error(source : String) -> Bool {
 
 ///|
 pub fn eval_source(source : String) -> Value raise {
-  eval(desugar(parse(source)))
+  let expr = desugar(parse(source))
+  validate(expr)
+  eval(expr)
 }
 
 ///|
 pub fn format_error(error : Error, line_offset : Int) -> String {
   match error {
-    SyntaxErrorAt(message, span) | RuntimeErrorAt(message, span) =>
+    SyntaxErrorAt(message, span)
+    | RuntimeErrorAt(message, span)
+    | StaticErrorAt(message, span) =>
       "\{message} at \{format_source_span(span, line_offset)}"
     _ => error.to_string()
   }
@@ -1027,11 +1031,6 @@ fn parse_params_nonempty_from(
 ) -> (Array[SurfaceParam], Int) raise {
   let (param, next) = parse_param(tokens, i)
   let has_default = surface_param_has_default(param)
-  if seen_default && !has_default {
-    syntax_error_at(
-      tokens, i, "required params must appear before default params",
-    )
-  }
   if next >= tokens.length() {
     syntax_error_eof(tokens, "unexpected end in params")
   }
@@ -1053,7 +1052,6 @@ fn parse_params_nonempty_from(
   }
 }
 
-///|
 fn parse_param(
   tokens : Array[SpannedToken],
   i : Int,
@@ -1728,7 +1726,6 @@ fn parse_record_literal(
   }
 }
 
-///|
 fn parse_list_literal(
   tokens : Array[SpannedToken],
   i : Int,

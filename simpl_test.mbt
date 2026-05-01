@@ -331,7 +331,20 @@ test "recursive default expressions can reference recursive bindings" {
 
 ///|
 test "params must place required ones before defaulted ones" {
-  assert_true(@simpl.parse_is_error("fn(x = 1; y) = x + y"))
+  assert_true(@simpl.parse_is_ok("fn(x = 1; y) = x + y"))
+  assert_true(@simpl.eval_source_is_error("(fn(x = 1; y) = x + y)(1; 2)"))
+}
+
+///|
+test "duplicate function parameters are rejected statically" {
+  assert_true(@simpl.parse_is_ok("let f(x; x) = x; 0"))
+  assert_true(@simpl.eval_source_is_error("let f(x; x) = x; 0"))
+}
+
+///|
+test "duplicate record fields are rejected statically" {
+  assert_true(@simpl.parse_is_ok("let r = {x = 1; x = missing}; 0"))
+  assert_true(@simpl.eval_source_is_error("let r = {x = 1; x = missing}; 0"))
 }
 
 ///|

@@ -219,6 +219,11 @@ priv suberror EvalError {
 } derive(Debug)
 
 ///|
+priv suberror StaticError {
+  StaticErrorAt(String, SourceSpan)
+} derive(Debug)
+
+///|
 pub impl Show for SurfaceExpr with output(self : SurfaceExpr, logger : &Logger) -> Unit {
   logger.write_string(surface_expr_pretty(self))
 }
@@ -226,6 +231,153 @@ pub impl Show for SurfaceExpr with output(self : SurfaceExpr, logger : &Logger) 
 ///|
 pub impl Show for Value with output(self : Value, logger : &Logger) -> Unit {
   logger.write_string(value_pretty(self, 6))
+}
+
+///|
+fn validate(expr : Expr) -> Unit raise {
+  validate_expr(expr, unknown_source_span())
+}
+
+///|
+fn validate_expr(expr : Expr, span : SourceSpan) -> Unit raise {
+  match expr {
+    Located(expr_span, inner) => validate_expr(inner, expr_span)
+    IntLit(_) | BoolLit(_) | StringLit(_) | NilLit | Var(_) => ()
+    List(items) => items.each(item => validate_expr(item, span))
+    Record(fields) => {
+      validate_unique_record_fields(fields, span)
+      fields.each(field => {
+        let (_, value_expr) = field
+        validate_expr(value_expr, span)
+      })
+    }
+    Variant(_, value_expr) => validate_expr(value_expr, span)
+    If(cases, else_expr) => {
+      cases.each(arm => validate_if_cond_arm(arm, span))
+      validate_expr(else_expr, span)
+    }
+    Let(_, value_expr, body) => {
+      validate_expr(value_expr, span)
+      validate_expr(body, span)
+    }
+    LetAnd(bindings, body) => {
+      bindings.each(binding => {
+        let (_, value_expr) = binding
+        validate_expr(value_expr, span)
+      })
+      validate_expr(body, span)
+    }
+    LetRec(_, params, func_body, body) => {
+      validate_params(params, span)
+      validate_expr(func_body, span)
+      validate_expr(body, span)
+    }
+    LetRecAnd(defs, body) => {
+      defs.each(def => {
+        let (_, params, func_body) = def
+        validate_params(params, span)
+        validate_expr(func_body, span)
+      })
+      validate_expr(body, span)
+    }
+    Lambda(params, body) => {
+      validate_params(params, span)
+      validate_expr(body, span)
+    }
+    Call(func_expr, arg_exprs) => {
+      validate_unique_named_args(arg_exprs, span)
+      validate_expr(func_expr, span)
+      arg_exprs.each(arg => validate_call_arg_expr(arg, span))
+    }
+    Field(target, _) => validate_expr(target, span)
+    Unary(_, one) => validate_expr(one, span)
+    Binary(_, left, right) => {
+      validate_expr(left, span)
+      validate_expr(right, span)
+    }
+  }
+}
+
+///|
+fn validate_if_cond_arm(arm : IfCondArm, span : SourceSpan) -> Unit raise {
+  let IfCondArm(cond, guard_) = arm
+  validate_expr(cond, span)
+  validate_if_guard_static(guard_, span)
+}
+
+///|
+fn validate_if_pattern_arm(arm : IfPatternArm, span : SourceSpan) -> Unit raise {
+  let IfPatternArm(_, guard_) = arm
+  validate_if_guard_static(guard_, span)
+}
+
+///|
+fn validate_if_guard_static(guard_ : IfGuard, span : SourceSpan) -> Unit raise {
+  match guard_ {
+    IfThen(body) => validate_expr(body, span)
+    IfAnd(arms) => arms.each(arm => validate_if_cond_arm(arm, span))
+    IfIs(value_expr, arms) => {
+      validate_expr(value_expr, span)
+      arms.each(arm => validate_if_pattern_arm(arm, span))
+    }
+  }
+}
+
+///|
+fn validate_call_arg_expr(arg : CallArg, span : SourceSpan) -> Unit raise {
+  match arg {
+    ArgPos(expr) => validate_expr(expr, span)
+    ArgNamed(_, expr) => validate_expr(expr, span)
+  }
+}
+
+///|
+fn validate_unique_named_args(
+  args : Array[CallArg],
+  span : SourceSpan,
+) -> Unit raise {
+  let seen = Set::new()
+  for arg in args {
+    guard arg is ArgNamed(name, _) else {  }
+    if !seen.add_and_check(name) {
+      static_error_at("duplicate argument: \{name}", span)
+    }
+  }
+}
+
+///|
+fn validate_params(params : Array[Param], span : SourceSpan) -> Unit raise {
+  let seen_names = Set::new()
+  for param in params; seen_default = false {
+    let Param(_, default_expr, param_name) = param
+    let has_default_expr = default_expr is Some(_)
+    if seen_default && !has_default_expr {
+      static_error_at("required params must appear before default params", span)
+    }
+    if param_name is Some(name) && !seen_names.add_and_check(name) {
+      static_error_at("duplicate parameter: \{name}", span)
+    }
+    continue seen_default || has_default_expr
+  }
+}
+
+///|
+fn validate_unique_record_fields(
+  fields : Array[(String, Expr)],
+  span : SourceSpan,
+) -> Unit raise {
+  let seen = Set::new()
+  for field in fields {
+    let (name, _) = field
+    if !seen.add_and_check(name) {
+      static_error_at("duplicate field: \{name}", span)
+    }
+  }
+}
+
+///|
+fn[T] static_error_at(message : String, span : SourceSpan) -> T raise {
+  raise StaticErrorAt(message, span)
 }
 
 ///|
@@ -1006,6 +1158,8 @@ pub fn eval_source_is_bool(source : String, expected : Bool) -> Bool {
 ///|
 pub fn eval_error_text(source : String) -> String? {
   try eval_source(source) catch {
+    StaticErrorAt(message, span) =>
+      Some("\{message} at \{format_source_span(span, 0)}")
     RuntimeErrorAt(message, span) =>
       Some("\{message} at \{format_source_span(span, 0)}")
     _ => None
