@@ -224,7 +224,8 @@ let point = {x = 1; y = 2};
 point.x
 ```
 
-If a record field does not exist, field syntax can fall back to a function call:
+If a record field does not exist, field syntax can fall back to a same-named
+function call:
 
 ```simpl
 let inc x = x + 1;

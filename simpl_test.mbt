@@ -457,7 +457,7 @@ test "map validates argument types" {
   )
   assert_eq(
     @simpl.eval_error_text("map([1]; 1)"),
-    Some("int call expected String, List, or Function, got Int(1) at 1:1-12"),
+    Some("builtin 'map' expected Function, got Int(1) at 1:1-12"),
   )
 }
 
@@ -708,7 +708,15 @@ test "binary type error reports expected and actual values" {
 test "field access falls back to ufcs and reports missing function" {
   assert_eq(
     @simpl.eval_error_text("1.x"),
-    Some("undefined variable: name 'x' is not bound at 1:1-4"),
+    Some("missing function: name 'x' is not bound as a function at 1:1-4"),
+  )
+}
+
+///|
+test "ufcs on non-record ignores non-function bindings with the same name" {
+  assert_eq(
+    @simpl.eval_error_text("let x = 1; 1.x"),
+    Some("missing function: name 'x' is not bound as a function at 1:12-15"),
   )
 }
 

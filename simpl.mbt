@@ -686,10 +686,7 @@ fn eval_field_value_or_ufcs(
     apply_ufcs(name, target_value, [], env)
   }
   guard fields.get(name) is Some(value) else {
-    guard env.get(name) is Some(func_value) else {
-      missing_field_error(name, target_value)
-    }
-    guard value_is_function(func_value) else {
+    guard env.get(name) is Some(func_value) && value_is_function(func_value) else {
       missing_field_error(name, target_value)
     }
     apply(func_value, [EArgPos(target_value)])
@@ -708,10 +705,7 @@ fn eval_field_call_or_ufcs(
     apply_ufcs(name, target_value, args, env)
   }
   guard fields.get(name) is Some(value) else {
-    guard env.get(name) is Some(func_value) else {
-      missing_field_error(name, target_value)
-    }
-    guard value_is_function(func_value) else {
+    guard env.get(name) is Some(func_value) && value_is_function(func_value) else {
       missing_field_error(name, target_value)
     }
     apply(func_value, [EArgPos(target_value)] + args)
@@ -736,7 +730,9 @@ fn apply_ufcs(
   args : Array[EvaluatedCallArg],
   env : Env,
 ) -> Value raise {
-  let func_value = lookup(env, name)
+  guard env.get(name) is Some(func_value) && value_is_function(func_value) else {
+    missing_function_error(name)
+  }
   apply(func_value, [EArgPos(target_value)] + args)
 }
 
@@ -783,6 +779,11 @@ fn[T] missing_field_error(name : String, target : Value) -> T raise {
   runtime_error(
     "missing field: record has no field '\{name}' in \{typed_value_summary(target)}",
   )
+}
+
+///|
+fn[T] missing_function_error(name : String) -> T raise {
+  runtime_error("missing function: name '\{name}' is not bound as a function")
 }
 
 ///|

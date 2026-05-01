@@ -197,6 +197,9 @@ fn apply_builtin(
       guard list_value is VList(items) else {
         builtin_type_error("map", "List", list_value)
       }
+      guard value_is_function(func_value) else {
+        builtin_type_error("map", "Function", func_value)
+      }
       VList(items.map(item => apply(func_value, [EArgPos(item)])))
     }
     BLength => {

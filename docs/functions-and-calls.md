@@ -177,7 +177,7 @@ syntax.
 
 ## UFCS-Style Fallback
 
-Field syntax can fall back to function calls:
+Field syntax can fall back to same-named function calls:
 
 ```simpl
 let inc x = x + 1;
@@ -191,7 +191,8 @@ let add3(x; y; z) = x + y + z;
 1.add3(2; 3)
 ```
 
-Records still prefer real fields when a field exists.
+Records still prefer real fields when a field exists, and UFCS fallback only
+uses actual function values.
 
 ## Errors at Call Time
 
