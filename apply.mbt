@@ -215,7 +215,7 @@ fn apply_builtin(
       guard args.length() == 1 else { arity_error(1, args.length()) }
       guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
       match builtin {
-        BRef => VRef(@ref.new(v))
+        BRef => VRef(value=v)
         BSay => {
           match v {
             VString(text) => println(text)

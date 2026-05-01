@@ -187,7 +187,7 @@ enum Value {
   VList(Array[Value])
   VRecord(@hashmap.HashMap[String, Value])
   VVariant(String, Value)
-  VRef(@ref.Ref[Value])
+  VRef(mut value~ : Value)
   VClosure(Array[Param], Expr, Env, Array[Value?])
   VRecClosure(
     String,
@@ -359,8 +359,8 @@ fn eval_ref_binop(
 ) -> Value raise {
   let left_value = eval_with_env(left, env)
   match left_value {
-    VRef(cell) => {
-      let old_value = cell.val
+    VRef(_) as cell => {
+      let old_value = cell.value
       let new_value = match op {
         RefSet => eval_with_env(right, env)
         RefUpdateAdd
@@ -385,7 +385,7 @@ fn eval_ref_binop(
           }
         _ => runtime_error("invalid ref binary operator")
       }
-      cell.val = new_value
+      cell.value = new_value
       new_value
     }
     value =>
@@ -853,7 +853,7 @@ fn eval_unary(op : UnOp, value : Value) -> Value raise {
       }
     Bang =>
       match value {
-        VRef(cell) => cell.val
+        VRef(_) as cell => cell.value
         _ => VBool(!truthy(value))
       }
     Dollar =>

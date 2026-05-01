@@ -254,7 +254,7 @@ fn value_pretty(value : Value, depth : Int) -> String {
     VList(items) => "[\{value_list_pretty(items, depth - 1)}]"
     VRecord(fields) => "{\{value_record_pretty(fields, depth - 1)}}"
     VVariant(tag, payload) => "#\{tag}(\{value_pretty(payload, depth - 1)})"
-    VRef(cell) => "ref(\{value_pretty(cell.val, depth - 1)})"
+    VRef(_) as cell => "ref(\{value_pretty(cell.value, depth - 1)})"
     VClosure(_) => "<fn>"
     VRecClosure(name, _, _, _, _, _) => "<rec \{name}>"
     VBuiltin(builtin) => "<builtin \{builtin_name(builtin)}>"
