@@ -76,12 +76,22 @@ Examples:
 [10; 20; 30](1)
 [10; 20; 30]([0; -1; 9])
 [1; 2; 3](fn x = x * 2)
+[1; 2; 3](_ * 2)
 ```
 
 Negative indices count from the end. Out-of-range indices return `nil`.
 
 When a list maps with a function, returned lists are flattened by one level and
 returned `nil` values are skipped.
+
+Because underscore eta-expansion works in parenthesized call arguments, list
+mapping and the collection built-ins stay concise:
+
+```simpl
+map([1; 2; 3]; _ * 2)
+filter([1; nil; 2]; _)
+fold([1; 2; 3]; 0; _ + _)
+```
 
 ## Callable Records
 

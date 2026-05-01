@@ -144,7 +144,7 @@ test "parser lowers f x into a one-arg call" {
   match parse("f x") {
     SLocated(
       _,
-      SCall(SLocated(_, SVar("f")), [SArgPos(SLocated(_, SVar("x")))])
+      SCall(SLocated(_, SVar("f")), [STrailingArgPos(SLocated(_, SVar("x")))])
     ) => assert_true(true)
     _ => assert_true(false)
   }
@@ -160,7 +160,7 @@ test "parser appends trailing arg to direct call" {
         [
           SArgPos(SLocated(_, SIntLit(1))),
           SArgPos(SLocated(_, SIntLit(2))),
-          SArgPos(SLocated(_, SIntLit(3))),
+          STrailingArgPos(SLocated(_, SIntLit(3))),
         ]
       )
     ) => assert_true(true)
@@ -233,7 +233,10 @@ test "parser passes trailing lambda as one call arg" {
   match parse("foo fn(x) = x + 1") {
     SLocated(
       _,
-      SCall(SLocated(_, SVar("foo")), [SArgPos(SLocated(_, SLambda(_, _)))])
+      SCall(
+        SLocated(_, SVar("foo")),
+        [STrailingArgPos(SLocated(_, SLambda(_, _)))],
+      )
     ) => assert_true(true)
     _ => assert_true(false)
   }
@@ -268,8 +271,32 @@ test "negative literal can be the argument of trailing application" {
   match parse("1-42") {
     SLocated(
       _,
-      SCall(SLocated(_, SIntLit(1)), [SArgPos(SLocated(_, SIntLit(-42)))])
+      SCall(
+        SLocated(_, SIntLit(1)),
+        [STrailingArgPos(SLocated(_, SIntLit(-42)))],
+      )
     ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser preserves underscore placeholder in expression" {
+  match parse("_") {
+    SLocated(_, SUnderscore) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar eta-expands parenthesized call arg with underscore" {
+  match desugar(parse("foo(_ + 1)")) {
+    Located(_, Call(callee, [ArgPos(Lambda([Param(PBind(name), None, Some(param_name))], _))])) =>
+      assert_true(
+        expr_is_located_var(callee, "foo") &&
+        name == " __eta0" &&
+        param_name == " __eta0",
+      )
     _ => assert_true(false)
   }
 }
@@ -318,10 +345,13 @@ test "parser makes trailing application right-associative" {
       SCall(
         SLocated(_, SVar("f")),
         [
-          SArgPos(
+          STrailingArgPos(
             SLocated(
               _,
-              SCall(SLocated(_, SVar("g")), [SArgPos(SLocated(_, SVar("x")))])
+              SCall(
+                SLocated(_, SVar("g")),
+                [STrailingArgPos(SLocated(_, SVar("x")))],
+              )
             )
           ),
         ]

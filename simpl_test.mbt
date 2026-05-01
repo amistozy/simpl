@@ -298,6 +298,48 @@ test "named args are matched before positional args" {
 }
 
 ///|
+test "underscore eta-expands parenthesized call args" {
+  let code =
+    #| let foo(f) = f(41);
+    #| foo(_ + 1)
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "underscore eta-expansion uses nearest parenthesized call arg boundary" {
+  let code =
+    #| let foo(v) = v;
+    #| let f(g) = g(1);
+    #| let g(x) = x + 1;
+    #| foo(f(g(_)))
+  assert_true(@simpl.eval_source_is_int(code, 2))
+}
+
+///|
+test "trailing application is not an eta-expansion boundary" {
+  let code =
+    #| let foo(h) = h(1);
+    #| let f(v) = v + 100;
+    #| let g(x) = x + 10;
+    #| foo(f g(_))
+  assert_true(@simpl.eval_source_is_int(code, 111))
+}
+
+///|
+test "underscore can bubble through let until parenthesized call arg boundary" {
+  let code =
+    #| let foo(f) = f(41);
+    #| foo(let g = _ + 1; g)
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "underscore outside parenthesized call args is rejected" {
+  assert_true(@simpl.eval_source_is_error("_ + 1"))
+  assert_true(@simpl.eval_source_is_error("let f = _ + 1; f 42"))
+}
+
+///|
 test "default expressions can reference earlier params at call time" {
   let code =
     #| let f(a = 1; b = a + 1) = b;

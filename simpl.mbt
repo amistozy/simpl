@@ -6,6 +6,7 @@ enum SurfaceExpr {
   SBoolLit(Bool)
   SStringLit(String)
   SNilLit
+  SUnderscore
   SList(Array[SurfaceExpr])
   SVar(String)
   SRecord(Array[SurfaceRecordField])
@@ -34,6 +35,7 @@ priv enum SurfaceParam {
 priv enum SurfaceCallArg {
   SArgPos(SurfaceExpr)
   SArgNamed(String, SurfaceExpr)
+  STrailingArgPos(SurfaceExpr)
 } derive(Debug)
 
 ///|

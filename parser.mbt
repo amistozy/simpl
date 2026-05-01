@@ -1361,14 +1361,14 @@ fn apply_trailing_arg_surface(
     SLocated(span, SCall(inner_func, args)) =>
       SLocated(
         span_extend_to_token(span, tokens, end_i),
-        SCall(inner_func, args + [SArgPos(arg_expr)]),
+        SCall(inner_func, args + [STrailingArgPos(arg_expr)]),
       )
     _ =>
       located_expr_from_left(
         func_expr,
         tokens,
         end_i,
-        SCall(func_expr, [SArgPos(arg_expr)]),
+        SCall(func_expr, [STrailingArgPos(arg_expr)]),
       )
   }
 }
@@ -1610,7 +1610,12 @@ fn parse_primary_expr(
     TrueTok => (located_expr(tokens, i, i + 1, SBoolLit(true)), i + 1)
     FalseTok => (located_expr(tokens, i, i + 1, SBoolLit(false)), i + 1)
     NilTok => (located_expr(tokens, i, i + 1, SNilLit), i + 1)
-    IdentTok(name) => (located_expr(tokens, i, i + 1, SVar(name)), i + 1)
+    IdentTok(name) =>
+      if name == "_" {
+        (located_expr(tokens, i, i + 1, SUnderscore), i + 1)
+      } else {
+        (located_expr(tokens, i, i + 1, SVar(name)), i + 1)
+      }
     HashTok => parse_variant_literal(tokens, i + 1)
     LBraceTok => parse_record_literal(tokens, i + 1)
     LBracketTok => parse_list_literal(tokens, i + 1)

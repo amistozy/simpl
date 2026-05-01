@@ -175,6 +175,62 @@ let r = {inc(x) = x + 1}
 This keeps higher-order code compact without adding a separate anonymous-method
 syntax.
 
+## Underscore Eta-Expansion
+
+Simpl supports underscore shorthand inside parenthesized call arguments.
+
+Examples:
+
+```simpl
+foo(_ + 1)
+map([1; 2; 3]; _ * 2)
+filter([1; nil; 2]; _)
+fold([1; 2; 3]; 0; _ + _)
+```
+
+These expand like:
+
+```simpl
+foo(fn x = x + 1)
+map([1; 2; 3]; fn x = x * 2)
+filter([1; nil; 2]; fn x = x)
+fold([1; 2; 3]; 0; fn(x; y) = x + y)
+```
+
+Rules:
+
+- underscore expansion only happens inside parenthesized call arguments
+- multiple `_` bind parameters from left to right
+- trailing application is not an expansion boundary
+- bare `_` is not a valid standalone expression
+
+That means:
+
+```simpl
+foo(f(g(_)))
+```
+
+expands to:
+
+```simpl
+foo(f(fn x = g(x)))
+```
+
+while:
+
+```simpl
+foo(f g(_))
+```
+
+expands to:
+
+```simpl
+foo(fn x = f g(x))
+```
+
+because `f g(_)` is the full parenthesized argument to `foo(...)`, and the
+inner trailing application does not form its own boundary.
+
 ## UFCS-Style Fallback
 
 Field syntax can fall back to same-named function calls:

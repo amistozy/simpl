@@ -6,6 +6,7 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
     SBoolLit(v) => v.to_string()
     SStringLit(v) => "\"\{v}\""
     SNilLit => "nil"
+    SUnderscore => "_"
     SList(items) => "[\{surface_expr_list_pretty(items)}]"
     SVar(name) => name
     SRecord(fields) => "{\{surface_record_fields_pretty(fields)}}"
@@ -65,6 +66,7 @@ fn surface_call_arg_pretty(arg : SurfaceCallArg) -> String {
     SArgPos(expr) => surface_expr_pretty(expr)
     SArgNamed(name, value_expr) =>
       "\{name} = \{surface_expr_pretty(value_expr)}"
+    STrailingArgPos(expr) => surface_expr_pretty(expr)
   }
 }
 

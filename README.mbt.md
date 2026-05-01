@@ -44,6 +44,7 @@ describe(#Ok(3))
 - pattern matching in `let`, function parameters, and `if ... is`
 - `let`, `let and`, `let rec`, and mutually recursive `let rec ... and ...`
 - trailing application: `f x`, `f(1; 2) 3`
+- underscore eta-expansion inside parenthesized call arguments
 - named arguments and default parameters
 - `with` sugar for passing a trailing lambda
 - record field access plus UFCS-style fallback (`x.foo` -> `foo(x)`)
@@ -153,6 +154,25 @@ For `let rec`, default values can also refer to recursive bindings:
 let rec f(x = f(1)) = x;
 f()
 ```
+
+Underscore shorthand works inside parenthesized call arguments:
+
+```simpl
+map([1; 2; 3]; _ * 2)
+fold([1; 2; 3]; 0; _ + _)
+foo(let g = _ + 1; g)
+```
+
+This is equivalent to:
+
+```simpl
+map([1; 2; 3]; fn x = x * 2)
+fold([1; 2; 3]; 0; fn(x; y) = x + y)
+foo(fn x = let g = x + 1; g)
+```
+
+The shorthand only expands inside parenthesized call arguments. Trailing
+application is not a boundary, so `foo(f g(_))` expands to `foo(fn x = f g(x))`.
 
 ### Patterns
 
