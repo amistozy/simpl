@@ -265,6 +265,11 @@ test "string join on list uses raw text for string elements" {
 }
 
 ///|
+test "list is callable: string arg means join with separator" {
+  assert_true(@simpl.eval_source_is_string("[1; 2; 3]\", \"", "1, 2, 3"))
+}
+
+///|
 test "string call rejects unsupported argument type" {
   assert_true(@simpl.eval_source_is_error("\"x\" 1"))
 }
@@ -715,13 +720,13 @@ test "list call validates index argument types" {
   assert_eq(
     @simpl.eval_error_text("[1] true"),
     Some(
-      "list call expected Int, List[Int], or Function, got Bool(true) at 1:1-9",
+      "list call expected Int, String, List[Int], or Function, got Bool(true) at 1:1-9",
     ),
   )
   assert_eq(
     @simpl.eval_error_text("[1] [0; true]"),
     Some(
-      "list call expected Int, List[Int], or Function, got List([0; true]) at 1:1-14",
+      "list call expected Int, String, List[Int], or Function, got List([0; true]) at 1:1-14",
     ),
   )
 }

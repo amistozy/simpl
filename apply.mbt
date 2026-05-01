@@ -43,6 +43,7 @@ fn apply_list_call(
   }
   match arg {
     VInt(index) => list_get_by_index(items, index)
+    VString(separator) => VString(join_values_with_separator(items, separator))
     VList(index_values) => {
       let acc = []
       for index_value in index_values {
@@ -50,7 +51,7 @@ fn apply_list_call(
           VInt(index) => acc.push(list_get_by_index(items, index))
           _ =>
             runtime_error(
-              "list call expected Int, List[Int], or Function, got \{typed_value_summary(arg)}",
+              "list call expected Int, String, List[Int], or Function, got \{typed_value_summary(arg)}",
             )
         }
       }
@@ -58,7 +59,7 @@ fn apply_list_call(
     }
     _ =>
       runtime_error(
-        "list call expected Int, List[Int], or Function, got \{typed_value_summary(arg)}",
+        "list call expected Int, String, List[Int], or Function, got \{typed_value_summary(arg)}",
       )
   }
 }
