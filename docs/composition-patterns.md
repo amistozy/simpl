@@ -89,7 +89,7 @@ mapping and the collection built-ins stay concise:
 
 ```simpl
 map([1; 2; 3]; _ * 2)
-filter([1; nil; 2]; _)
+filter([1; nil; 2]; _ != nil)
 fold([1; 2; 3]; 0; _ + _)
 ```
 

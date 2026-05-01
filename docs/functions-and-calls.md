@@ -184,7 +184,7 @@ Examples:
 ```simpl
 foo(_ + 1)
 map([1; 2; 3]; _ * 2)
-filter([1; nil; 2]; _)
+filter([1; nil; 2]; _ != nil)
 fold([1; 2; 3]; 0; _ + _)
 ```
 
@@ -193,7 +193,7 @@ These expand like:
 ```simpl
 foo(fn x = x + 1)
 map([1; 2; 3]; fn x = x * 2)
-filter([1; nil; 2]; fn x = x)
+filter([1; nil; 2]; fn x = x != nil)
 fold([1; 2; 3]; 0; fn(x; y) = x + y)
 ```
 
