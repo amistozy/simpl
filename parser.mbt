@@ -1052,6 +1052,7 @@ fn parse_params_nonempty_from(
   }
 }
 
+///|
 fn parse_param(
   tokens : Array[SpannedToken],
   i : Int,
@@ -1726,6 +1727,7 @@ fn parse_record_literal(
   }
 }
 
+///|
 fn parse_list_literal(
   tokens : Array[SpannedToken],
   i : Int,
