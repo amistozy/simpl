@@ -19,7 +19,7 @@ This extension provides language support for Simpl files (`.simpl`) in Visual St
   - top-level/local bindings: `let inc(x) = x + 1`, `let inc x = x + 1`
   - record fields: `{ inc(x) = x + 1 }`
   - named lambda arguments: `apply(f(x) = x + 1)`
-- Built-in function highlighting for `ref`, `say`, `map`, `length`, `max`, `min`, and `sum`
+- Built-in function highlighting for `ref`, `say`, `map`, `filter`, `fold`, `length`, `max`, `min`, and `sum`
 - Built-in language configuration:
   - bracket matching
   - auto-closing pairs

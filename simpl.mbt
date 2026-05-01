@@ -209,6 +209,8 @@ priv enum Builtin {
   BRef
   BSay
   BMap
+  BFilter
+  BFold
   BLength
   BMax
   BMin
@@ -249,6 +251,8 @@ fn builtin_bindings() -> Array[(String, Builtin)] {
     ("ref", BRef),
     ("say", BSay),
     ("map", BMap),
+    ("filter", BFilter),
+    ("fold", BFold),
     ("length", BLength),
     ("max", BMax),
     ("min", BMin),

@@ -181,6 +181,8 @@ The current built-in names are:
 - `ref`
 - `say`
 - `map`
+- `filter`
+- `fold`
 - `length`
 - `max`
 - `min`

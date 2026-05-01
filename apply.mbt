@@ -203,6 +203,33 @@ fn apply_builtin(
       }
       VList(items.map(item => apply(func_value, [EArgPos(item)])))
     }
+    BFilter => {
+      guard args.length() == 2 else { arity_error(2, args.length()) }
+      guard args is [EArgPos(list_value), EArgPos(func_value)] else {
+        builtin_named_arg_error(builtin)
+      }
+      guard list_value is VList(items) else {
+        builtin_type_error("filter", "List", list_value)
+      }
+      guard value_is_function(func_value) else {
+        builtin_type_error("filter", "Function", func_value)
+      }
+      VList(filter_builtin_items(items, func_value))
+    }
+    BFold => {
+      guard args.length() == 3 else { arity_error(3, args.length()) }
+      guard args
+        is [EArgPos(list_value), EArgPos(init_value), EArgPos(func_value)] else {
+        builtin_named_arg_error(builtin)
+      }
+      guard list_value is VList(items) else {
+        builtin_type_error("fold", "List", list_value)
+      }
+      guard value_is_function(func_value) else {
+        builtin_type_error("fold", "Function", func_value)
+      }
+      fold_builtin_items(items, init_value, func_value)
+    }
     BLength => {
       guard args.length() == 1 else { arity_error(1, args.length()) }
       guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
@@ -246,11 +273,32 @@ fn builtin_name(builtin : Builtin) -> String {
     BRef => "ref"
     BSay => "say"
     BMap => "map"
+    BFilter => "filter"
+    BFold => "fold"
     BLength => "length"
     BMax => "max"
     BMin => "min"
     BSum => "sum"
   }
+}
+
+///|
+fn filter_builtin_items(
+  items : Array[Value],
+  func_value : Value,
+) -> Array[Value] raise {
+  items.filter(item => truthy(apply(func_value, [EArgPos(item)])))
+}
+
+///|
+fn fold_builtin_items(
+  items : Array[Value],
+  init_value : Value,
+  func_value : Value,
+) -> Value raise {
+  items.fold(init=init_value, (acc, item) => {
+    apply(func_value, [EArgPos(acc), EArgPos(item)])
+  })
 }
 
 ///|

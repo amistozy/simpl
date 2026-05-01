@@ -275,6 +275,8 @@ Current built-ins:
 - `ref(value)`
 - `say(value)`
 - `map(list; f)`
+- `filter(list; f)`
+- `fold(list; init; f)`
 - `length(value)`
 - `max(a; b)` or `max(list)`
 - `min(a; b)` or `min(list)`

@@ -649,6 +649,67 @@ test "string interpolation chaining can start from literal" {
 }
 
 ///|
+test "filter keeps list items whose predicate is truthy" {
+  assert_true(
+    @simpl.eval_source_is_bool(
+      "filter([1; 2; 3; 4]; fn x = x % 2 == 0) == [2; 4]",
+      true,
+    ),
+  )
+  assert_true(
+    @simpl.eval_source_is_bool(
+      "filter([1; nil; 2]; fn x = x) == [1; 2]",
+      true,
+    ),
+  )
+}
+
+///|
+test "filter validates list and function arguments" {
+  assert_eq(
+    @simpl.eval_error_text("filter(1; fn x = x)"),
+    Some("builtin 'filter' expected List, got Int(1) at 1:1-20"),
+  )
+  assert_eq(
+    @simpl.eval_error_text("filter([1]; 1)"),
+    Some("builtin 'filter' expected Function, got Int(1) at 1:1-15"),
+  )
+}
+
+///|
+test "fold reduces list from the left" {
+  assert_true(
+    @simpl.eval_source_is_int(
+      "fold([1; 2; 3]; 0; fn(acc; x) = acc + x)",
+      6,
+    ),
+  )
+  assert_true(
+    @simpl.eval_source_is_string(
+      "fold([\"a\"; \"b\"; \"c\"]; \"\"; fn(acc; x) = acc + x)",
+      "abc",
+    ),
+  )
+}
+
+///|
+test "fold returns init value on empty list" {
+  assert_true(@simpl.eval_source_is_int("fold([]; 7; fn(acc; x) = acc + x)", 7))
+}
+
+///|
+test "fold validates list and function arguments" {
+  assert_eq(
+    @simpl.eval_error_text("fold(1; 0; fn(acc; x) = acc + x)"),
+    Some("builtin 'fold' expected List, got Int(1) at 1:1-33"),
+  )
+  assert_eq(
+    @simpl.eval_error_text("fold([1]; 0; 1)"),
+    Some("builtin 'fold' expected Function, got Int(1) at 1:1-16"),
+  )
+}
+
+///|
 test "division by zero now returns zero" {
   assert_true(@simpl.eval_source_is_int("1 / 0", 0))
 }
