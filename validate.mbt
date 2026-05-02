@@ -21,8 +21,7 @@ fn validate_expr(
       if is_eta_placeholder_name(name) &&
         !array_contains_name(bound_names, name) {
         static_error_at(
-          "underscore placeholder must appear inside a parenthesized call argument",
-          span,
+          "underscore placeholder must appear inside 'fn' eta-expansion", span,
         )
       }
     List(items) => items.each(item => validate_expr(item, span, bound_names))

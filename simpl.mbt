@@ -20,6 +20,7 @@ enum SurfaceExpr {
   SLetRecAnd(Array[(String, Array[SurfaceParam], SurfaceExpr)], SurfaceExpr)
   SWith(Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
   SLambda(Array[SurfaceParam], SurfaceExpr)
+  SFnEta(SurfaceExpr)
   SCall(SurfaceExpr, Array[SurfaceCallArg])
   SField(SurfaceExpr, String)
   SUnary(UnOp, SurfaceExpr)

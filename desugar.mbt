@@ -186,6 +186,20 @@ fn desugar_expr_with_placeholders(
         next_id,
       )
     }
+    SFnEta(body) => {
+      let (body_core, names, next_id) = desugar_expr_with_placeholders(
+        body, next_placeholder_id,
+      )
+      (
+        if names.length() == 0 {
+          Lambda([], body_core)
+        } else {
+          wrap_eta_lambda(body_core, names)
+        },
+        [],
+        next_id,
+      )
+    }
     SCall(func_expr, arg_exprs) =>
       desugar_call_with_placeholders(func_expr, arg_exprs, next_placeholder_id)
     SField(target, name) => {
@@ -264,24 +278,12 @@ fn desugar_call_args_with_placeholders(
       let (arg_core, arg_names, next_id) = desugar_expr_with_placeholders(
         arg_expr, next_placeholder_id,
       )
-      let next_arg = if arg_names.length() != 0 &&
-        !surface_expr_is_bare_underscore(arg_expr) {
-        ArgPos(wrap_eta_lambda(arg_core, arg_names))
-      } else {
-        ArgPos(arg_core)
-      }
-      let next_names = if arg_names.length() != 0 &&
-        !surface_expr_is_bare_underscore(arg_expr) {
-        bubbled_names
-      } else {
-        bubbled_names + arg_names
-      }
       desugar_call_args_with_placeholders(
         args,
         next_id,
         current_expr,
-        pending_args + [next_arg],
-        next_names,
+        pending_args + [ArgPos(arg_core)],
+        bubbled_names + arg_names,
         i + 1,
       )
     }
@@ -289,24 +291,12 @@ fn desugar_call_args_with_placeholders(
       let (arg_core, arg_names, next_id) = desugar_expr_with_placeholders(
         arg_expr, next_placeholder_id,
       )
-      let next_arg = if arg_names.length() != 0 &&
-        !surface_expr_is_bare_underscore(arg_expr) {
-        ArgNamed(name, wrap_eta_lambda(arg_core, arg_names))
-      } else {
-        ArgNamed(name, arg_core)
-      }
-      let next_names = if arg_names.length() != 0 &&
-        !surface_expr_is_bare_underscore(arg_expr) {
-        bubbled_names
-      } else {
-        bubbled_names + arg_names
-      }
       desugar_call_args_with_placeholders(
         args,
         next_id,
         current_expr,
-        pending_args + [next_arg],
-        next_names,
+        pending_args + [ArgNamed(name, arg_core)],
+        bubbled_names + arg_names,
         i + 1,
       )
     }
@@ -339,15 +329,6 @@ fn wrap_eta_lambda(body : Expr, names : Array[String]) -> Expr {
 ///|
 fn eta_placeholder_name(id : Int) -> String {
   " __eta\{id}"
-}
-
-///|
-fn surface_expr_is_bare_underscore(expr : SurfaceExpr) -> Bool {
-  match expr {
-    SLocated(_, inner) => surface_expr_is_bare_underscore(inner)
-    SUnderscore => true
-    _ => false
-  }
 }
 
 ///|

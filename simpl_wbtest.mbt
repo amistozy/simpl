@@ -242,20 +242,19 @@ test "parser preserves underscore placeholder in expression" {
 }
 
 ///|
-test "desugar eta-expands parenthesized call arg with underscore" {
-  match desugar(parse("foo(_ + 1)")) {
-    Located(
-      _,
-      Call(
-        callee,
-        [ArgPos(Lambda([Param(PBind(name), None, Some(param_name))], _))]
-      )
-    ) =>
-      assert_true(
-        expr_is_located_var(callee, "foo") &&
-        name == " __eta0" &&
-        param_name == " __eta0",
-      )
+test "parser preserves fn expr eta-expansion surface form" {
+  match parse("fn _ + 1") {
+    SLocated(_, SFnEta(SLocated(_, SBinary(Add, SLocated(_, SUnderscore), _)))) =>
+      assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar fn expr eta-expands underscore uses into lambda params" {
+  match desugar(parse("fn _ + 1")) {
+    Located(_, Lambda([Param(PBind(name), None, Some(param_name))], _)) =>
+      assert_true(name == " __eta0" && param_name == " __eta0")
     _ => assert_true(false)
   }
 }

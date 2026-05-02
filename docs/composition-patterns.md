@@ -84,13 +84,13 @@ Negative indices count from the end. Out-of-range indices return `nil`.
 When a list maps with a function, returned lists are flattened by one level and
 returned `nil` values are skipped.
 
-Because underscore eta-expansion works in parenthesized call arguments, list
+Because `fn expr` eta-expansion works anywhere an expression is allowed, list
 mapping and the collection built-ins stay concise:
 
 ```simpl
-map([1; 2; 3]; _ * 2)
-filter([1; nil; 2]; _ != nil)
-fold([1; 2; 3]; 0; _ + _)
+map([1; 2; 3]; fn _ * 2)
+filter([1; nil; 2]; fn _ != nil)
+fold([1; 2; 3]; 0; fn _ + _)
 ```
 
 ## Callable Records

@@ -7,7 +7,7 @@ Everything in the language is built around a few consistent ideas:
 - expressions produce values
 - patterns appear in bindings, parameters, and conditional refinement
 - calls are more general than "calling a function"
-- underscores in parenthesized call arguments can trigger eta-expansion
+- `fn expr` can trigger eta-expansion with underscore placeholders
 - compact syntax is preferred over large keyword-heavy forms
 
 ## Core Values

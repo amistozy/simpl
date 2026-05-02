@@ -294,43 +294,43 @@ test "named args are matched before positional args" {
 }
 
 ///|
-test "underscore eta-expands parenthesized call args" {
+test "fn expr without underscore creates zero-arg lambda" {
   let code =
-    #| let foo(f) = f(41);
-    #| foo(_ + 1)
+    #| (fn 42)()
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
-test "underscore eta-expansion uses nearest parenthesized call arg boundary" {
+test "fn expr eta-expands single underscore use" {
   let code =
-    #| let foo(v) = v;
-    #| let f(g) = g(1);
-    #| let g(x) = x + 1;
-    #| foo(f(g(_)))
-  assert_true(@simpl.eval_source_is_int(code, 2))
-}
-
-///|
-test "trailing application is not an eta-expansion boundary" {
-  let code =
-    #| let foo(h) = h(1);
-    #| let f(v) = v + 100;
-    #| let g(x) = x + 10;
-    #| foo(f g(_))
-  assert_true(@simpl.eval_source_is_int(code, 111))
-}
-
-///|
-test "underscore can bubble through let until parenthesized call arg boundary" {
-  let code =
-    #| let foo(f) = f(41);
-    #| foo(let g = _ + 1; g)
+    #| (fn _ + 1)(41)
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
-test "underscore outside parenthesized call args is rejected" {
+test "fn expr eta-expands bare underscore to identity" {
+  let code =
+    #| (fn _)(41)
+  assert_true(@simpl.eval_source_is_int(code, 41))
+}
+
+///|
+test "fn expr eta-expands multiple underscore uses left to right" {
+  let code =
+    #| (fn _ * 2 + _)(20; 2)
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "fn expr eta-expansion can be used in ordinary bindings" {
+  let code =
+    #| let f = fn _ + 1;
+    #| f 41
+  assert_true(@simpl.eval_source_is_int(code, 42))
+}
+
+///|
+test "underscore outside fn eta-expansion is rejected" {
   assert_true(@simpl.eval_source_is_error("_ + 1"))
   assert_true(@simpl.eval_source_is_error("let f = _ + 1; f 42"))
 }

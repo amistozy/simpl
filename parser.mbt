@@ -975,8 +975,12 @@ fn parse_lambda_expr(
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == FnTok {
-    if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
-      syntax_error_at(tokens, i + 1, "expected '(...)' after 'fn'")
+    if i + 1 >= tokens.length() {
+      syntax_error_eof(tokens, "expected expression after 'fn'")
+    }
+    if token_kind(tokens, i + 1) != LParenTok {
+      let (body, k) = parse_expr(tokens, i + 1)
+      return (located_expr(tokens, i, k, SFnEta(body)), k)
     }
     let (params, j) = parse_params(tokens, i + 2)
     let (body, k) = parse_expr(tokens, j)

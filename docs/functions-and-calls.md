@@ -167,61 +167,34 @@ let r = {inc(x) = x + 1}
 This keeps higher-order code compact without adding a separate anonymous-method
 syntax.
 
-## Underscore Eta-Expansion
+## `fn expr` Eta-Expansion
 
-Simpl supports underscore shorthand inside parenthesized call arguments.
+Simpl supports an explicit eta-expansion shorthand introduced by `fn`.
 
 Examples:
 
 ```simpl
-foo(_ + 1)
-map([1; 2; 3]; _ * 2)
-filter([1; nil; 2]; _ != nil)
-fold([1; 2; 3]; 0; _ + _)
+fn 42
+fn _ + 1
+fn _
+fn _ * 2 + _
 ```
 
 These expand like:
 
 ```simpl
-foo(fn(x) x + 1)
-map([1; 2; 3]; fn(x) x * 2)
-filter([1; nil; 2]; fn(x) x != nil)
-fold([1; 2; 3]; 0; fn(x; y) x + y)
+fn() 42
+fn(x) x + 1
+fn(x) x
+fn(x; y) x * 2 + y
 ```
 
 Rules:
 
-- underscore expansion only happens inside parenthesized call arguments
-- multiple `_` bind parameters from left to right
-- trailing application is not an expansion boundary
-- bare `_` is not a valid standalone expression
-
-That means:
-
-```simpl
-foo(f(g(_)))
-```
-
-expands to:
-
-```simpl
-foo(f(fn(x) g(x)))
-```
-
-while:
-
-```simpl
-foo(f g(_))
-```
-
-expands to:
-
-```simpl
-foo(fn(x) f g(x))
-```
-
-because `f g(_)` is the full parenthesized argument to `foo(...)`, and the
-inner trailing application does not form its own boundary.
+- if the body contains no `_`, `fn expr` becomes a zero-parameter lambda
+- if the body contains `_`, each `_` becomes a fresh parameter from left to right
+- bare `_` is only valid when consumed by `fn expr`
+- the shorthand works anywhere an expression is allowed
 
 ## UFCS-Style Fallback
 

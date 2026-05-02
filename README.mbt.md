@@ -44,7 +44,7 @@ describe(#Ok(3))
 - pattern matching in `let`, function parameters, and `if ... is`
 - `let`, `let and`, `let rec`, and mutually recursive `let rec ... and ...`
 - trailing application: `f x`, `f(1; 2) 3`
-- underscore eta-expansion inside parenthesized call arguments
+- `fn expr` eta-expansion with underscore placeholders
 - named arguments and default parameters
 - `with` sugar for passing a trailing lambda
 - record field access plus UFCS-style fallback (`x.foo` -> `foo(x)`)
@@ -155,24 +155,26 @@ let rec f(x = f(1)) = x;
 f()
 ```
 
-Underscore shorthand works inside parenthesized call arguments:
+`fn expr` can build ordinary zero-arg lambdas or eta-expand underscore placeholders:
 
 ```simpl
-map([1; 2; 3]; _ * 2)
-fold([1; 2; 3]; 0; _ + _)
-foo(let g = _ + 1; g)
+fn 42
+fn _ + 1
+fn _
+fn _ * 2 + _
 ```
 
 This is equivalent to:
 
 ```simpl
-map([1; 2; 3]; fn(x) x * 2)
-fold([1; 2; 3]; 0; fn(x; y) x + y)
-foo(fn(x) let g = x + 1; g)
+fn() 42
+fn(x) x + 1
+fn(x) x
+fn(x; y) x * 2 + y
 ```
 
-The shorthand only expands inside parenthesized call arguments. Trailing
-application is not a boundary, so `foo(f g(_))` expands to `foo(fn(x) f g(x))`.
+Because eta-expansion is introduced by `fn`, it can be used anywhere an
+expression is allowed. Bare `_` outside `fn expr` is still invalid.
 Regular infix code can also use `^` for integer power, so `2 ^ 3 ^ 2` evaluates
 to `512`.
 
