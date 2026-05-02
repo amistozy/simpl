@@ -459,19 +459,11 @@ test "negative integer literal is supported" {
 }
 
 ///|
-test "single-param function shorthands without parentheses are rejected" {
+test "removed shorthand forms stay rejected" {
   assert_true(@simpl.parse_is_error("fn x = x + 1"))
   assert_true(@simpl.parse_is_error("let inc x = x + 1; inc(41)"))
   assert_true(@simpl.parse_is_error("apply(f x = x + 1)"))
-}
-
-///|
-test "spaced minus is not a negative literal" {
   assert_true(@simpl.parse_is_error("- 42"))
-}
-
-///|
-test "unary minus stays reserved for literals only" {
   assert_true(@simpl.parse_is_error("-x"))
 }
 
@@ -482,17 +474,9 @@ test "parse error is reported" {
 }
 
 ///|
-test "legacy match syntax is rejected" {
+test "removed surface syntax stays rejected" {
   assert_true(@simpl.parse_is_error("match 42 with | 42 -> 1"))
-}
-
-///|
-test "or is reserved for UCS and not a boolean operator" {
   assert_true(@simpl.parse_is_error("true or false"))
-}
-
-///|
-test "is expression is removed" {
   assert_true(@simpl.parse_is_error("x is #Some(y)"))
 }
 
