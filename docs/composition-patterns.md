@@ -93,6 +93,15 @@ filter([1; nil; 2]; fn _ != nil)
 fold([1; 2; 3]; 0; fn _ + _)
 ```
 
+When a `fn expr` body needs a larger infix shape, `:()` can make that boundary
+explicit:
+
+```simpl
+[1; 20; 3]
+.map(fn: (_ + 1) * 2)
+.filter(fn _ < 10)
+```
+
 ## Callable Records
 
 A record can be called with named arguments to produce an updated record:

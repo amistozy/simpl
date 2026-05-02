@@ -175,6 +175,15 @@ fn(x; y) x * 2 + y
 
 Because eta-expansion is introduced by `fn`, it can be used anywhere an
 expression is allowed. Bare `_` outside `fn expr` is still invalid.
+`:(...)` can also be used to make the intended `fn expr` body explicit, for
+example:
+
+```simpl
+[1; 20; 3]
+.map(fn: (_ + 1) * 2)
+.filter(fn _ < 10)
+```
+
 Regular infix code can also use `^` for integer power, so `2 ^ 3 ^ 2` evaluates
 to `512`.
 

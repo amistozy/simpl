@@ -129,6 +129,18 @@ say: (1 + 2) * 3
 
 This is especially useful in string composition or around infix expressions.
 
+It can also disambiguate the body of `fn expr` eta-expansion when the intended
+function body should include a larger infix expression:
+
+```simpl
+[1; 20; 3]
+.map(fn: (_ + 1) * 2)
+.filter(fn _ < 10)
+```
+
+Without `:()`, `fn _ + 1 * 2` would bind the body differently. Grouping makes
+the eta-expanded body explicit.
+
 ## `with`
 
 `with` is call sugar that passes a lambda as the final argument of a target
@@ -195,6 +207,7 @@ Rules:
 - if the body contains `_`, each `_` becomes a fresh parameter from left to right
 - bare `_` is only valid when consumed by `fn expr`
 - the shorthand works anywhere an expression is allowed
+- `:()` can be used to make the intended `fn expr` body explicit
 
 ## UFCS-Style Fallback
 
