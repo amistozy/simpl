@@ -784,6 +784,28 @@ test "int call on function collects results into list" {
 }
 
 ///|
+test "function repetition supports both multiplication directions" {
+  assert_true(
+    @simpl.eval_source_is_bool("let x = 5; 3 * (fn() x) == [5; 5; 5]", true),
+  )
+  assert_true(
+    @simpl.eval_source_is_bool("let x = 5; (fn() x) * 3 == [5; 5; 5]", true),
+  )
+  assert_true(
+    @simpl.eval_source_is_bool("3 * (fn() [1; 2]) == [1; 2; 1; 2; 1; 2]", true),
+  )
+  assert_true(@simpl.eval_source_is_bool("(fn() nil) * 3 == []", true))
+}
+
+///|
+test "function repetition by multiplication matches int call semantics" {
+  let code =
+    #| let f() = [1; 2];
+    #| 3 * f == 3(f) && f * 3 == 3(f)
+  assert_true(@simpl.eval_source_is_bool(code, true))
+}
+
+///|
 test "int call on function passes no arguments" {
   assert_eq(
     @simpl.eval_error_text("3 fn(a) a"),

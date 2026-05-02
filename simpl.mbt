@@ -887,13 +887,16 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
     Mul =>
       match (left, right) {
         (VInt(a), VInt(b)) => VInt(a * b)
-        (VInt(times), VString(text)) => VString(text.repeat(times))
-        (VString(text), VInt(times)) => VString(text.repeat(times))
-        (VInt(times), VList(items)) => VList(repeat_list(items, times))
-        (VList(items), VInt(times)) => VList(repeat_list(items, times))
+        (VInt(times), VString(text)) | (VString(text), VInt(times)) =>
+          VString(text.repeat(times))
+        (VInt(times), VList(items)) | (VList(items), VInt(times)) =>
+          VList(repeat_list(items, times))
+        (VInt(times), func_value) | (func_value, VInt(times)) if value_is_function(
+            func_value,
+          ) => VList(repeat_function_results(func_value, times))
         _ =>
           type_error_binary(
-            "operator '*'", "(Int, Int) or (Int, String) or (String, Int) or (Int, List) or (List, Int)",
+            "operator '*'", "(Int, Int) or (Int, String) or (String, Int) or (Int, List) or (List, Int) or (Int, Function) or (Function, Int)",
             left, right,
           )
       }
