@@ -1,61 +1,106 @@
-# Simpl Language Support for VS Code
+# Simpl Language Support
 
-This extension provides language support for Simpl files (`.simpl`) in Visual Studio Code.
+VS Code language support for Simpl (`.simpl`) files.
 
-## What You Get
+This extension is focused on the essentials:
 
-- Syntax highlighting for core Simpl syntax:
-  - keywords (`let`, `rec`, `if`, `then`, `else`, `fn`, `do`, `with`, `end`, `is`, `and`, `or`)
-  - literals (integers, negative integer literals, strings, `true`, `false`, `nil`)
-  - operators (arithmetic, comparison, logical, assignment, reference updates)
-  - variant tags (for example `#Tag`)
-- Function-call highlighting for both styles:
-  - parenthesized call: `f(...)`
-  - trailing application: `f x`
-  - grouped trailing call: `say: (1 + 2) * 3`
-  - prefix-operator and negative-literal arguments: `f !x`, `f -1`, `f ~x`, `f $value`
-  - UFCS and method-style calls: `value.render`, `1.add3(2; 3)`
-- Function-definition highlighting for sugar in multiple positions:
-  - top-level/local bindings: `let inc(x) = x + 1`
-  - record fields: `{ inc(x) = x + 1 }`
-  - named lambda arguments: `apply(f(x) = x + 1)`
-- Built-in function highlighting for `ref`, `say`, `map`, `filter`, `fold`, `length`, `max`, `min`, and `sum`
-- Built-in language configuration:
-  - bracket matching
-  - auto-closing pairs
-  - quote pairing behavior tuned for Simpl string interpolation workflows
+- syntax highlighting
+- language-aware bracket and quote pairing
+- Simpl-specific editor defaults for a smoother typing experience
 
-## Quote Auto-Closing Behavior
+It is a lightweight extension today. It does not currently provide a language
+server, diagnostics, formatting, or completion.
 
-The extension sets Simpl-specific defaults to make interpolation-style string editing smoother:
+## Features
+
+## Syntax highlighting
+
+The extension highlights the main parts of Simpl source, including:
+
+- keywords such as `let`, `rec`, `if`, `then`, `else`, `fn`, `with`, `is`, `and`, and `or`
+- literals such as integers, negative integer literals, strings, `true`, `false`, and `nil`
+- operators including arithmetic, comparison, logical, assignment, and ref-update operators
+- variant tags such as `#Ok` and `#Err`
+- built-in functions: `ref`, `say`, `map`, `filter`, `fold`, `length`, `max`, `min`, and `sum`
+
+It also includes grammar support for several important Simpl-specific forms:
+
+- ordinary calls like `f(1; 2)`
+- trailing application like `f x`
+- grouped trailing application like `say: (1 + 2) * 3`
+- UFCS-style member calls like `value.render` and `1.add3(2; 3)`
+- function definition sugar in bindings, record fields, and named arguments
+
+## Editing behavior
+
+The extension contributes:
+
+- bracket matching for `()`, `[]`, and `{}`
+- auto-closing pairs for brackets and double quotes
+- surrounding pairs for brackets and double quotes
+- a Simpl word pattern for identifiers, numbers, and variant names
+
+For Simpl files, it also sets these editor defaults:
 
 - `editor.autoClosingQuotes = "always"`
 - `editor.autoClosingOvertype = "never"`
+- `editor.tabSize = 2`
 
-In practice:
-
-- Typing `"` after an identifier (for example `name"`) inserts a quote pair.
-- Typing `"` right before an existing `"` inserts quotes instead of moving the cursor over that quote.
-- Typing `"` inside strings also auto-closes.
-
-This is especially useful for chained string interpolation patterns such as:
+These defaults are especially helpful for Simpl's string-composition style:
 
 ```simpl
 name" is "$age" years old"
 ```
 
-## Installation (From Location)
+## Comments
 
-Install the extension directly from the extension folder (no packaging required):
+The extension treats `--` as the line comment syntax:
 
-1. In VS Code, open the Command Palette.
-2. Run `Developer: Install Extension from Location...`.
-3. Select the `editors/vscode-simpl` directory.
+```simpl
+-- comment
+let x = 1
+```
 
-## Development Notes
+## Installation
 
-- Extension manifest: `package.json`
-- Language configuration: `language-configuration.json`
-- TextMate grammar: `syntaxes/simpl.tmLanguage.json`
+## Install from the local folder
 
-If you update token scopes or auto-closing behavior, reload the VS Code window to verify changes.
+If you are working directly from this repository:
+
+1. Open VS Code.
+2. Open the Command Palette.
+3. Run `Developer: Install Extension from Location...`.
+4. Select `editors/vscode-simpl`.
+
+## Package the extension
+
+The extension manifest already includes a packaging script:
+
+```powershell
+npm install
+npm run package
+```
+
+This uses `vsce` to produce a `.vsix` package that you can install manually in
+VS Code.
+
+## Project files
+
+- `package.json`: extension manifest
+- `language-configuration.json`: comments, brackets, pairs, and word pattern
+- `syntaxes/simpl.tmLanguage.json`: TextMate grammar
+
+## Current scope
+
+This extension currently provides editor support only. If you want richer IDE
+features later, the natural next steps would be:
+
+- diagnostics from the Simpl parser
+- formatter integration
+- hover and go-to-definition support
+- completion for built-ins and language constructs
+
+## Related project
+
+The language implementation lives in the parent repository. For language syntax
+and runtime behavior, see the main project README and the docs in the repo root.

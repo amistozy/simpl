@@ -2,32 +2,36 @@
 
 `simpl` is a small expression language implemented in MoonBit.
 
-It is both:
+It can be used in two ways:
 
-- a reusable MoonBit package for parsing and evaluating Simpl source
-- a command-line interpreter for `.simpl` programs and inline snippets
+- as a MoonBit package for parsing and evaluating Simpl source
+- as a command-line interpreter for `.simpl` files or inline snippets
 
 Module: `amistozy/simpl`
 
-## What Simpl feels like
+## Why Simpl exists
 
-Simpl is dynamically typed, expression-oriented, and heavily built around calls.
-Functions, lists, strings, integers, and records can all participate in a unified
-"call-shaped" style, which gives the language a compact and composable surface.
+Simpl explores a compact language design built around a few ideas:
 
-Example:
+- everything is an expression
+- patterns are reused across bindings, parameters, and conditional refinement
+- calls are a general composition mechanism, not just function invocation
+- concise syntax is preferred when it still stays readable
+
+The result is a language that feels small, but still supports structured data,
+closures, mutation through references, and a surprisingly rich call model.
+
+## A quick taste
 
 ```simpl
-let greet(name; age = 18) =
-  "Hello, "name" ("$age")";
+let greet(name; title = "friend") =
+  "Hello, "title" "name"!";
 
-greet("Alice")
+greet("Ada")
 ```
 
-Example with patterns and structured branching:
-
 ```simpl
-let describe value =
+let describe(value) =
   if value is
   | #Ok(x) and x > 0 then "positive"
   | #Ok(0) then "zero"
@@ -37,25 +41,31 @@ let describe value =
 describe(#Ok(3))
 ```
 
-## Feature Summary
+```simpl
+[1; 20; 3]
+.map(fn: (_ + 1) * 2)
+.filter(fn _ < 10)
+```
 
-- integers, booleans, strings, `nil`, lists, records, variants, and references
-- first-class functions with lexical closures
-- pattern matching in `let`, function parameters, and `if ... is`
-- `let`, `let and`, `let rec`, and mutually recursive `let rec ... and ...`
-- trailing application: `f x`, `f(1; 2) 3`
+## Feature snapshot
+
+- integers, booleans, strings, `nil`, lists, records, variants, references, and functions
+- lexical closures and first-class functions
+- `let`, `let and`, `let rec`, and `let rec ... and ...`
+- destructuring patterns in `let`, parameters, and `if ... is`
+- named arguments and call-time default parameters
+- trailing application such as `f x` and `f(1; 2) 3`
 - `fn expr` eta-expansion with underscore placeholders
-- named arguments and default parameters
 - `with` sugar for passing a trailing lambda
-- record field access plus UFCS-style fallback (`x.foo` -> `foo(x)`)
+- record field access with UFCS-style fallback
 - expression-based string interpolation using string calls and `$`
-- source-positioned parse/runtime errors
+- source-positioned parse and runtime errors
 
-## Install Requirements
+## Install requirements
 
 - [MoonBit](https://docs.moonbitlang.com)
 
-## Quick Start
+## Quick start
 
 Run the test suite:
 
@@ -78,12 +88,12 @@ moon run cmd/main -- --parse --eval "let x = 1; x"
 Run a file:
 
 ```powershell
-moon run cmd/main -- path/to/program.simpl
+moon run cmd/main -- program.simpl
 ```
 
 ## CLI
 
-The interpreter entry point is [`cmd/main/main.mbt`](cmd/main/main.mbt).
+The interpreter entry point is `cmd/main/main.mbt`.
 
 ```text
 simpl [options] [path]
@@ -95,227 +105,15 @@ Options:
 - `-f`, `--file <path>`: read source from a file
 - `-p`, `--parse`: parse only and print the surface AST
 
-Rules:
+Input rules:
 
-- `--eval` cannot be combined with file input
-- `--file` and positional file input cannot be combined
-- if no input is provided, the CLI prints help
+- do not combine `--eval` with file input
+- provide a file path only once, either positionally or through `--file`
+- when no input is provided, the CLI prints help
 
-The CLI also supports multi-block input. A line containing at least three dashes
-such as `---` splits the source into separate blocks, each evaluated or parsed
-independently.
-
-## Language Tour
-
-### Literals
-
-```simpl
-1
-true
-"hello"
-nil
-[1; 2; 3]
-{x = 1; y = 2}
-#Some(1)
-```
-
-### Functions and Calls
-
-```simpl
-let inc(x) = x + 1;
-let add(x) = fn(y) x + y;
-
-inc(41)
-inc 41
-add 1 2
-```
-
-Parameters are separated by semicolons inside parentheses, and default values are
-allowed after required parameters:
-
-```simpl
-let greet(name; title = "friend") = "Hi, "title" "name;
-greet("MoonBit")
-greet(name = "MoonBit"; title = "team")
-```
-
-Default values are evaluated when the call happens, not when the function is
-defined. That means they can observe current mutable state and can refer to
-earlier parameters:
-
-```simpl
-let f(a = 1; b = a + 1) = b;
-f()
-```
-
-For `let rec`, default values can also refer to recursive bindings:
-
-```simpl
-let rec f(x = f(1)) = x;
-f()
-```
-
-`fn expr` can build ordinary zero-arg lambdas or eta-expand underscore placeholders:
-
-```simpl
-fn 42
-fn _ + 1
-fn _
-fn _ * 2 + _
-```
-
-This is equivalent to:
-
-```simpl
-fn() 42
-fn(x) x + 1
-fn(x) x
-fn(x; y) x * 2 + y
-```
-
-Because eta-expansion is introduced by `fn`, it can be used anywhere an
-expression is allowed. Bare `_` outside `fn expr` is still invalid.
-`:(...)` can also be used to make the intended `fn expr` body explicit, for
-example:
-
-```simpl
-[1; 20; 3]
-.map(fn: (_ + 1) * 2)
-.filter(fn _ < 10)
-```
-
-Regular infix code can also use `^` for integer power, so `2 ^ 3 ^ 2` evaluates
-to `512`.
-
-### Patterns
-
-Patterns work in bindings, function parameters, and `if ... is` branches:
-
-```simpl
-let [head; ..tail] = [1; 2; 3];
-let {name; age} = {name = "Ada"; age = 20};
-let unwrap(#Some(x)) = x;
-```
-
-Supported pattern forms:
-
-- variable binders and `_`
-- literal patterns
-- `as`-patterns like `#Some(x) as whole`
-- variant patterns
-- list patterns and rest patterns
-- record patterns
-- alternatives with `|`
-
-### Structured `if`
-
-Simpl uses a split-style conditional syntax rather than a separate `match`
-keyword.
-
-```simpl
-if
-| n < 0 then "neg"
-| n == 0 then "zero"
-else "pos"
-```
-
-```simpl
-if value is
-| #Left(x) then x
-| #Right(y) then y
-else 0
-```
-
-Nested refinement uses `and`, and inner split groups can be closed with `or`:
-
-```simpl
-if input is
-| #Some(x) and
-  | x > 10 then "big"
-  | x == 10 then "edge"
-  or
-else "small"
-```
-
-### References
-
-```simpl
-let r = ref 1;
-do r += 41;
-!r
-```
-
-Reference operators:
-
-- read: `!r`
-- assign: `r := value`
-- update: `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, `||=`
-
-### Records and UFCS
-
-```simpl
-let point = {x = 1; y = 2};
-point.x
-```
-
-If a record field does not exist, field syntax can fall back to a same-named
-function call:
-
-```simpl
-let inc(x) = x + 1;
-41.inc
-```
-
-and:
-
-```simpl
-let add3(x; y; z) = x + y + z;
-1.add3(2; 3)
-```
-
-### String Composition
-
-Simpl does not have template literals. Instead, it relies on:
-
-- string calls
-- trailing application
-- unary `$` to convert values to text
-
-```simpl
-let name = "Alice";
-let age = 18;
-name" is "$age" years old"
-```
-
-### Callable Non-Functions
-
-Some values have call behavior:
-
-- `3("ha")` repeats a string
-- `3([1; 2])` repeats a list
-- `3(fn() 1)` calls the function three times and collects results
-- `[1; 2] + [3; 4]` concatenates two lists
-- `[10; 20; 30](1)` indexes a list
-- `[1; 2; 3](", ")` joins values with a separator
-- `[1; 2; 3](fn(x) x * 2)` maps over a list
-- `", "([1; 2; 3])` joins values with a separator
-- `{x = 1}(x = 2; y = 3)` returns an updated record
-
-## Built-in Functions
-
-Current built-ins:
-
-- `ref(value)`
-- `say(value)`
-- `map(list; f)`
-- `filter(list; f)`
-- `fold(list; init; f)`
-- `length(value)`
-- `max(a; b)` or `max(list)`
-- `min(a; b)` or `min(list)`
-- `sum(list)`
-
-Built-ins do not accept named arguments.
+The CLI also supports multi-block input. A line made of at least three dashes,
+such as `---`, splits the source into separate blocks. Each block is parsed or
+evaluated independently.
 
 ## Library API
 
@@ -327,7 +125,7 @@ Public entry points:
 - `parse_error_text(String) -> String?`
 - `eval_error_text(String) -> String?`
 
-Convenience helpers:
+Useful test helpers:
 
 - `parse_is_ok`
 - `parse_is_error`
@@ -336,33 +134,36 @@ Convenience helpers:
 - `eval_source_is_bool`
 - `eval_source_is_error`
 
-Exposed types:
+Public types:
 
 - `SurfaceExpr`
 - `Value`
 
-## Documentation Map
+## Documentation
 
-- [Language overview](docs/language.md)
-- [Functions and calls](docs/functions-and-calls.md)
-- [Conditionals](docs/conditionals.md)
-- [Data, patterns, and mutation](docs/data-patterns-and-mutation.md)
-- [Composition patterns](docs/composition-patterns.md)
+Read the docs in this order:
 
-## Repository Layout
+1. [01 - Language Tour](docs/01-language-tour.md)
+2. [02 - Functions and Calls](docs/02-functions-and-calls.md)
+3. [03 - Control Flow and Patterns](docs/03-control-flow-and-patterns.md)
+4. [04 - Data and Mutation](docs/04-data-and-mutation.md)
+5. [05 - Composition Patterns](docs/05-composition-patterns.md)
+6. [06 - CLI and Embedding](docs/06-cli-and-embedding.md)
 
-- [`simpl.mbt`](simpl.mbt): core AST, runtime values, evaluator
-- [`parser.mbt`](parser.mbt): parser and diagnostics
-- [`lexer.mbt`](lexer.mbt): lexer and source spans
-- [`desugar.mbt`](desugar.mbt): surface-to-core lowering
-- [`pattern.mbt`](pattern.mbt): pattern logic and truthiness helpers
-- [`apply.mbt`](apply.mbt): call semantics and built-ins
-- [`pretty.mbt`](pretty.mbt): pretty-printing
-- [`cmd/main/main.mbt`](cmd/main/main.mbt): CLI
-- [`simpl_test.mbt`](simpl_test.mbt): black-box tests
-- [`simpl_wbtest.mbt`](simpl_wbtest.mbt): white-box tests
+## Repository layout
 
-## Development Notes
+- `simpl.mbt`: core AST, runtime values, evaluator
+- `parser.mbt`: parser and diagnostics
+- `lexer.mbt`: lexer and source spans
+- `desugar.mbt`: surface-to-core lowering
+- `pattern.mbt`: pattern logic and truthiness helpers
+- `apply.mbt`: call semantics and built-ins
+- `pretty.mbt`: pretty-printing
+- `cmd/main/main.mbt`: CLI
+- `simpl_test.mbt`: black-box tests
+- `simpl_wbtest.mbt`: white-box tests
+
+## Development notes
 
 Recommended validation loop:
 
@@ -372,7 +173,7 @@ moon info
 moon fmt
 ```
 
-If an intentional behavior change updates snapshot output:
+If you intentionally change behavior that affects snapshots:
 
 ```powershell
 moon test --update
@@ -380,4 +181,4 @@ moon test --update
 
 ## License
 
-Apache-2.0. See [`LICENSE`](LICENSE).
+Apache-2.0. See `LICENSE`.
