@@ -91,14 +91,14 @@ test "closure captures lexical env" {
 ///|
 test "higher order function" {
   let code =
-    #| (fn(f) = f 41)(fn(x) = x + 1)
+    #| (fn(f) f 41)(fn(x) x + 1)
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "single-parameter lambda uses parentheses" {
   let code =
-    #| (fn(x) = x + 1)(41)
+    #| (fn(x) x + 1)(41)
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -121,7 +121,7 @@ test "trailing arg after direct call appends to same call" {
 ///|
 test "grouped trailing application produces nested call" {
   let code =
-    #| let f(x) = fn(y) = x + y;
+    #| let f(x) = fn(y) x + y;
     #| (f 2) 3
   assert_true(@simpl.eval_source_is_int(code, 5))
 }
@@ -138,7 +138,7 @@ test "trailing arg has lowest precedence over infix operators" {
 test "trailing lambda is passed as one argument" {
   let code =
     #| let foo(f) = f 42;
-    #| foo fn(x) = x + 1
+    #| foo fn(x) x + 1
   assert_true(@simpl.eval_source_is_int(code, 43))
 }
 
@@ -273,7 +273,7 @@ test "string call rejects unsupported argument type" {
 ///|
 test "function params without defaults are required" {
   let code =
-    #| (fn(x; y) = x)()
+    #| (fn(x; y) x)()
   assert_true(@simpl.eval_source_is_error(code))
 }
 
@@ -396,8 +396,8 @@ test "recursive default expressions can reference recursive bindings" {
 
 ///|
 test "params must place required ones before defaulted ones" {
-  assert_true(@simpl.parse_is_ok("fn(x = 1; y) = x + y"))
-  assert_true(@simpl.eval_source_is_error("(fn(x = 1; y) = x + y)(1; 2)"))
+  assert_true(@simpl.parse_is_ok("fn(x = 1; y) x + y"))
+  assert_true(@simpl.eval_source_is_error("(fn(x = 1; y) x + y)(1; 2)"))
 }
 
 ///|
@@ -565,15 +565,15 @@ test "say accepts any value" {
 ///|
 test "map applies function to each list element" {
   let code =
-    #| map([1; 2; 3]; fn(x) = x + 1) == [2; 3; 4]
+    #| map([1; 2; 3]; fn(x) x + 1) == [2; 3; 4]
   assert_true(@simpl.eval_source_is_bool(code, true))
 }
 
 ///|
 test "map validates argument types" {
   assert_eq(
-    @simpl.eval_error_text("map(1; fn(x) = x)"),
-    Some("builtin 'map' expected List, got Int(1) at 1:1-18"),
+    @simpl.eval_error_text("map(1; fn(x) x)"),
+    Some("builtin 'map' expected List, got Int(1) at 1:1-16"),
   )
   assert_eq(
     @simpl.eval_error_text("map([1]; 1)"),
@@ -696,19 +696,19 @@ test "string interpolation chaining can start from literal" {
 test "filter keeps list items whose predicate is truthy" {
   assert_true(
     @simpl.eval_source_is_bool(
-      "filter([1; 2; 3; 4]; fn(x) = x % 2 == 0) == [2; 4]", true,
+      "filter([1; 2; 3; 4]; fn(x) x % 2 == 0) == [2; 4]", true,
     ),
   )
   assert_true(
-    @simpl.eval_source_is_bool("filter([1; nil; 2]; fn(x) = x) == [1; 2]", true),
+    @simpl.eval_source_is_bool("filter([1; nil; 2]; fn(x) x) == [1; 2]", true),
   )
 }
 
 ///|
 test "filter validates list and function arguments" {
   assert_eq(
-    @simpl.eval_error_text("filter(1; fn(x) = x)"),
-    Some("builtin 'filter' expected List, got Int(1) at 1:1-21"),
+    @simpl.eval_error_text("filter(1; fn(x) x)"),
+    Some("builtin 'filter' expected List, got Int(1) at 1:1-19"),
   )
   assert_eq(
     @simpl.eval_error_text("filter([1]; 1)"),
@@ -719,25 +719,25 @@ test "filter validates list and function arguments" {
 ///|
 test "fold reduces list from the left" {
   assert_true(
-    @simpl.eval_source_is_int("fold([1; 2; 3]; 0; fn(acc; x) = acc + x)", 6),
+    @simpl.eval_source_is_int("fold([1; 2; 3]; 0; fn(acc; x) acc + x)", 6),
   )
   assert_true(
     @simpl.eval_source_is_string(
-      "fold([\"a\"; \"b\"; \"c\"]; \"\"; fn(acc; x) = acc + x)", "abc",
+      "fold([\"a\"; \"b\"; \"c\"]; \"\"; fn(acc; x) acc + x)", "abc",
     ),
   )
 }
 
 ///|
 test "fold returns init value on empty list" {
-  assert_true(@simpl.eval_source_is_int("fold([]; 7; fn(acc; x) = acc + x)", 7))
+  assert_true(@simpl.eval_source_is_int("fold([]; 7; fn(acc; x) acc + x)", 7))
 }
 
 ///|
 test "fold validates list and function arguments" {
   assert_eq(
-    @simpl.eval_error_text("fold(1; 0; fn(acc; x) = acc + x)"),
-    Some("builtin 'fold' expected List, got Int(1) at 1:1-33"),
+    @simpl.eval_error_text("fold(1; 0; fn(acc; x) acc + x)"),
+    Some("builtin 'fold' expected List, got Int(1) at 1:1-31"),
   )
   assert_eq(
     @simpl.eval_error_text("fold([1]; 0; 1)"),
@@ -791,19 +791,19 @@ test "int is callable for string and list repetition" {
 ///|
 test "int call on function collects results into list" {
   assert_true(
-    @simpl.eval_source_is_bool("let x = 5; 3(fn() = x) == [5; 5; 5]", true),
+    @simpl.eval_source_is_bool("let x = 5; 3(fn() x) == [5; 5; 5]", true),
   )
   assert_true(
-    @simpl.eval_source_is_bool("3(fn() = [1; 2]) == [1; 2; 1; 2; 1; 2]", true),
+    @simpl.eval_source_is_bool("3(fn() [1; 2]) == [1; 2; 1; 2; 1; 2]", true),
   )
-  assert_true(@simpl.eval_source_is_bool("3(fn() = nil) == []", true))
+  assert_true(@simpl.eval_source_is_bool("3(fn() nil) == []", true))
 }
 
 ///|
 test "int call on function passes no arguments" {
   assert_eq(
-    @simpl.eval_error_text("3 fn(a) = a"),
-    Some("arity error: expected 1 arguments, got 0 at 1:1-12"),
+    @simpl.eval_error_text("3 fn(a) a"),
+    Some("arity error: expected 1 arguments, got 0 at 1:1-10"),
   )
 }
 
@@ -833,14 +833,14 @@ test "list call with int list maps indices to elements" {
 ///|
 test "list call on function maps each element and collects results" {
   assert_true(
-    @simpl.eval_source_is_bool("[1; 2; 3](fn(x) = x * 2) == [2; 4; 6]", true),
+    @simpl.eval_source_is_bool("[1; 2; 3](fn(x) x * 2) == [2; 4; 6]", true),
   )
   assert_true(
     @simpl.eval_source_is_bool(
-      "[1; 2](fn(x) = [x; x + 10]) == [1; 11; 2; 12]", true,
+      "[1; 2](fn(x) [x; x + 10]) == [1; 11; 2; 12]", true,
     ),
   )
-  assert_true(@simpl.eval_source_is_bool("[1; 2](fn(_) = nil) == []", true))
+  assert_true(@simpl.eval_source_is_bool("[1; 2](fn(_) nil) == []", true))
 }
 
 ///|
@@ -1147,7 +1147,7 @@ test "list equality is recursive" {
 ///|
 test "lambda parameters support patterns" {
   let code =
-    #| (fn(#Pair(x); {y}) = x + y)(#Pair(10); {y = 32})
+    #| (fn(#Pair(x); {y}) x + y)(#Pair(10); {y = 32})
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 

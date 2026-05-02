@@ -51,7 +51,7 @@ Examples:
 ```simpl
 3("ha")
 3([1; 2])
-3(fn() = 5)
+3(fn() 5)
 ```
 
 When repeatedly calling a function:
@@ -75,7 +75,7 @@ Examples:
 [10; 20; 30](", ")
 [10; 20; 30](1)
 [10; 20; 30]([0; -1; 9])
-[1; 2; 3](fn(x) = x * 2)
+[1; 2; 3](fn(x) x * 2)
 [1; 2; 3](_ * 2)
 ```
 
@@ -115,7 +115,7 @@ with(x) = [1; 2; 3]; x + 1
 This is equivalent to:
 
 ```simpl
-[1; 2; 3](fn(x) = x + 1)
+[1; 2; 3](fn(x) x + 1)
 ```
 
 It also works well with callable integers:
@@ -127,7 +127,7 @@ with 3; say "hello"
 which means:
 
 ```simpl
-3(fn() = say "hello")
+3(fn() say "hello")
 ```
 
 ## Practical Reading Rule

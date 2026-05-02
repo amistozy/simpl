@@ -191,7 +191,7 @@ test "parser turns :(...) into ordinary grouped call arg" {
 
 ///|
 test "parser passes trailing lambda as one call arg" {
-  match parse("foo fn(x) = x + 1") {
+  match parse("foo fn(x) x + 1") {
     SLocated(
       _,
       SCall(

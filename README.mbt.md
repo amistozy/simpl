@@ -123,7 +123,7 @@ nil
 
 ```simpl
 let inc(x) = x + 1;
-let add(x) = fn(y) = x + y;
+let add(x) = fn(y) x + y;
 
 inc(41)
 inc 41
@@ -166,13 +166,13 @@ foo(let g = _ + 1; g)
 This is equivalent to:
 
 ```simpl
-map([1; 2; 3]; fn(x) = x * 2)
-fold([1; 2; 3]; 0; fn(x; y) = x + y)
-foo(fn(x) = let g = x + 1; g)
+map([1; 2; 3]; fn(x) x * 2)
+fold([1; 2; 3]; 0; fn(x; y) x + y)
+foo(fn(x) let g = x + 1; g)
 ```
 
 The shorthand only expands inside parenthesized call arguments. Trailing
-application is not a boundary, so `foo(f g(_))` expands to `foo(fn(x) = f g(x))`.
+application is not a boundary, so `foo(f g(_))` expands to `foo(fn(x) f g(x))`.
 Regular infix code can also use `^` for integer power, so `2 ^ 3 ^ 2` evaluates
 to `512`.
 
@@ -282,11 +282,11 @@ Some values have call behavior:
 
 - `3("ha")` repeats a string
 - `3([1; 2])` repeats a list
-- `3(fn() = 1)` calls the function three times and collects results
+- `3(fn() 1)` calls the function three times and collects results
 - `[1; 2] + [3; 4]` concatenates two lists
 - `[10; 20; 30](1)` indexes a list
 - `[1; 2; 3](", ")` joins values with a separator
-- `[1; 2; 3](fn(x) = x * 2)` maps over a list
+- `[1; 2; 3](fn(x) x * 2)` maps over a list
 - `", "([1; 2; 3])` joins values with a separator
 - `{x = 1}(x = 2; y = 3)` returns an updated record
 

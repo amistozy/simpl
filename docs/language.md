@@ -61,7 +61,7 @@ Functions are first-class values and support concise definition forms:
 
 ```simpl
 let inc(x) = x + 1;
-let add(x) = fn(y) = x + y;
+let add(x) = fn(y) x + y;
 ```
 
 Closures capture the lexical environment where they are created.

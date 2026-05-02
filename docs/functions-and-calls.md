@@ -8,7 +8,7 @@ just "function invocation".
 Full lambda form:
 
 ```simpl
-fn(x; y) = x + y
+ fn(x; y) x + y
 ```
 
 Binding sugar:
@@ -32,9 +32,9 @@ A parameter can be:
 Examples:
 
 ```simpl
-fn(x; y) = x + y
-fn({name}; title = "friend") = title" "name
-fn([head; ..tail]) = head
+fn(x; y) x + y
+fn({name}; title = "friend") title" "name
+fn([head; ..tail]) head
 ```
 
 Required parameters must come before optional ones.
@@ -141,7 +141,7 @@ with(x) = target; body
 means:
 
 ```simpl
-target(fn(x) = body)
+target(fn(x) body)
 ```
 
 Other forms:
@@ -183,10 +183,10 @@ fold([1; 2; 3]; 0; _ + _)
 These expand like:
 
 ```simpl
-foo(fn(x) = x + 1)
-map([1; 2; 3]; fn(x) = x * 2)
-filter([1; nil; 2]; fn(x) = x != nil)
-fold([1; 2; 3]; 0; fn(x; y) = x + y)
+foo(fn(x) x + 1)
+map([1; 2; 3]; fn(x) x * 2)
+filter([1; nil; 2]; fn(x) x != nil)
+fold([1; 2; 3]; 0; fn(x; y) x + y)
 ```
 
 Rules:
@@ -205,7 +205,7 @@ foo(f(g(_)))
 expands to:
 
 ```simpl
-foo(f(fn(x) = g(x)))
+foo(f(fn(x) g(x)))
 ```
 
 while:
@@ -217,7 +217,7 @@ foo(f g(_))
 expands to:
 
 ```simpl
-foo(fn(x) = f g(x))
+foo(fn(x) f g(x))
 ```
 
 because `f g(_)` is the full parenthesized argument to `foo(...)`, and the

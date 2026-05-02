@@ -979,10 +979,7 @@ fn parse_lambda_expr(
       syntax_error_at(tokens, i + 1, "expected '(...)' after 'fn'")
     }
     let (params, j) = parse_params(tokens, i + 2)
-    if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-      syntax_error_at(tokens, j, "expected '=' after lambda params")
-    }
-    let (body, k) = parse_expr(tokens, j + 1)
+    let (body, k) = parse_expr(tokens, j)
     (located_expr(tokens, i, k, SLambda(params, body)), k)
   } else {
     parse_or_expr(tokens, i)
