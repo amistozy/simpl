@@ -39,6 +39,7 @@ priv enum Token {
   StarTok
   SlashTok
   PercentTok
+  CaretTok
   EqEqTok
   BangEqTok
   LtTok
@@ -276,6 +277,7 @@ fn token_name(tok : Token) -> String {
     StarTok => "*"
     SlashTok => "/"
     PercentTok => "%"
+    CaretTok => "^"
     EqEqTok => "=="
     BangEqTok => "!="
     LtTok => "<"
@@ -1313,7 +1315,21 @@ fn parse_unary_expr(
     let (expr, j) = parse_unary_expr(tokens, i + 1)
     (located_expr(tokens, i, j, SUnary(Neg, expr)), j)
   } else {
-    parse_postfix_expr(tokens, i)
+    parse_pow_expr(tokens, i)
+  }
+}
+
+///|
+fn parse_pow_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
+  let (left, j) = parse_postfix_expr(tokens, i)
+  if j < tokens.length() && token_kind(tokens, j) == CaretTok {
+    let (right, k) = parse_unary_expr(tokens, j + 1)
+    (located_expr_from_left(left, tokens, k, SBinary(Pow, left, right)), k)
+  } else {
+    (left, j)
   }
 }
 
@@ -1802,7 +1818,9 @@ fn parse_pattern_as_tail(
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfacePattern, Int) raise {
-  guard i < tokens.length() && token_kind(tokens, i) == AsTok else { (pattern, i) }
+  guard i < tokens.length() && token_kind(tokens, i) == AsTok else {
+    (pattern, i)
+  }
   let name_i = i + 1
   guard name_i < tokens.length() else {
     syntax_error_eof(tokens, "expected binding name after 'as' in pattern")

@@ -216,6 +216,7 @@ fn surface_bin_op_text(op : BinOp) -> String {
     Mul => "*"
     Div => "/"
     Mod => "%"
+    Pow => "^"
     Eq => "=="
     Ne => "!="
     Lt => "<"

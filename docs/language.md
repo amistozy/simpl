@@ -75,6 +75,7 @@ Arithmetic:
 - `*`
 - `/`
 - `%`
+- `^`
 
 Comparison:
 
@@ -100,6 +101,7 @@ Two runtime edge cases are part of the language behavior:
 
 - `a / 0` evaluates to `0`
 - `a % 0` evaluates to `a`
+- `a ^ b` evaluates to `0` when `b < 0`
 
 ## Truthiness
 

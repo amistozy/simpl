@@ -206,7 +206,7 @@
         },
         {
           "name": "keyword.operator.arithmetic.simpl",
-          "match": "\\+|-(?!\\d)|\\*|/|%|~|!|\\$"
+          "match": "\\+|-(?!\\d)|\\*|/|%|\\^|~|!|\\$"
         },
         {
           "name": "keyword.operator.assignment.simpl",

@@ -156,6 +156,7 @@ priv enum BinOp {
   Mul
   Div
   Mod
+  Pow
   Eq
   Ne
   Lt
@@ -873,9 +874,7 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
         (VList(a), VList(b)) => VList(a + b)
         _ =>
           type_error_binary(
-            "operator '+'",
-            "(Int, Int) or (String, String) or (List, List)",
-            left,
+            "operator '+'", "(Int, Int) or (String, String) or (List, List)", left,
             right,
           )
       }
@@ -909,6 +908,11 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
         (VInt(a), VInt(b)) => VInt(a % b)
         _ => type_error_binary("operator '%'", "(Int, Int)", left, right)
       }
+    Pow =>
+      match (left, right) {
+        (VInt(a), VInt(b)) => VInt(int_pow(a, b))
+        _ => type_error_binary("operator '^'", "(Int, Int)", left, right)
+      }
     Eq => VBool(left == right)
     Ne => VBool(left != right)
     Lt =>
@@ -941,6 +945,20 @@ fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
     | RefUpdateMod
     | RefUpdateAnd
     | RefUpdateOr => runtime_error("internal: ref binary op in eval_binary")
+  }
+}
+
+///|
+fn int_pow(base : Int, exponent : Int) -> Int {
+  guard exponent >= 0 else { 0 }
+  for base = base, exponent = exponent, acc = 1 {
+    if exponent == 0 {
+      break acc
+    } else if exponent % 2 == 0 {
+      continue base * base, exponent / 2, acc
+    } else {
+      continue base, exponent - 1, acc * base
+    }
   }
 }
 

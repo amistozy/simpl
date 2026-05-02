@@ -173,6 +173,8 @@ foo(fn x = let g = x + 1; g)
 
 The shorthand only expands inside parenthesized call arguments. Trailing
 application is not a boundary, so `foo(f g(_))` expands to `foo(fn x = f g(x))`.
+Regular infix code can also use `^` for integer power, so `2 ^ 3 ^ 2` evaluates
+to `512`.
 
 ### Patterns
 

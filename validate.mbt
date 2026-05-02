@@ -18,7 +18,8 @@ fn validate_expr(
     Located(expr_span, inner) => validate_expr(inner, expr_span, bound_names)
     IntLit(_) | BoolLit(_) | StringLit(_) | NilLit => ()
     Var(name) =>
-      if is_eta_placeholder_name(name) && !array_contains_name(bound_names, name) {
+      if is_eta_placeholder_name(name) &&
+        !array_contains_name(bound_names, name) {
         static_error_at(
           "underscore placeholder must appear inside a parenthesized call argument",
           span,
@@ -40,7 +41,11 @@ fn validate_expr(
     Let(pattern, value_expr, body) => {
       validate_pattern_bindings_unique(pattern, span)
       validate_expr(value_expr, span, bound_names)
-      validate_expr(body, span, bound_names + pattern_binding_names_array(pattern))
+      validate_expr(
+        body,
+        span,
+        bound_names + pattern_binding_names_array(pattern),
+      )
     }
     LetAnd(bindings, body) => {
       let binding_names = collect_binding_pattern_names(bindings, [], 0)
@@ -125,7 +130,8 @@ fn validate_if_guard_static(
 ) -> Unit raise {
   match guard_ {
     IfThen(body) => validate_expr(body, span, bound_names)
-    IfAnd(arms) => arms.each(arm => validate_if_cond_arm(arm, span, bound_names))
+    IfAnd(arms) =>
+      arms.each(arm => validate_if_cond_arm(arm, span, bound_names))
     IfIs(value_expr, arms) => {
       validate_expr(value_expr, span, bound_names)
       arms.each(arm => validate_if_pattern_arm(arm, span, bound_names))
@@ -197,7 +203,10 @@ fn pattern_binding_names_array(pattern : MatchPattern) -> Array[String] {
 }
 
 ///|
-fn core_pattern_binding_names(pattern : MatchPattern, names : Array[String]) -> Unit {
+fn core_pattern_binding_names(
+  pattern : MatchPattern,
+  names : Array[String],
+) -> Unit {
   match pattern {
     PBind(name) => if name != "_" { names.push(name) }
     PInt(_) | PBool(_) | PString(_) | PNil => ()
@@ -251,7 +260,10 @@ fn collect_binding_pattern_names(
 }
 
 ///|
-fn collect_param_names(params : Array[Param], acc : Array[String]) -> Array[String] {
+fn collect_param_names(
+  params : Array[Param],
+  acc : Array[String],
+) -> Array[String] {
   params.fold(init=acc, (acc, param) => {
     let Param(pattern, _, _) = param
     acc + pattern_binding_names_array(pattern)

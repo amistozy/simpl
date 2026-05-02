@@ -21,8 +21,7 @@ fn desugar_expr_with_placeholders(
   match expr {
     SLocated(span, inner) => {
       let (core_expr, names, next_id) = desugar_expr_with_placeholders(
-        inner,
-        next_placeholder_id,
+        inner, next_placeholder_id,
       )
       (Located(span, core_expr), names, next_id)
     }
@@ -57,53 +56,68 @@ fn desugar_expr_with_placeholders(
     }
     SVariant(tag, value_expr) => {
       let (value_core, names, next_id) = desugar_expr_with_placeholders(
-        value_expr,
-        next_placeholder_id,
+        value_expr, next_placeholder_id,
       )
       (Variant(tag, value_core), names, next_id)
     }
     SIf(cases, else_expr) => {
-      let (cases_core, case_names, next_after_cases) =
-        desugar_if_cond_arms_with_placeholders(cases, next_placeholder_id, [], [], 0)
+      let (cases_core, case_names, next_after_cases) = desugar_if_cond_arms_with_placeholders(
+        cases,
+        next_placeholder_id,
+        [],
+        [],
+        0,
+      )
       let (else_core, else_names, next_id) = desugar_expr_with_placeholders(
-        else_expr,
-        next_after_cases,
+        else_expr, next_after_cases,
       )
       (If(cases_core, else_core), case_names + else_names, next_id)
     }
     SLet(pattern, value_expr, body) => {
-      let (value_core, value_names, next_after_value) =
-        desugar_expr_with_placeholders(value_expr, next_placeholder_id)
-      let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body,
-        next_after_value,
+      let (value_core, value_names, next_after_value) = desugar_expr_with_placeholders(
+        value_expr, next_placeholder_id,
       )
-      (Let(desugar_pattern(pattern), value_core, body_core), value_names + body_names, next_id)
+      let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
+        body, next_after_value,
+      )
+      (
+        Let(desugar_pattern(pattern), value_core, body_core),
+        value_names + body_names,
+        next_id,
+      )
     }
     SLetAnd(bindings, body) => {
-      let (bindings_core, binding_names, next_after_bindings) =
-        desugar_let_bindings_with_placeholders(bindings, next_placeholder_id, [], [], 0)
+      let (bindings_core, binding_names, next_after_bindings) = desugar_let_bindings_with_placeholders(
+        bindings,
+        next_placeholder_id,
+        [],
+        [],
+        0,
+      )
       let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body,
-        next_after_bindings,
+        body, next_after_bindings,
       )
       (LetAnd(bindings_core, body_core), binding_names + body_names, next_id)
     }
     SDo(value_expr, body) => {
-      let (value_core, value_names, next_after_value) =
-        desugar_expr_with_placeholders(value_expr, next_placeholder_id)
-      let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body,
-        next_after_value,
+      let (value_core, value_names, next_after_value) = desugar_expr_with_placeholders(
+        value_expr, next_placeholder_id,
       )
-      (Let(PBind("_"), value_core, body_core), value_names + body_names, next_id)
+      let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
+        body, next_after_value,
+      )
+      (
+        Let(PBind("_"), value_core, body_core),
+        value_names + body_names,
+        next_id,
+      )
     }
     SLetFun(name, params, func_body, body) => {
-      let (func_body_core, func_names, next_after_func) =
-        desugar_expr_with_placeholders(func_body, next_placeholder_id)
+      let (func_body_core, func_names, next_after_func) = desugar_expr_with_placeholders(
+        func_body, next_placeholder_id,
+      )
       let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body,
-        next_after_func,
+        body, next_after_func,
       )
       (
         Let(
@@ -116,11 +130,11 @@ fn desugar_expr_with_placeholders(
       )
     }
     SLetRec(name, params, func_body, body) => {
-      let (func_body_core, func_names, next_after_func) =
-        desugar_expr_with_placeholders(func_body, next_placeholder_id)
+      let (func_body_core, func_names, next_after_func) = desugar_expr_with_placeholders(
+        func_body, next_placeholder_id,
+      )
       let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body,
-        next_after_func,
+        body, next_after_func,
       )
       (
         LetRec(
@@ -134,20 +148,24 @@ fn desugar_expr_with_placeholders(
       )
     }
     SLetRecAnd(defs, body) => {
-      let (defs_core, def_names, next_after_defs) =
-        desugar_let_rec_defs_with_placeholders(defs, next_placeholder_id, [], [], 0)
+      let (defs_core, def_names, next_after_defs) = desugar_let_rec_defs_with_placeholders(
+        defs,
+        next_placeholder_id,
+        [],
+        [],
+        0,
+      )
       let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body,
-        next_after_defs,
+        body, next_after_defs,
       )
       (LetRecAnd(defs_core, body_core), def_names + body_names, next_id)
     }
     SWith(params, target_expr, body) => {
-      let (target_core, target_names, next_after_target) =
-        desugar_expr_with_placeholders(target_expr, next_placeholder_id)
+      let (target_core, target_names, next_after_target) = desugar_expr_with_placeholders(
+        target_expr, next_placeholder_id,
+      )
       let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body,
-        next_after_target,
+        body, next_after_target,
       )
       (
         append_call_arg_core(
@@ -160,33 +178,34 @@ fn desugar_expr_with_placeholders(
     }
     SLambda(params, body) => {
       let (body_core, names, next_id) = desugar_expr_with_placeholders(
-        body,
-        next_placeholder_id,
+        body, next_placeholder_id,
       )
-      (Lambda(params.map(param => desugar_param(param)), body_core), names, next_id)
+      (
+        Lambda(params.map(param => desugar_param(param)), body_core),
+        names,
+        next_id,
+      )
     }
     SCall(func_expr, arg_exprs) =>
       desugar_call_with_placeholders(func_expr, arg_exprs, next_placeholder_id)
     SField(target, name) => {
       let (target_core, names, next_id) = desugar_expr_with_placeholders(
-        target,
-        next_placeholder_id,
+        target, next_placeholder_id,
       )
       (Field(target_core, name), names, next_id)
     }
     SUnary(op, one) => {
       let (one_core, names, next_id) = desugar_expr_with_placeholders(
-        one,
-        next_placeholder_id,
+        one, next_placeholder_id,
       )
       (Unary(op, one_core), names, next_id)
     }
     SBinary(op, left, right) => {
-      let (left_core, left_names, next_after_left) =
-        desugar_expr_with_placeholders(left, next_placeholder_id)
+      let (left_core, left_names, next_after_left) = desugar_expr_with_placeholders(
+        left, next_placeholder_id,
+      )
       let (right_core, right_names, next_id) = desugar_expr_with_placeholders(
-        right,
-        next_after_left,
+        right, next_after_left,
       )
       (Binary(op, left_core, right_core), left_names + right_names, next_id)
     }
@@ -200,8 +219,7 @@ fn desugar_call_with_placeholders(
   next_placeholder_id : Int,
 ) -> (Expr, Array[String], Int) {
   let (func_core, func_names, next_after_func) = desugar_expr_with_placeholders(
-    func_expr,
-    next_placeholder_id,
+    func_expr, next_placeholder_id,
   )
   if arg_exprs.length() == 0 {
     return (Call(func_core, []), func_names, next_after_func)
@@ -235,13 +253,16 @@ fn desugar_call_args_with_placeholders(
   i : Int,
 ) -> (Expr, Array[String], Int) {
   guard i < args.length() else {
-    (finalize_call_chunk(current_expr, pending_args), bubbled_names, next_placeholder_id)
+    (
+      finalize_call_chunk(current_expr, pending_args),
+      bubbled_names,
+      next_placeholder_id,
+    )
   }
   match args[i] {
     SArgPos(arg_expr) => {
       let (arg_core, arg_names, next_id) = desugar_expr_with_placeholders(
-        arg_expr,
-        next_placeholder_id,
+        arg_expr, next_placeholder_id,
       )
       let next_arg = if arg_names.length() != 0 &&
         !surface_expr_is_bare_underscore(arg_expr) {
@@ -266,8 +287,7 @@ fn desugar_call_args_with_placeholders(
     }
     SArgNamed(name, arg_expr) => {
       let (arg_core, arg_names, next_id) = desugar_expr_with_placeholders(
-        arg_expr,
-        next_placeholder_id,
+        arg_expr, next_placeholder_id,
       )
       let next_arg = if arg_names.length() != 0 &&
         !surface_expr_is_bare_underscore(arg_expr) {
@@ -292,8 +312,7 @@ fn desugar_call_args_with_placeholders(
     }
     STrailingArgPos(arg_expr) => {
       let (arg_core, arg_names, next_id) = desugar_expr_with_placeholders(
-        arg_expr,
-        next_placeholder_id,
+        arg_expr, next_placeholder_id,
       )
       let next_expr = if pending_args.length() == 0 {
         Call(current_expr, [ArgPos(arg_core)])
@@ -367,8 +386,7 @@ fn desugar_record_fields_with_placeholders(
     SRecordShorthand(field_name) => (field_name, SVar(field_name))
   }
   let (value_core, value_names, next_id) = desugar_expr_with_placeholders(
-    value_expr,
-    next_placeholder_id,
+    value_expr, next_placeholder_id,
   )
   desugar_record_fields_with_placeholders(
     fields,
@@ -408,10 +426,12 @@ fn desugar_if_cond_arm_with_placeholders(
 ) -> (IfCondArm, Array[String], Int) {
   match surface_arm {
     SIfCondArm(cond, arm_guard) => {
-      let (cond_core, cond_names, next_after_cond) =
-        desugar_expr_with_placeholders(cond, next_placeholder_id)
-      let (guard_core, guard_names, next_id) =
-        desugar_if_guard_with_placeholders(arm_guard, next_after_cond)
+      let (cond_core, cond_names, next_after_cond) = desugar_expr_with_placeholders(
+        cond, next_placeholder_id,
+      )
+      let (guard_core, guard_names, next_id) = desugar_if_guard_with_placeholders(
+        arm_guard, next_after_cond,
+      )
       (IfCondArm(cond_core, guard_core), cond_names + guard_names, next_id)
     }
   }
@@ -424,8 +444,9 @@ fn desugar_if_pattern_arm_with_placeholders(
 ) -> (IfPatternArm, Array[String], Int) {
   match surface_arm {
     SIfPatternArm(pattern, arm_guard) => {
-      let (guard_core, guard_names, next_id) =
-        desugar_if_guard_with_placeholders(arm_guard, next_placeholder_id)
+      let (guard_core, guard_names, next_id) = desugar_if_guard_with_placeholders(
+        arm_guard, next_placeholder_id,
+      )
       (IfPatternArm(desugar_pattern(pattern), guard_core), guard_names, next_id)
     }
   }
@@ -439,8 +460,7 @@ fn desugar_if_guard_with_placeholders(
   match surface_guard {
     SIfThen(body) => {
       let (body_core, names, next_id) = desugar_expr_with_placeholders(
-        body,
-        next_placeholder_id,
+        body, next_placeholder_id,
       )
       (IfThen(body_core), names, next_id)
     }
@@ -455,10 +475,16 @@ fn desugar_if_guard_with_placeholders(
       (IfAnd(arms_core), names, next_id)
     }
     SIfIs(value_expr, arms) => {
-      let (value_core, value_names, next_after_value) =
-        desugar_expr_with_placeholders(value_expr, next_placeholder_id)
-      let (arms_core, arm_names, next_id) =
-        desugar_if_pattern_arms_with_placeholders(arms, next_after_value, [], [], 0)
+      let (value_core, value_names, next_after_value) = desugar_expr_with_placeholders(
+        value_expr, next_placeholder_id,
+      )
+      let (arms_core, arm_names, next_id) = desugar_if_pattern_arms_with_placeholders(
+        arms,
+        next_after_value,
+        [],
+        [],
+        0,
+      )
       (IfIs(value_core, arms_core), value_names + arm_names, next_id)
     }
   }
@@ -473,8 +499,10 @@ fn desugar_if_pattern_arms_with_placeholders(
   i : Int,
 ) -> (Array[IfPatternArm], Array[String], Int) {
   guard i < arms.length() else { (acc, names, next_placeholder_id) }
-  let (head_core, head_names, next_id) =
-    desugar_if_pattern_arm_with_placeholders(arms[i], next_placeholder_id)
+  let (head_core, head_names, next_id) = desugar_if_pattern_arm_with_placeholders(
+    arms[i],
+    next_placeholder_id,
+  )
   desugar_if_pattern_arms_with_placeholders(
     arms,
     next_id,
@@ -495,8 +523,7 @@ fn desugar_let_bindings_with_placeholders(
   guard i < bindings.length() else { (acc, names, next_placeholder_id) }
   let (pattern, value_expr) = bindings[i]
   let (value_core, value_names, next_id) = desugar_expr_with_placeholders(
-    value_expr,
-    next_placeholder_id,
+    value_expr, next_placeholder_id,
   )
   desugar_let_bindings_with_placeholders(
     bindings,
@@ -518,8 +545,7 @@ fn desugar_let_rec_defs_with_placeholders(
   guard i < defs.length() else { (acc, names, next_placeholder_id) }
   let (name, params, func_body) = defs[i]
   let (func_body_core, func_names, next_id) = desugar_expr_with_placeholders(
-    func_body,
-    next_placeholder_id,
+    func_body, next_placeholder_id,
   )
   desugar_let_rec_defs_with_placeholders(
     defs,
@@ -556,6 +582,7 @@ fn desugar_if_guard(surface_guard : SurfaceIfGuard) -> IfGuard {
   }
 }
 
+///|
 fn desugar_pattern(pattern : SurfacePattern) -> MatchPattern {
   match pattern {
     SPBind(name) => PBind(name)

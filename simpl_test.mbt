@@ -8,6 +8,11 @@ test "int arithmetic" {
 }
 
 ///|
+test "int power" {
+  assert_true(@simpl.eval_source_is_int("2 ^ 5", 32))
+}
+
+///|
 test "string concatenation" {
   assert_true(
     @simpl.eval_source_is_string("\"hello \" + \"moonbit\"", "hello moonbit"),
@@ -16,7 +21,9 @@ test "string concatenation" {
 
 ///|
 test "list concatenation" {
-  assert_true(@simpl.eval_source_is_bool("[1; 2] + [3; 4] == [1; 2; 3; 4]", true))
+  assert_true(
+    @simpl.eval_source_is_bool("[1; 2] + [3; 4] == [1; 2; 3; 4]", true),
+  )
 }
 
 ///|
@@ -31,6 +38,11 @@ test "string literals support common escape sequences" {
 ///|
 test "type error remains runtime error" {
   assert_true(@simpl.eval_source_is_error("1 + true"))
+}
+
+///|
+test "power type error remains runtime error" {
+  assert_true(@simpl.eval_source_is_error("2 ^ true"))
 }
 
 ///|
@@ -456,6 +468,13 @@ test "duplicate record fields are rejected statically" {
 /// Blackbox: parser + evaluator
 test "eval_source honors operator precedence" {
   assert_true(@simpl.eval_source_is_int("1 + 2 * 3", 7))
+  assert_true(@simpl.eval_source_is_int("2 * 3 ^ 2", 18))
+  assert_true(@simpl.eval_source_is_int("2 ^ 3 ^ 2", 512))
+}
+
+///|
+test "power returns zero for negative exponent" {
+  assert_true(@simpl.eval_source_is_int("2 ^ -1", 0))
 }
 
 ///|
@@ -694,15 +713,11 @@ test "string interpolation chaining can start from literal" {
 test "filter keeps list items whose predicate is truthy" {
   assert_true(
     @simpl.eval_source_is_bool(
-      "filter([1; 2; 3; 4]; fn x = x % 2 == 0) == [2; 4]",
-      true,
+      "filter([1; 2; 3; 4]; fn x = x % 2 == 0) == [2; 4]", true,
     ),
   )
   assert_true(
-    @simpl.eval_source_is_bool(
-      "filter([1; nil; 2]; fn x = x) == [1; 2]",
-      true,
-    ),
+    @simpl.eval_source_is_bool("filter([1; nil; 2]; fn x = x) == [1; 2]", true),
   )
 }
 
@@ -721,15 +736,11 @@ test "filter validates list and function arguments" {
 ///|
 test "fold reduces list from the left" {
   assert_true(
-    @simpl.eval_source_is_int(
-      "fold([1; 2; 3]; 0; fn(acc; x) = acc + x)",
-      6,
-    ),
+    @simpl.eval_source_is_int("fold([1; 2; 3]; 0; fn(acc; x) = acc + x)", 6),
   )
   assert_true(
     @simpl.eval_source_is_string(
-      "fold([\"a\"; \"b\"; \"c\"]; \"\"; fn(acc; x) = acc + x)",
-      "abc",
+      "fold([\"a\"; \"b\"; \"c\"]; \"\"; fn(acc; x) = acc + x)", "abc",
     ),
   )
 }

@@ -235,7 +235,7 @@ test "parser passes trailing lambda as one call arg" {
       _,
       SCall(
         SLocated(_, SVar("foo")),
-        [STrailingArgPos(SLocated(_, SLambda(_, _)))],
+        [STrailingArgPos(SLocated(_, SLambda(_, _)))]
       )
     ) => assert_true(true)
     _ => assert_true(false)
@@ -273,7 +273,7 @@ test "negative literal can be the argument of trailing application" {
       _,
       SCall(
         SLocated(_, SIntLit(1)),
-        [STrailingArgPos(SLocated(_, SIntLit(-42)))],
+        [STrailingArgPos(SLocated(_, SIntLit(-42)))]
       )
     ) => assert_true(true)
     _ => assert_true(false)
@@ -291,7 +291,13 @@ test "parser preserves underscore placeholder in expression" {
 ///|
 test "desugar eta-expands parenthesized call arg with underscore" {
   match desugar(parse("foo(_ + 1)")) {
-    Located(_, Call(callee, [ArgPos(Lambda([Param(PBind(name), None, Some(param_name))], _))])) =>
+    Located(
+      _,
+      Call(
+        callee,
+        [ArgPos(Lambda([Param(PBind(name), None, Some(param_name))], _))]
+      )
+    ) =>
       assert_true(
         expr_is_located_var(callee, "foo") &&
         name == " __eta0" &&
@@ -350,7 +356,7 @@ test "parser makes trailing application right-associative" {
               _,
               SCall(
                 SLocated(_, SVar("g")),
-                [STrailingArgPos(SLocated(_, SVar("x")))],
+                [STrailingArgPos(SLocated(_, SVar("x")))]
               )
             )
           ),
@@ -460,6 +466,42 @@ test "parser preserves record single-param function field sugar" {
   match parse("{inc x = x + 1}") {
     SLocated(_, SRecord([SRecordField("inc", SLocated(_, SLambda(_, _)))])) =>
       assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser makes power right-associative" {
+  match parse("2 ^ 3 ^ 2") {
+    SLocated(
+      _,
+      SBinary(
+        Pow,
+        SLocated(_, SIntLit(2)),
+        SLocated(
+          _,
+          SBinary(Pow, SLocated(_, SIntLit(3)), SLocated(_, SIntLit(2)))
+        )
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser gives power higher precedence than multiplication" {
+  match parse("2 * 3 ^ 2") {
+    SLocated(
+      _,
+      SBinary(
+        Mul,
+        SLocated(_, SIntLit(2)),
+        SLocated(
+          _,
+          SBinary(Pow, SLocated(_, SIntLit(3)), SLocated(_, SIntLit(2)))
+        )
+      )
+    ) => assert_true(true)
     _ => assert_true(false)
   }
 }
