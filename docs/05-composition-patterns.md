@@ -113,9 +113,9 @@ Built-ins do not accept named arguments.
 ## Composition examples
 
 ```simpl
-map([1; 2; 3]; fn _ * 2)
-filter([1; nil; 2]; fn _ != nil)
-fold([1; 2; 3]; 0; fn _ + _)
+[1; 2; 3].map(fn _ * 2)
+[1; nil; 2].filter(fn _ != nil)
+[1; 2; 3].fold(0; fn _ + _)
 ```
 
 ```simpl
@@ -127,17 +127,3 @@ This means:
 ```simpl
 3(fn() say "hello")
 ```
-
-## Reading rule
-
-When you see `value(arg)` in Simpl, do not assume `value` is a function.
-
-Ask instead:
-
-1. is it a function or built-in?
-2. is it a string being used to concatenate or join?
-3. is it a list being used to index, join, or map?
-4. is it an integer being used to repeat or collect?
-5. is it a record being updated through named arguments?
-
-Once that model clicks, a lot of Simpl becomes much easier to read.

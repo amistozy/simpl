@@ -14,10 +14,8 @@ let x = 41; x + 1
 Multiple independent bindings:
 
 ```simpl
-let
-  a = 1
-and
-  b = 2;
+let a = 1
+and b = 2;
 a + b
 ```
 

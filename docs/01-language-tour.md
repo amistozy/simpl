@@ -98,8 +98,8 @@ and reference updates such as `&&=` and `||=`.
 Simpl supports single-line comments:
 
 ```simpl
-// this is ignored
-let x = 1; // this part too
+-- this is ignored
+let x = 1; -- this part too
 x + 1
 ```
 
@@ -108,12 +108,13 @@ x + 1
 ```simpl
 let render(result) =
   if result is
-  | #Ok({name; score}) and score >= 60 then name": pass ("$score")"
-  | #Ok({name; score}) then name": retry ("$score")"
+  | #Ok({name; score}) and 
+    | score >= 60 then name": pass ("$score")"
+    else name": retry ("$score")"
   | #Err(message) then message
   else "unknown";
 
-render(#Ok({name = "Mina"; score = 72}))
+render #Ok({name = "Mina"; score = 72})
 ```
 
 ## What to read next
