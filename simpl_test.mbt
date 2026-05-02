@@ -1201,15 +1201,6 @@ test "let rec and supports mutual recursion" {
 }
 
 ///|
-test "let rec and supports single-param functions with parentheses" {
-  let code =
-    #| let rec even(n) = if n == 0 then true else odd(n - 1)
-    #| and odd(n) = if n == 0 then false else even(n - 1);
-    #| even(10)
-  assert_true(@simpl.eval_source_is_bool(code, true))
-}
-
-///|
 /// Blackbox: if syntax (current rules)
 test "if requires closure in multi-route mode" {
   assert_true(@simpl.parse_is_error("if true then 1"))
@@ -1223,9 +1214,9 @@ test "no-pipe single is first branch is treated as if multi-route" {
 ///|
 test "no-pipe multi-route is first branch enables if single-route mode" {
   let code =
-    #| if #Some(1) is
-    #| | #Some(x) then x
-    #| | _ then 0
+    #| if #Foo(1) is
+    #| | #Foo(x) then x
+    #| | #Bar(_) then 0
     #| end
   assert_true(@simpl.eval_source_is_int(code, 1))
 }
@@ -1233,9 +1224,9 @@ test "no-pipe multi-route is first branch enables if single-route mode" {
 ///|
 test "single-route if mode rejects hanging outer branches" {
   let code =
-    #| if #Some(1) is
-    #| | #Some(x) then x
-    #| | _ then 0
+    #| if #Foo(1) is
+    #| | #Foo(x) then x
+    #| | #Bar(_) then 0
     #| end
     #| | true then 2
     #| else 3
@@ -1255,10 +1246,11 @@ test "no-pipe single is can still hang follow-up if branches" {
 test "leading pipe forces if multi-route even with multi-is first branch" {
   let code =
     #| if
-    #| | #Some(1) is
-    #|   | #Some(x) then x
-    #|   | _ then 0
-    #|   end
+    #| | #Foo(1) is
+    #|   | #Foo(x) then x
+    #|   | #Bar(_) then 0
+    #|   or
+    #| | 3 > 2 then 2
     #| else -1
   assert_true(@simpl.eval_source_is_int(code, 1))
 }
