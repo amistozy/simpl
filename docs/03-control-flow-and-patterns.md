@@ -44,6 +44,11 @@ let #Ok(x) as whole = #Ok(1);
 
 Simpl uses a split-style conditional syntax.
 
+This part of Simpl is inspired by *The Ultimate Conditional Syntax* by Luyu
+Cheng and Lionel Parreaux (OOPSLA 2024), especially its treatment of nested
+conditional splitting and pattern-directed branching. Simpl does not claim to
+implement that design exactly, but the family resemblance is intentional.
+
 Simple form:
 
 ```simpl
@@ -60,6 +65,127 @@ else "pos"
 ```
 
 Conditions use Simpl truthiness, not strict boolean-only checking.
+
+## The three split points
+
+There are three places where Simpl can open a conditional split:
+
+- `if`
+- `is`
+- `and`
+
+Each of them can operate in either:
+
+- single-route mode
+- multi-route mode
+
+That distinction explains most of the syntax rules that otherwise feel unusual.
+
+## Single-route vs multi-route
+
+The shortest mental model is:
+
+- single-route mode has one immediate `... then ...` arm
+- multi-route mode has one or more `| ... then ...` arms
+
+Examples:
+
+```simpl
+if ready then "ok" else "wait"
+```
+
+```simpl
+if
+| n < 0 then "neg"
+| n == 0 then "zero"
+else "pos"
+```
+
+In multi-route mode, the split must be explicitly closed by `else`, `end`, or
+`or`, depending on where it appears.
+
+## `if` rules
+
+`if` enters multi-route mode when the first arm starts with `|`:
+
+```simpl
+if
+| x < 0 then "neg"
+| x == 0 then "zero"
+else "pos"
+```
+
+Without that leading pipe, `if` starts by reading a single-route first arm:
+
+```simpl
+if x < 0 then "neg" else "pos"
+```
+
+That single first arm can still be followed by more outer `| ... then ...`
+branches:
+
+```simpl
+if #Left(41) is #Left(x) then x + 1
+| true then 0
+else -1
+```
+
+In other words, "no leading pipe" does not mean "no more outer branches are
+allowed". It only means the first outer arm is written in single-route form.
+
+## `is` rules
+
+`is` also has single-route and multi-route forms.
+
+Single-route `is`:
+
+```simpl
+if value is #Some(x) then x else 0
+```
+
+Multi-route `is`:
+
+```simpl
+if value is
+| #Some(x) then x
+| _ then 0
+end
+```
+
+The important rule is what this means for the surrounding split.
+
+When `is` starts its own multi-route block with `|`, the enclosing `if` or
+`and` stays in single-route mode and still needs its own closer:
+
+```simpl
+if value is
+| #Some(x) then x
+| _ then 0
+end
+```
+
+Here:
+
+- `is` is multi-route
+- the outer `if` is still a single-route `if`
+- `end` closes the outer `if` after the `is` split is finished
+
+By contrast, a no-pipe `is pattern then ...` form counts as an outer arm of the
+surrounding split, not as a standalone nested multi-route block:
+
+```simpl
+if #Left(41) is #Left(x) then x + 1
+| true then 0
+else -1
+```
+
+This is why a bare form such as the following is not complete:
+
+```simpl
+if #Some(1) is #Some(x) then x
+```
+
+It still needs the outer split to be closed.
 
 ## `if ... is`
 
@@ -92,6 +218,43 @@ It also works with ordinary expressions:
 if score > 0 and score < 100 then score else 0
 ```
 
+## `and` rules
+
+`and` opens another split after an outer branch has already succeeded.
+
+Single-route `and`:
+
+```simpl
+if score > 0 and score < 100 then score else 0
+```
+
+Multi-route `and`:
+
+```simpl
+if true and
+  | false then 1
+  else 2
+end
+```
+
+As with `is`, if `and` starts its own multi-route block, that inner split is
+not the same thing as the surrounding `if`.
+
+In this example:
+
+```simpl
+if true and
+  | false then 1
+  else 2
+end
+```
+
+- `and` owns the inner `| ... then ...` / `else ...`
+- `end` closes the outer `if`
+
+That is why `and`-blocks can require two different closing points: one for the
+`and` split itself, and one for the outer `if`.
+
 ## Closing a nested split with `or`
 
 Inside this syntax, `or` is not the boolean operator. It closes the current
@@ -116,6 +279,27 @@ For ordinary boolean logic, use `&&` and `||`.
 ```simpl
 if ready then "ok" end
 ```
+
+In nested syntax, it helps to read closers this way:
+
+- `else` closes the current split
+- `end` closes the current split with an implicit `else nil`
+- `or` closes the current nested `and` or `is` split and resumes the enclosing split
+
+## Practical mode guide
+
+When you read or write a complex conditional, determine the mode at each split
+point independently:
+
+1. At `if`: does the first outer arm start with `|`?
+2. At `is`: does the pattern block start with `|`?
+3. At `and`: does the nested refinement start with `|`?
+
+If yes, that split point is in multi-route mode.
+
+If no, that split point is in single-route mode.
+
+This is the main rule behind the current grammar.
 
 ## Supported pattern forms
 
@@ -144,7 +328,20 @@ let [first; ..middle; last] = values;
 When an `if` looks large, read it from the outside in:
 
 1. find the current split
-2. read each `| ... then ...` arm
-3. treat `and`, `or`, `else`, and `end` as structure markers
+2. decide whether that split is single-route or multi-route
+3. read each `| ... then ...` arm that belongs to that split
+4. treat `and`, `or`, `else`, and `end` as structure markers
 
 That mental model makes the syntax much easier to follow.
+
+## Inspiration
+
+The current `if` / `is` / `and` design in Simpl was inspired by:
+
+- Luyu Cheng and Lionel Parreaux, *The Ultimate Conditional Syntax*,
+  OOPSLA 2024
+- Project page: [TACO Lab - The Ultimate Conditional Syntax](https://cse.hkust.edu.hk/~parreaux/publication/oopsla24b/)
+
+The paper presents a broader and more formal design space than Simpl adopts
+today. Simpl borrows the general idea of expressing matching and refinement as
+nested conditional splits, while keeping a smaller language surface.
