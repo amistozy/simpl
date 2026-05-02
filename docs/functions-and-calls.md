@@ -11,17 +11,10 @@ Full lambda form:
 fn(x; y) = x + y
 ```
 
-Single-parameter shorthand:
-
-```simpl
-fn x = x + 1
-```
-
 Binding sugar:
 
 ```simpl
 let inc(x) = x + 1;
-let inc x = x + 1;
 ```
 
 These sugared forms define ordinary closures.
@@ -168,7 +161,6 @@ Examples:
 
 ```simpl
 apply(f(x) = x + 1)
-apply(f x = x + 1)
 let r = {inc(x) = x + 1}
 ```
 
@@ -191,9 +183,9 @@ fold([1; 2; 3]; 0; _ + _)
 These expand like:
 
 ```simpl
-foo(fn x = x + 1)
-map([1; 2; 3]; fn x = x * 2)
-filter([1; nil; 2]; fn x = x != nil)
+foo(fn(x) = x + 1)
+map([1; 2; 3]; fn(x) = x * 2)
+filter([1; nil; 2]; fn(x) = x != nil)
 fold([1; 2; 3]; 0; fn(x; y) = x + y)
 ```
 
@@ -213,7 +205,7 @@ foo(f(g(_)))
 expands to:
 
 ```simpl
-foo(f(fn x = g(x)))
+foo(f(fn(x) = g(x)))
 ```
 
 while:
@@ -225,7 +217,7 @@ foo(f g(_))
 expands to:
 
 ```simpl
-foo(fn x = f g(x))
+foo(fn(x) = f g(x))
 ```
 
 because `f g(_)` is the full parenthesized argument to `foo(...)`, and the
@@ -236,7 +228,7 @@ inner trailing application does not form its own boundary.
 Field syntax can fall back to same-named function calls:
 
 ```simpl
-let inc x = x + 1;
+let inc(x) = x + 1;
 41.inc
 ```
 

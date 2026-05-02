@@ -16,7 +16,7 @@ This extension provides language support for Simpl files (`.simpl`) in Visual St
   - prefix-operator and negative-literal arguments: `f !x`, `f -1`, `f ~x`, `f $value`
   - UFCS and method-style calls: `value.render`, `1.add3(2; 3)`
 - Function-definition highlighting for sugar in multiple positions:
-  - top-level/local bindings: `let inc(x) = x + 1`, `let inc x = x + 1`
+  - top-level/local bindings: `let inc(x) = x + 1`
   - record fields: `{ inc(x) = x + 1 }`
   - named lambda arguments: `apply(f(x) = x + 1)`
 - Built-in function highlighting for `ref`, `say`, `map`, `filter`, `fold`, `length`, `max`, `min`, and `sum`

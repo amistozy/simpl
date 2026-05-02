@@ -82,7 +82,7 @@ test "comparison and logic operators" {
 test "closure captures lexical env" {
   let code =
     #| let x = 10;
-    #| let f y = x + y;
+    #| let f(y) = x + y;
     #| let x = 100;
     #| f 5
   assert_true(@simpl.eval_source_is_int(code, 15))
@@ -91,21 +91,21 @@ test "closure captures lexical env" {
 ///|
 test "higher order function" {
   let code =
-    #| (fn f = f 41)(fn x = x + 1)
+    #| (fn(f) = f 41)(fn(x) = x + 1)
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
-test "single-parameter lambda can omit parentheses" {
+test "single-parameter lambda uses parentheses" {
   let code =
-    #| (fn x = x + 1)(41)
+    #| (fn(x) = x + 1)(41)
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
 test "trailing application applies one argument" {
   let code =
-    #| let inc x = x + 1;
+    #| let inc(x) = x + 1;
     #| inc 41
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -129,7 +129,7 @@ test "grouped trailing application produces nested call" {
 ///|
 test "trailing arg has lowest precedence over infix operators" {
   let code =
-    #| let f x = x + 1;
+    #| let f(x) = x + 1;
     #| f 1 * 2
   assert_true(@simpl.eval_source_is_int(code, 3))
 }
@@ -137,8 +137,8 @@ test "trailing arg has lowest precedence over infix operators" {
 ///|
 test "trailing lambda is passed as one argument" {
   let code =
-    #| let foo f = f 42;
-    #| foo fn x = x + 1
+    #| let foo(f) = f 42;
+    #| foo fn(x) = x + 1
   assert_true(@simpl.eval_source_is_int(code, 43))
 }
 
@@ -161,7 +161,7 @@ test "with single parameter shorthand works" {
 ///|
 test "with target shorthand supports zero-parameter lambda" {
   let code =
-    #| let run f = f();
+    #| let run(f) = f();
     #| with run; 42
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -169,8 +169,8 @@ test "with target shorthand supports zero-parameter lambda" {
 ///|
 test "trailing application associates to the right" {
   let code =
-    #| let f v = v * 10;
-    #| let g x = x + 2;
+    #| let f(v) = v * 10;
+    #| let g(x) = x + 2;
     #| let x = 3;
     #| f g x
   assert_true(@simpl.eval_source_is_int(code, 50))
@@ -179,16 +179,8 @@ test "trailing application associates to the right" {
 ///|
 test "named arg supports f(...) = ... sugar" {
   let code =
-    #| let apply f = f 41;
+    #| let apply(f) = f 41;
     #| apply(f(x) = x + 1)
-  assert_true(@simpl.eval_source_is_int(code, 42))
-}
-
-///|
-test "named arg supports single-param f x = ... sugar" {
-  let code =
-    #| let apply f = f 41;
-    #| apply(f x = x + 1)
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
@@ -201,17 +193,9 @@ test "record field supports f(...) = ... sugar" {
 }
 
 ///|
-test "record field supports single-param f x = ... sugar" {
-  let code =
-    #| let r = {inc x = x + 1};
-    #| r.inc(41)
-  assert_true(@simpl.eval_source_is_int(code, 42))
-}
-
-///|
 test "ufcs rewrites x.foo to foo(x) when no record field exists" {
   let code =
-    #| let inc x = x + 1;
+    #| let inc(x) = x + 1;
     #| 41.inc
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -227,8 +211,8 @@ test "ufcs rewrites x.foo(y; z) to foo(x; y; z)" {
 ///|
 test "record field lookup has priority over ufcs fallback" {
   let code =
-    #| let foo x = x + 100;
-    #| let r = {foo v = v + 1};
+    #| let foo(x) = x + 100;
+    #| let r = {foo(v) = v + 1};
     #| r.foo(41)
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -368,14 +352,6 @@ test "param default lambda sugar f(x)=... works as f = fn(x)=..." {
 }
 
 ///|
-test "param default lambda sugar supports single-param f x = ..." {
-  let code =
-    #| let foo(f x = x) = f 42;
-    #| foo()
-  assert_true(@simpl.eval_source_is_int(code, 42))
-}
-
-///|
 test "as-pattern binds the whole matched value in let" {
   let code =
     #| let #Ok(x) as whole = #Ok(1);
@@ -483,6 +459,13 @@ test "negative integer literal is supported" {
 }
 
 ///|
+test "single-param function shorthands without parentheses are rejected" {
+  assert_true(@simpl.parse_is_error("fn x = x + 1"))
+  assert_true(@simpl.parse_is_error("let inc x = x + 1; inc(41)"))
+  assert_true(@simpl.parse_is_error("apply(f x = x + 1)"))
+}
+
+///|
 test "spaced minus is not a negative literal" {
   assert_true(@simpl.parse_is_error("- 42"))
 }
@@ -582,15 +565,15 @@ test "say accepts any value" {
 ///|
 test "map applies function to each list element" {
   let code =
-    #| map([1; 2; 3]; fn x = x + 1) == [2; 3; 4]
+    #| map([1; 2; 3]; fn(x) = x + 1) == [2; 3; 4]
   assert_true(@simpl.eval_source_is_bool(code, true))
 }
 
 ///|
 test "map validates argument types" {
   assert_eq(
-    @simpl.eval_error_text("map(1; fn x = x)"),
-    Some("builtin 'map' expected List, got Int(1) at 1:1-17"),
+    @simpl.eval_error_text("map(1; fn(x) = x)"),
+    Some("builtin 'map' expected List, got Int(1) at 1:1-18"),
   )
   assert_eq(
     @simpl.eval_error_text("map([1]; 1)"),
@@ -713,19 +696,19 @@ test "string interpolation chaining can start from literal" {
 test "filter keeps list items whose predicate is truthy" {
   assert_true(
     @simpl.eval_source_is_bool(
-      "filter([1; 2; 3; 4]; fn x = x % 2 == 0) == [2; 4]", true,
+      "filter([1; 2; 3; 4]; fn(x) = x % 2 == 0) == [2; 4]", true,
     ),
   )
   assert_true(
-    @simpl.eval_source_is_bool("filter([1; nil; 2]; fn x = x) == [1; 2]", true),
+    @simpl.eval_source_is_bool("filter([1; nil; 2]; fn(x) = x) == [1; 2]", true),
   )
 }
 
 ///|
 test "filter validates list and function arguments" {
   assert_eq(
-    @simpl.eval_error_text("filter(1; fn x = x)"),
-    Some("builtin 'filter' expected List, got Int(1) at 1:1-20"),
+    @simpl.eval_error_text("filter(1; fn(x) = x)"),
+    Some("builtin 'filter' expected List, got Int(1) at 1:1-21"),
   )
   assert_eq(
     @simpl.eval_error_text("filter([1]; 1)"),
@@ -819,8 +802,8 @@ test "int call on function collects results into list" {
 ///|
 test "int call on function passes no arguments" {
   assert_eq(
-    @simpl.eval_error_text("3 fn a = a"),
-    Some("arity error: expected 1 arguments, got 0 at 1:1-11"),
+    @simpl.eval_error_text("3 fn(a) = a"),
+    Some("arity error: expected 1 arguments, got 0 at 1:1-12"),
   )
 }
 
@@ -850,14 +833,14 @@ test "list call with int list maps indices to elements" {
 ///|
 test "list call on function maps each element and collects results" {
   assert_true(
-    @simpl.eval_source_is_bool("[1; 2; 3](fn x = x * 2) == [2; 4; 6]", true),
+    @simpl.eval_source_is_bool("[1; 2; 3](fn(x) = x * 2) == [2; 4; 6]", true),
   )
   assert_true(
     @simpl.eval_source_is_bool(
-      "[1; 2](fn x = [x; x + 10]) == [1; 11; 2; 12]", true,
+      "[1; 2](fn(x) = [x; x + 10]) == [1; 11; 2; 12]", true,
     ),
   )
-  assert_true(@simpl.eval_source_is_bool("[1; 2](fn _ = nil) == []", true))
+  assert_true(@simpl.eval_source_is_bool("[1; 2](fn(_) = nil) == []", true))
 }
 
 ///|
@@ -937,8 +920,8 @@ test "calling non-function reports actual value" {
 ///|
 test "arity error reports expected and actual argument counts" {
   assert_eq(
-    @simpl.eval_error_text("let f x = x; f(1; 2)"),
-    Some("arity error: expected 1 arguments, got 2 at 1:14-21"),
+    @simpl.eval_error_text("let f(x) = x; f(1; 2)"),
+    Some("arity error: expected 1 arguments, got 2 at 1:15-22"),
   )
 }
 
@@ -969,7 +952,7 @@ test "pattern match failure reports expected pattern and actual value" {
 ///|
 test "let function sugar equals lambda binding" {
   let code =
-    #| let add2 x = x + 2;
+    #| let add2(x) = x + 2;
     #| add2 40
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -1177,9 +1160,9 @@ test "let function sugar supports parameter patterns" {
 }
 
 ///|
-test "let function sugar supports single param without parentheses" {
+test "let function sugar supports single param with parentheses" {
   let code =
-    #| let inc x = x + 1;
+    #| let inc(x) = x + 1;
     #| inc 41
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
@@ -1234,10 +1217,10 @@ test "let rec and supports mutual recursion" {
 }
 
 ///|
-test "let rec and supports single-param shorthand" {
+test "let rec and supports single-param functions with parentheses" {
   let code =
-    #| let rec even n = if n == 0 then true else odd(n - 1)
-    #| and odd n = if n == 0 then false else even(n - 1);
+    #| let rec even(n) = if n == 0 then true else odd(n - 1)
+    #| and odd(n) = if n == 0 then false else even(n - 1);
     #| even(10)
   assert_true(@simpl.eval_source_is_bool(code, true))
 }

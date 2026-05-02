@@ -393,10 +393,6 @@ fn parse_plain_let_binding(
         }
         let (func_body, k) = parse_expr(tokens, j + 1)
         (PLetFun(name, params, func_body), k)
-      } else if is_single_param_function_sugar_after_name(tokens, i) {
-        let (pattern, j) = parse_pattern(tokens, i + 1)
-        let (func_body, k) = parse_expr(tokens, j + 1)
-        (PLetFun(name, [SParam(pattern, None)], func_body), k)
       } else if i + 1 < tokens.length() {
         match let_compound_assign_binop(token_kind(tokens, i + 1)) {
           Some(op) => {
@@ -493,15 +489,11 @@ fn parse_let_rec_fun_binding(
         }
         let (func_body, k) = parse_expr(tokens, j + 1)
         ((name, params, func_body), k)
-      } else if is_single_param_function_sugar_after_name(tokens, i) {
-        let (pattern, j) = parse_pattern(tokens, i + 1)
-        let (func_body, k) = parse_expr(tokens, j + 1)
-        ((name, [SParam(pattern, None)], func_body), k)
       } else {
         syntax_error_at(
           tokens,
           i + 1,
-          "expected '(...)' or single param after let rec function name",
+          "expected '(...)' after let rec function name",
         )
       }
     }
@@ -983,21 +975,15 @@ fn parse_lambda_expr(
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
   if i < tokens.length() && token_kind(tokens, i) == FnTok {
-    if i + 1 < tokens.length() && token_kind(tokens, i + 1) == LParenTok {
-      let (params, j) = parse_params(tokens, i + 2)
-      if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-        syntax_error_at(tokens, j, "expected '=' after lambda params")
-      }
-      let (body, k) = parse_expr(tokens, j + 1)
-      (located_expr(tokens, i, k, SLambda(params, body)), k)
-    } else {
-      let (pattern, j) = parse_pattern(tokens, i + 1)
-      if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-        syntax_error_at(tokens, j, "expected '=' after lambda param")
-      }
-      let (body, k) = parse_expr(tokens, j + 1)
-      (located_expr(tokens, i, k, SLambda([SParam(pattern, None)], body)), k)
+    if i + 1 >= tokens.length() || token_kind(tokens, i + 1) != LParenTok {
+      syntax_error_at(tokens, i + 1, "expected '(...)' after 'fn'")
     }
+    let (params, j) = parse_params(tokens, i + 2)
+    if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
+      syntax_error_at(tokens, j, "expected '=' after lambda params")
+    }
+    let (body, k) = parse_expr(tokens, j + 1)
+    (located_expr(tokens, i, k, SLambda(params, body)), k)
   } else {
     parse_or_expr(tokens, i)
   }
@@ -1540,13 +1526,7 @@ fn parse_named_lambda_sugar(
   name_i : Int,
   start_i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  let (params, j) = if name_i + 1 < tokens.length() &&
-    token_kind(tokens, name_i + 1) == LParenTok {
-    parse_params(tokens, name_i + 2)
-  } else {
-    let (pattern, j) = parse_pattern(tokens, name_i + 1)
-    ([SParam(pattern, None)], j)
-  }
+  let (params, j) = parse_params(tokens, name_i + 2)
   if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
     syntax_error_at(tokens, j, "expected '=' after function param(s)")
   }
@@ -1555,12 +1535,8 @@ fn parse_named_lambda_sugar(
 }
 
 ///|
-fn is_named_lambda_sugar_at(
-  tokens : Array[SpannedToken],
-  name_i : Int,
-) -> Bool raise {
-  is_parenthesized_named_lambda_sugar_after_name(tokens, name_i) ||
-  is_single_param_function_sugar_after_name(tokens, name_i)
+fn is_named_lambda_sugar_at(tokens : Array[SpannedToken], name_i : Int) -> Bool {
+  is_parenthesized_named_lambda_sugar_after_name(tokens, name_i)
 }
 
 ///|
@@ -1578,22 +1554,6 @@ fn is_parenthesized_named_lambda_sugar_after_name(
       token_kind(tokens, close_i + 1) == AssignTok
     None => false
   }
-}
-
-///|
-fn is_single_param_function_sugar_after_name(
-  tokens : Array[SpannedToken],
-  name_i : Int,
-) -> Bool raise {
-  if name_i + 1 >= tokens.length() {
-    return false
-  }
-  let next_tok = token_kind(tokens, name_i + 1)
-  if !can_start_pattern(next_tok) {
-    return false
-  }
-  let (_, j) = parse_pattern(tokens, name_i + 1)
-  j < tokens.length() && token_kind(tokens, j) == AssignTok
 }
 
 ///|
