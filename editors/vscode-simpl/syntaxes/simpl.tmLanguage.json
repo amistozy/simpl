@@ -21,6 +21,9 @@
       "include": "#variants"
     },
     {
+      "include": "#wildcards"
+    },
+    {
       "include": "#builtin-functions"
     },
     {
@@ -28,6 +31,12 @@
     },
     {
       "include": "#function-call"
+    },
+    {
+      "include": "#member-access"
+    },
+    {
+      "include": "#record-fields"
     },
     {
       "include": "#named-arguments"
@@ -116,6 +125,14 @@
         }
       ]
     },
+    "wildcards": {
+      "patterns": [
+        {
+          "name": "variable.language.wildcard.simpl",
+          "match": "(?<![A-Za-z0-9_])_(?![A-Za-z0-9_])"
+        }
+      ]
+    },
     "builtin-functions": {
       "patterns": [
         {
@@ -177,13 +194,57 @@
         }
       ]
     },
+    "member-access": {
+      "patterns": [
+        {
+          "name": "variable.other.member.simpl",
+          "match": "(\\.)([A-Za-z_][A-Za-z0-9_]*)\\b(?!\\s*(?:\\(|:\\s*\\(|\\s+(?:\\(|:\\s*\\(|-(?=\\d)|~|!|\\$|with\\b|fn\\b|if\\b|do\\b|let\\b|(?!(?:if|then|else|do|with|end|is|as|and|or|let|rec|fn|true|false|nil|ref|say|map|filter|fold|length|max|min|sum)\\b)[A-Za-z_][A-Za-z0-9_]*|\\d+|\"|#|\\[|\\{|true\\b|false\\b|nil\\b)))",
+          "captures": {
+            "2": {
+              "name": "variable.other.property.simpl"
+            }
+          }
+        }
+      ]
+    },
+    "record-fields": {
+      "patterns": [
+        {
+          "name": "meta.record.field.simpl",
+          "match": "(\\{\\s*)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*(?:=|[;}]))",
+          "captures": {
+            "2": {
+              "name": "variable.other.property.simpl"
+            }
+          }
+        },
+        {
+          "name": "meta.record.field.simpl",
+          "match": "(;\\s*)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*(?:=|[;}]))",
+          "captures": {
+            "2": {
+              "name": "variable.other.property.simpl"
+            }
+          }
+        }
+      ]
+    },
     "named-arguments": {
       "patterns": [
         {
           "name": "variable.parameter.simpl",
-          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\b\\s*(?==)",
+          "match": "(\\(\\s*)([A-Za-z_][A-Za-z0-9_]*)\\b\\s*(?==)",
           "captures": {
-            "1": {
+            "2": {
+              "name": "variable.parameter.simpl"
+            }
+          }
+        },
+        {
+          "name": "variable.parameter.simpl",
+          "match": "(;\\s*)([A-Za-z_][A-Za-z0-9_]*)\\b\\s*(?==)",
+          "captures": {
+            "2": {
               "name": "variable.parameter.simpl"
             }
           }
@@ -214,7 +275,7 @@
         },
         {
           "name": "keyword.operator.other.simpl",
-          "match": "\\.\\.|\\."
+          "match": "\\.\\.|\\.|:"
         }
       ]
     },
