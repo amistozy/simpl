@@ -90,6 +90,44 @@ test "desugar lowers do to ignored let" {
 }
 
 ///|
+test "parser preserves guard surface form" {
+  match parse("guard xs is [x; ..rest] else []; x") {
+    SLocated(
+      _,
+      SGuard(
+        SGuardCondArm(
+          SLocated(_, SBoolLit(true)),
+          SGuardIs(SLocated(_, SVar("xs")), SGuardPatternArm(_, SGuardPass))
+        ),
+        Some(SLocated(_, SList([]))),
+        SLocated(_, SVar("x"))
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar lowers guard to if" {
+  match desugar(parse("guard ok and ready else 0; 42")) {
+    Located(
+      _,
+      If(
+        [IfCondArm(ok_expr, IfAnd([IfCondArm(ready_expr, IfThen(body_expr))]))],
+        else_expr
+      )
+    ) =>
+      assert_true(
+        expr_is_located_var(ok_expr, "ok") &&
+        expr_is_located_var(ready_expr, "ready") &&
+        expr_is_located_int(body_expr, 42) &&
+        expr_is_located_int(else_expr, 0),
+      )
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "parser preserves let function sugar before desugar" {
   match parse("let add(x) = x + 1; add(41)") {
     SLocated(_, SLetFun("add", [SParam(SPBind("x"), None)], _, _)) =>

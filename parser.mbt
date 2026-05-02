@@ -28,6 +28,7 @@ priv enum Token {
   ElseTok
   FnTok
   DoTok
+  GuardTok
   WithTok
   EndKeywordTok
   IsTok
@@ -266,6 +267,7 @@ fn token_name(tok : Token) -> String {
     ElseTok => "else"
     FnTok => "fn"
     DoTok => "do"
+    GuardTok => "guard"
     WithTok => "with"
     EndKeywordTok => "end"
     IsTok => "is"
@@ -534,6 +536,8 @@ fn parse_let_expr(
     }
   } else if token_kind(tokens, i) == DoTok {
     parse_do_expr(tokens, i + 1)
+  } else if token_kind(tokens, i) == GuardTok {
+    parse_guard_expr(tokens, i + 1)
   } else if token_kind(tokens, i) == WithTok {
     parse_with_expr(tokens, i + 1)
   } else {
@@ -654,6 +658,120 @@ fn parse_do_expr(
   }
   let (body, k) = parse_expr(tokens, j + 1)
   (located_expr(tokens, i, k, SDo(value_expr, body)), k)
+}
+
+///|
+fn parse_guard_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected guard condition after 'guard'")
+  }
+  let (arm, j) = parse_guard_cond_arm(tokens, i)
+  let (fallback, semi_i) = parse_guard_fallback(tokens, j)
+  if semi_i >= tokens.length() || token_kind(tokens, semi_i) != SemicolonTok {
+    syntax_error_at(
+      tokens, semi_i, "expected ';' after guard condition or fallback expression",
+    )
+  }
+  let (body, k) = parse_expr(tokens, semi_i + 1)
+  (located_expr(tokens, i - 1, k, SGuard(arm, fallback, body)), k)
+}
+
+///|
+fn parse_guard_fallback(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr?, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected ';' or 'else' after guard condition")
+  }
+  if token_kind(tokens, i) == ElseTok {
+    let (fallback, j) = parse_expr(tokens, i + 1)
+    return (Some(fallback), j)
+  }
+  (None, i)
+}
+
+///|
+fn parse_guard_cond_arm(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceGuardCondArm, Int) raise {
+  let (head_expr, j) = parse_expr(tokens, i)
+  if j < tokens.length() && token_kind(tokens, j) == IsTok {
+    let (tail, end_i) = parse_guard_is_guard(tokens, head_expr, j + 1)
+    return (
+      SGuardCondArm(located_expr(tokens, i, j, SBoolLit(true)), tail),
+      end_i,
+    )
+  }
+  let (tail, end_i) = parse_guard_guard_after_value(tokens, j)
+  (SGuardCondArm(head_expr, tail), end_i)
+}
+
+///|
+fn parse_guard_guard_after_value(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceGuardGuard, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected 'and' or 'else' or ';' in guard")
+  }
+  if token_kind(tokens, i) == AndWordTok {
+    return parse_guard_and_guard(tokens, i + 1)
+  }
+  (SGuardPass, i)
+}
+
+///|
+fn parse_guard_guard_after_pattern(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceGuardGuard, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected 'and' or 'else' or ';' in guard pattern")
+  }
+  if token_kind(tokens, i) == AndWordTok {
+    return parse_guard_and_guard(tokens, i + 1)
+  }
+  (SGuardPass, i)
+}
+
+///|
+fn parse_guard_and_guard(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceGuardGuard, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected condition after 'and' in guard")
+  }
+  let (arm, j) = parse_guard_cond_arm(tokens, i)
+  (SGuardAnd(arm), j)
+}
+
+///|
+fn parse_guard_is_guard(
+  tokens : Array[SpannedToken],
+  value_expr : SurfaceExpr,
+  i : Int,
+) -> (SurfaceGuardGuard, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected pattern after 'is' in guard")
+  }
+  let (arm, j) = parse_guard_pattern_arm(tokens, i)
+  (SGuardIs(value_expr, arm), j)
+}
+
+///|
+fn parse_guard_pattern_arm(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceGuardPatternArm, Int) raise {
+  let (pattern, j) = parse_pattern(tokens, i)
+  let (tail, end_i) = parse_guard_guard_after_pattern(tokens, j)
+  (SGuardPatternArm(pattern, tail), end_i)
 }
 
 ///|

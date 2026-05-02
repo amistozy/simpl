@@ -42,6 +42,16 @@ describe(#Ok(3))
 ```
 
 ```simpl
+let rec qsort(xs) =
+  guard xs is [x; ..xs] else [];
+  let smaller = qsort xs.filter fn _ <= x;
+  let larger = qsort xs.filter fn _ > x;
+  smaller + [x] + larger;
+
+qsort [1; 1; 4; 5; 1; 4]
+```
+
+```simpl
 [1; 20; 3]
 .map(fn: (_ + 1) * 2)
 .filter(fn _ < 10)
@@ -52,6 +62,7 @@ describe(#Ok(3))
 - integers, booleans, strings, `nil`, lists, records, variants, references, and functions
 - lexical closures and first-class functions
 - `let`, `let and`, `let rec`, and `let rec ... and ...`
+- `guard ...; body` and `guard ... else fallback; body`
 - destructuring patterns in `let`, parameters, and `if ... is`
 - named arguments and call-time default parameters
 - trailing application such as `f x` and `f(1; 2) 3`

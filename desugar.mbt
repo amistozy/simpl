@@ -112,6 +112,10 @@ fn desugar_expr_with_placeholders(
         next_id,
       )
     }
+    SGuard(arm, fallback, body) => {
+      let guard_if = desugar_surface_guard_to_surface_if(arm, fallback, body)
+      desugar_expr_with_placeholders(guard_if, next_placeholder_id)
+    }
     SLetFun(name, params, func_body, body) => {
       let (func_body_core, func_names, next_after_func) = desugar_expr_with_placeholders(
         func_body, next_placeholder_id,
@@ -550,6 +554,54 @@ fn desugar_if_pattern_arm(surface_arm : SurfaceIfPatternArm) -> IfPatternArm {
   match surface_arm {
     SIfPatternArm(pattern, arm_guard) =>
       IfPatternArm(desugar_pattern(pattern), desugar_if_guard(arm_guard))
+  }
+}
+
+///|
+fn desugar_surface_guard_to_surface_if(
+  arm : SurfaceGuardCondArm,
+  fallback : SurfaceExpr?,
+  body : SurfaceExpr,
+) -> SurfaceExpr {
+  let else_expr = match fallback {
+    Some(expr) => expr
+    None => SNilLit
+  }
+  SIf([desugar_surface_guard_cond_arm_to_if(arm, body)], else_expr)
+}
+
+///|
+fn desugar_surface_guard_cond_arm_to_if(
+  arm : SurfaceGuardCondArm,
+  body : SurfaceExpr,
+) -> SurfaceIfCondArm {
+  match arm {
+    SGuardCondArm(cond, tail) =>
+      SIfCondArm(cond, desugar_surface_guard_guard_to_if(tail, body))
+  }
+}
+
+///|
+fn desugar_surface_guard_pattern_arm_to_if(
+  arm : SurfaceGuardPatternArm,
+  body : SurfaceExpr,
+) -> SurfaceIfPatternArm {
+  match arm {
+    SGuardPatternArm(pattern, tail) =>
+      SIfPatternArm(pattern, desugar_surface_guard_guard_to_if(tail, body))
+  }
+}
+
+///|
+fn desugar_surface_guard_guard_to_if(
+  tail : SurfaceGuardGuard,
+  body : SurfaceExpr,
+) -> SurfaceIfGuard {
+  match tail {
+    SGuardPass => SIfThen(body)
+    SGuardAnd(arm) => SIfAnd([desugar_surface_guard_cond_arm_to_if(arm, body)])
+    SGuardIs(value_expr, arm) =>
+      SIfIs(value_expr, [desugar_surface_guard_pattern_arm_to_if(arm, body)])
   }
 }
 

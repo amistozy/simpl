@@ -985,6 +985,70 @@ test "do sugar nests like let _ bindings" {
 }
 
 ///|
+test "guard without else acts like if ... end" {
+  let code =
+    #| guard true;
+    #| 42
+  assert_true(@simpl.eval_source_is_int(code, 42))
+  assert_true(@simpl.eval_source_is_bool("(guard false; 42) == nil", true))
+}
+
+///|
+test "guard with else acts like if ... else" {
+  let code =
+    #| guard false else 7;
+    #| 42
+  assert_true(@simpl.eval_source_is_int(code, 7))
+}
+
+///|
+test "guard supports is patterns" {
+  let code =
+    #| let unwrap(xs) =
+    #|   guard xs is [x; ..rest] else 0;
+    #|   x;
+    #| unwrap([42; 1])
+  assert_true(@simpl.eval_source_is_int(code, 42))
+  assert_true(
+    @simpl.eval_source_is_int(
+      "let unwrap(xs) = guard xs is [x; ..rest] else 0; x; unwrap([])", 0,
+    ),
+  )
+}
+
+///|
+test "guard supports and refinement" {
+  let code =
+    #| let score_label(score) =
+    #|   guard score > 0 and score < 100 else 0;
+    #|   score;
+    #| score_label(42)
+  assert_true(@simpl.eval_source_is_int(code, 42))
+  assert_true(
+    @simpl.eval_source_is_int(
+      "let score_label(score) = guard score > 0 and score < 100 else 0; score; score_label(100)",
+      0,
+    ),
+  )
+}
+
+///|
+test "guard supports is followed by and refinement" {
+  let code =
+    #| let keep_positive_head(xs) =
+    #|   guard xs is [x; ..rest] and x > 0 else 0;
+    #|   x;
+    #| keep_positive_head([42; 1])
+  assert_true(@simpl.eval_source_is_int(code, 42))
+  assert_true(
+    @simpl.eval_source_is_int(
+      "let keep_positive_head(xs) = guard xs is [x; ..rest] and x > 0 else 0; x; keep_positive_head([-1; 1])",
+      0,
+    ),
+  )
+}
+
+///|
 test "and short-circuits right-hand side" {
   let code =
     #| let r = ref 0;

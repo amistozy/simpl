@@ -61,6 +61,41 @@ else "pos"
 
 Conditions use Simpl truthiness, not strict boolean-only checking.
 
+## `guard`
+
+Simpl also provides a compact guard form:
+
+```simpl
+guard ready;
+"ok"
+```
+
+```simpl
+guard value is #Some(x) else 0;
+x
+```
+
+It desugars as:
+
+- `guard cond; body` => `if cond then body end`
+- `guard cond else fallback; body` => `if cond then body else fallback`
+
+The condition part reuses the single-route conditional head syntax, so it can
+contain ordinary conditions, `is`, and nested `and` refinement:
+
+```simpl
+guard score > 0 and score < 100 else 0;
+score
+```
+
+```simpl
+guard xs is [x; ..rest] and x > 0 else 0;
+x
+```
+
+`guard` is intentionally a single-branch construct. It does not open its own
+multi-route `| ... then ...` split.
+
 ## `if ... is`
 
 Pattern-directed branching lives inside `if ... is`.

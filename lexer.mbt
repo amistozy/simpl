@@ -499,6 +499,7 @@ fn keyword_or_ident(text : StringView) -> Token {
     "else" => ElseTok
     "fn" => FnTok
     "do" => DoTok
+    "guard" => GuardTok
     "with" => WithTok
     "end" => EndKeywordTok
     "is" => IsTok

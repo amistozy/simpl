@@ -17,7 +17,7 @@ server, diagnostics, formatting, or completion.
 
 The extension highlights the main parts of Simpl source, including:
 
-- keywords such as `let`, `rec`, `if`, `then`, `else`, `fn`, `with`, `is`, `and`, and `or`
+- keywords such as `let`, `rec`, `if`, `then`, `else`, `guard`, `fn`, `with`, `is`, `and`, and `or`
 - literals such as integers, negative integer literals, strings, `true`, `false`, and `nil`
 - operators including arithmetic, comparison, logical, assignment, and ref-update operators
 - variant tags such as `#Ok` and `#Err`
@@ -28,6 +28,7 @@ It also includes grammar support for several important Simpl-specific forms:
 - ordinary calls like `f(1; 2)`
 - trailing application like `f x`
 - grouped trailing application like `say: (1 + 2) * 3`
+- guard forms like `guard xs is [x; ..rest] else []; x`
 - UFCS-style member calls like `value.render` and `1.add3(2; 3)`
 - function definition sugar in bindings, record fields, and named arguments
 

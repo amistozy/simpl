@@ -15,6 +15,7 @@ enum SurfaceExpr {
   SLet(SurfacePattern, SurfaceExpr, SurfaceExpr)
   SLetAnd(Array[(SurfacePattern, SurfaceExpr)], SurfaceExpr)
   SDo(SurfaceExpr, SurfaceExpr)
+  SGuard(SurfaceGuardCondArm, SurfaceExpr?, SurfaceExpr)
   SLetFun(String, Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
   SLetRec(String, Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
   SLetRecAnd(Array[(String, Array[SurfaceParam], SurfaceExpr)], SurfaceExpr)
@@ -47,6 +48,23 @@ priv enum SurfaceIfCondArm {
 ///|
 priv enum SurfaceIfPatternArm {
   SIfPatternArm(SurfacePattern, SurfaceIfGuard)
+} derive(Debug)
+
+///|
+priv enum SurfaceGuardCondArm {
+  SGuardCondArm(SurfaceExpr, SurfaceGuardGuard)
+} derive(Debug)
+
+///|
+priv enum SurfaceGuardPatternArm {
+  SGuardPatternArm(SurfacePattern, SurfaceGuardGuard)
+} derive(Debug)
+
+///|
+priv enum SurfaceGuardGuard {
+  SGuardPass
+  SGuardAnd(SurfaceGuardCondArm)
+  SGuardIs(SurfaceExpr, SurfaceGuardPatternArm)
 } derive(Debug)
 
 ///|

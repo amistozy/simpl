@@ -19,6 +19,8 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
       "let \{surface_let_bindings_pretty(bindings)}; \{surface_expr_pretty(body)}"
     SDo(value_expr, body) =>
       "do \{surface_expr_pretty(value_expr)}; \{surface_expr_pretty(body)}"
+    SGuard(arm, fallback, body) =>
+      "guard \{surface_guard_cond_arm_pretty(arm)}\{surface_guard_else_pretty(fallback)}; \{surface_expr_pretty(body)}"
     SLetFun(name, params, func_body, body) =>
       "let \{name}(\{surface_param_list_pretty(params)}) = \{surface_expr_pretty(func_body)}; \{surface_expr_pretty(body)}"
     SLetRec(name, params, func_body, body) =>
@@ -120,6 +122,40 @@ fn surface_if_guard_pretty(arm_guard : SurfaceIfGuard) -> String {
     SIfAnd(arms) => "and (\{surface_if_cond_arms_pretty(arms)})"
     SIfIs(value_expr, pattern_arms) =>
       "is \{surface_expr_pretty(value_expr)} (\{surface_if_pattern_arms_pretty(pattern_arms)})"
+  }
+}
+
+///|
+fn surface_guard_else_pretty(fallback : SurfaceExpr?) -> String {
+  match fallback {
+    Some(expr) => " else \{surface_expr_pretty(expr)}"
+    None => ""
+  }
+}
+
+///|
+fn surface_guard_cond_arm_pretty(arm : SurfaceGuardCondArm) -> String {
+  match arm {
+    SGuardCondArm(cond, tail) =>
+      "\{surface_expr_pretty(cond)}\{surface_guard_guard_pretty(tail)}"
+  }
+}
+
+///|
+fn surface_guard_pattern_arm_pretty(arm : SurfaceGuardPatternArm) -> String {
+  match arm {
+    SGuardPatternArm(pattern, tail) =>
+      "\{surface_pattern_pretty(pattern)}\{surface_guard_guard_pretty(tail)}"
+  }
+}
+
+///|
+fn surface_guard_guard_pretty(tail : SurfaceGuardGuard) -> String {
+  match tail {
+    SGuardPass => ""
+    SGuardAnd(arm) => " and \{surface_guard_cond_arm_pretty(arm)}"
+    SGuardIs(value_expr, arm) =>
+      " is \{surface_expr_pretty(value_expr)} \{surface_guard_pattern_arm_pretty(arm)}"
   }
 }
 
