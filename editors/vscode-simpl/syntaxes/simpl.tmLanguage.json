@@ -197,9 +197,12 @@
     "member-access": {
       "patterns": [
         {
-          "name": "variable.other.member.simpl",
+          "name": "meta.member.access.simpl",
           "match": "(\\.)([A-Za-z_][A-Za-z0-9_]*)\\b(?!\\s*(?:\\(|:\\s*\\(|\\s+(?:\\(|:\\s*\\(|-(?=\\d)|~|!|\\$|with\\b|fn\\b|if\\b|do\\b|let\\b|(?!(?:if|then|else|do|with|end|is|as|and|or|let|rec|fn|true|false|nil|ref|say|map|filter|fold|length|max|min|sum)\\b)[A-Za-z_][A-Za-z0-9_]*|\\d+|\"|#|\\[|\\{|true\\b|false\\b|nil\\b)))",
           "captures": {
+            "1": {
+              "name": "punctuation.separator.simpl"
+            },
             "2": {
               "name": "variable.other.property.simpl"
             }
