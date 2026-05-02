@@ -146,16 +146,14 @@ test "trailing lambda is passed as one argument" {
 test "with(params) appends lambda as last call argument" {
   let code =
     #| let use(x; f) = f x;
-    #| with(v) = use 41; v + 1
+    #| with(v) use 41; v + 1
   assert_true(@simpl.eval_source_is_int(code, 42))
 }
 
 ///|
-test "with single parameter shorthand works" {
-  let code =
-    #| let use(x; f) = f x;
-    #| with v = use 41; v + 1
-  assert_true(@simpl.eval_source_is_int(code, 42))
+test "legacy with binding forms are rejected" {
+  assert_true(@simpl.parse_is_error("with(v) = use 41; v + 1"))
+  assert_true(@simpl.parse_is_error("with v = use 41; v + 1"))
 }
 
 ///|

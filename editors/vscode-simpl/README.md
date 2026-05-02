@@ -29,6 +29,7 @@ It also includes grammar support for several important Simpl-specific forms:
 - trailing application like `f x`
 - grouped trailing application like `say: (1 + 2) * 3`
 - guard forms like `guard xs is [x; ..rest] else []; x`
+- with forms like `with(v) use(41); v + 1` and `with run; 42`
 - UFCS-style member calls like `value.render` and `1.add3(2; 3)`
 - function definition sugar in bindings, record fields, and named arguments
 

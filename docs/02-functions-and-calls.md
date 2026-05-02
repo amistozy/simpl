@@ -151,7 +151,7 @@ Rules of thumb:
 `with` is sugar for passing a lambda as the final argument of a call target.
 
 ```simpl
-with(x) = use(41); x + 1
+with(x) use(41); x + 1
 ```
 
 This means:
@@ -160,10 +160,9 @@ This means:
 use(41; fn(x) x + 1)
 ```
 
-Other supported forms:
+Other supported form:
 
 ```simpl
-with x = use(41); x + 1
 with run; 42
 ```
 

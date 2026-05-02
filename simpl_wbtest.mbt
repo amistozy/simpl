@@ -299,7 +299,7 @@ test "desugar fn expr eta-expands underscore uses into lambda params" {
 
 ///|
 test "parser preserves with(params) surface form" {
-  match parse("with(v) = use(41); v + 1") {
+  match parse("with(v) use(41); v + 1") {
     SLocated(
       _,
       SWith(

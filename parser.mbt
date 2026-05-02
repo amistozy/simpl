@@ -555,24 +555,8 @@ fn parse_with_expr(
   }
   if token_kind(tokens, i) == LParenTok {
     let (params, j) = parse_params(tokens, i + 1)
-    if j >= tokens.length() || token_kind(tokens, j) != AssignTok {
-      syntax_error_at(tokens, j, "expected '=' after with params")
-    }
-    let (target_expr, k) = parse_expr(tokens, j + 1)
+    let (target_expr, k) = parse_expr(tokens, j)
     return parse_with_apply(tokens, i - 1, params, target_expr, k)
-  }
-  if can_start_pattern(token_kind(tokens, i)) {
-    let (pattern, j) = parse_pattern(tokens, i)
-    if j < tokens.length() && token_kind(tokens, j) == AssignTok {
-      let (target_expr, k) = parse_expr(tokens, j + 1)
-      return parse_with_apply(
-        tokens,
-        i - 1,
-        [SParam(pattern, None)],
-        target_expr,
-        k,
-      )
-    }
   }
   let (target_expr, j) = parse_expr(tokens, i)
   parse_with_apply(tokens, i - 1, [], target_expr, j)
@@ -1672,22 +1656,6 @@ fn is_parenthesized_named_lambda_sugar_after_name(
       close_i + 1 < tokens.length() &&
       token_kind(tokens, close_i + 1) == AssignTok
     None => false
-  }
-}
-
-///|
-fn can_start_pattern(tok : Token) -> Bool {
-  match tok {
-    IdentTok(_)
-    | IntTok(_)
-    | StrTok(_)
-    | TrueTok
-    | FalseTok
-    | NilTok
-    | HashTok
-    | LBracketTok
-    | LBraceTok => true
-    _ => false
   }
 }
 
