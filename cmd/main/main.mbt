@@ -152,7 +152,7 @@ fn run_blocks(
     runner(source) catch {
       e => println(@lib.format_error(e, line_offset))
     }
-    println("")
+    println("---")
   }
 }
 
@@ -165,9 +165,7 @@ fn run_parse_single(source : String) -> Unit raise {
 ///|
 fn run_eval_single(source : String) -> Unit raise {
   let value = @lib.eval_source(source)
-  if should_hide_eval_result(value) {
-    println("=>")
-  } else {
+  if !should_hide_eval_result(value) {
     println("=> \{value}")
   }
 }
