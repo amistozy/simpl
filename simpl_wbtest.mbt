@@ -104,6 +104,15 @@ test "desugar lowers pure binary operators to builtin calls" {
 }
 
 ///|
+test "desugar lowers unary operators to builtin calls" {
+  match desugar(parse("~1")) {
+    Located(_, Call(Var("__operator_neg"), [ArgPos(Located(_, IntLit(1)))])) =>
+      assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "desugar keeps short-circuit operators in core binary form" {
   match desugar(parse("ok && ready")) {
     Located(_, Binary(CoreAnd, Located(_, Var("ok")), Located(_, Var("ready")))) =>

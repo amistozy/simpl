@@ -190,6 +190,24 @@ fn apply_builtin(
   args : Array[EvaluatedCallArg],
 ) -> Value raise {
   match builtin {
+    BOpNeg =>
+      apply_unary_operator_builtin(builtin, args, fn(value) raise {
+        match value {
+          VInt(v) => VInt(-v)
+          _ => type_error_unary("unary '~'", "Int", value)
+        }
+      })
+    BOpBang =>
+      apply_unary_operator_builtin(builtin, args, fn(value) {
+        match value {
+          VRef(value~) => value
+          _ => VBool(!truthy(value))
+        }
+      })
+    BOpDollar =>
+      apply_unary_operator_builtin(builtin, args, fn(value) {
+        VString(value.to_string())
+      })
     BOpAdd =>
       apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
         match (left, right) {
@@ -398,7 +416,21 @@ fn builtin_name(builtin : Builtin) -> String {
     BOpLe => "__operator_le"
     BOpGt => "__operator_gt"
     BOpGe => "__operator_ge"
+    BOpNeg => "__operator_neg"
+    BOpBang => "__operator_bang"
+    BOpDollar => "__operator_dollar"
   }
+}
+
+///|
+fn apply_unary_operator_builtin(
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+  func : (Value) -> Value raise,
+) -> Value raise {
+  guard args.length() == 1 else { arity_error(1, args.length()) }
+  guard args is [EArgPos(value)] else { builtin_named_arg_error(builtin) }
+  func(value)
 }
 
 ///|

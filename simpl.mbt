@@ -128,7 +128,6 @@ priv enum Expr {
   Lambda(Array[Param], Expr)
   Call(Expr, Array[CallArg])
   Field(Expr, String)
-  Unary(UnOp, Expr)
   Binary(CoreBinOp, Expr, Expr)
 } derive(Debug)
 
@@ -277,6 +276,9 @@ priv enum Builtin {
   BOpLe
   BOpGt
   BOpGe
+  BOpNeg
+  BOpBang
+  BOpDollar
 } derive(Debug)
 
 ///|
@@ -332,6 +334,9 @@ fn builtin_bindings() -> Array[(String, Builtin)] {
     (builtin_name(BOpLe), BOpLe),
     (builtin_name(BOpGt), BOpGt),
     (builtin_name(BOpGe), BOpGe),
+    (builtin_name(BOpNeg), BOpNeg),
+    (builtin_name(BOpBang), BOpBang),
+    (builtin_name(BOpDollar), BOpDollar),
   ]
 }
 
@@ -393,7 +398,6 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       let target_value = eval_with_env(target, env)
       eval_field_value_or_ufcs(target_value, name, env)
     }
-    Unary(op, one) => eval_unary(op, eval_with_env(one, env))
     Binary(op, left, right) =>
       match op {
         CoreAnd => {
@@ -882,23 +886,6 @@ fn[T] type_error_binary(
   runtime_error(
     "type error: \{operator} expected \{expected}, got (\{typed_value_summary(left)}, \{typed_value_summary(right)})",
   )
-}
-
-///|
-fn eval_unary(op : UnOp, value : Value) -> Value raise {
-  match op {
-    Neg =>
-      match value {
-        VInt(v) => VInt(-v)
-        _ => type_error_unary("unary '~'", "Int", value)
-      }
-    Bang =>
-      match value {
-        VRef(_) as cell => cell.value
-        _ => VBool(!truthy(value))
-      }
-    Dollar => VString(value.to_string())
-  }
 }
 
 ///|

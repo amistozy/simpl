@@ -220,7 +220,7 @@ fn desugar_expr_with_placeholders(
       let (one_core, names, next_id) = desugar_expr_with_placeholders(
         one, next_placeholder_id,
       )
-      (Unary(op, one_core), names, next_id)
+      (desugar_unary_core(op, one_core), names, next_id)
     }
     SBinary(op, left, right) => {
       let (left_core, left_names, next_after_left) = desugar_expr_with_placeholders(
@@ -235,6 +235,20 @@ fn desugar_expr_with_placeholders(
         next_id,
       )
     }
+  }
+}
+
+///|
+fn desugar_unary_core(op : UnOp, one : Expr) -> Expr {
+  Call(Var(unary_operator_builtin_name(op)), [ArgPos(one)])
+}
+
+///|
+fn unary_operator_builtin_name(op : UnOp) -> String {
+  match op {
+    Neg => "__operator_neg"
+    Bang => "__operator_bang"
+    Dollar => "__operator_dollar"
   }
 }
 
