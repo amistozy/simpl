@@ -1,117 +1,142 @@
-# 03. Control Flow and Patterns
+# 03. Control Flow And Patterns
 
-Simpl uses one pattern family across bindings, parameters, and conditional
-refinement. That consistency is one of the language's strongest ideas.
+Simpl uses one pattern family across `let`, function parameters, `guard`, and
+`if ... is`. That keeps destructuring and branching consistent.
 
 ## `let`
 
 Basic binding:
 
 ```simpl
-let x = 41; x + 1
+let x = 41;
+x + 1
 ```
 
-Multiple independent bindings:
+Parallel binding:
 
 ```simpl
-let a = 1
-and b = 2;
-a + b
+let x = 10;
+let x = 1 and y = x + 1;
+y -- 11
 ```
 
-Recursive bindings:
+Right-hand sides in `let ... and ...` are evaluated in the outer environment,
+then the resulting bindings are added together.
+
+Compound binding sugar:
 
 ```simpl
-let rec even(n) =
-  if n == 0 then true else odd(n - 1)
-and odd(n) =
-  if n == 0 then false else even(n - 1);
-
-even(10)
+let x = 1;
+let x += 41;
+x
 ```
 
-## Patterns in bindings
+Supported compound forms are `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, and `||=`.
 
-Patterns work directly in `let`:
+## `do`
+
+`do effect; body` evaluates an expression, ignores its value, and continues.
 
 ```simpl
-let [head; ..tail] = [1; 2; 3];
-let {name; age} = {name = "Ada"; age = 20};
-let #Ok(x) as whole = #Ok(1);
+let r = ref 0;
+do r += 1;
+!r
 ```
 
-## `if`
+## `=>` Probe
 
-Simpl uses a split-style conditional syntax.
-
-Simple form:
+`=> expr; body` evaluates `expr`, prints it with `say`, binds the value to `it`,
+and then evaluates `body`.
 
 ```simpl
-if x > 0 then x else ~x
+=> 1 + 2;
+it + 3
 ```
 
-Multi-branch form:
-
-```simpl
-if
-| n < 0 then "neg"
-| n == 0 then "zero"
-else "pos"
-```
-
-Conditions use Simpl truthiness, not strict boolean-only checking.
+This is useful when exploring programs from the CLI without rewriting the next
+expression by hand.
 
 ## `guard`
 
-Simpl also provides a compact guard form:
+`guard` is a single-branch early-return style expression.
 
 ```simpl
 guard ready;
 "ok"
 ```
 
+Without `else`, a failed guard returns `nil`:
+
+```simpl
+guard false;
+42 -- nil
+```
+
+With `else`, a failed guard returns the fallback:
+
 ```simpl
 guard value is #Some(x) else 0;
 x
 ```
 
-It desugars as:
-
-- `guard cond; body` => `if cond then body end`
-- `guard cond else fallback; body` => `if cond then body else fallback`
-
-The condition part reuses the single-route conditional head syntax, so it can
-contain ordinary conditions, `is`, and nested `and` refinement:
-
-```simpl
-guard score > 0 and score < 100 else 0;
-score
-```
+The condition can include ordinary truthiness checks, `is` patterns, and nested
+`and` refinement.
 
 ```simpl
 guard xs is [x; ..rest] and x > 0 else 0;
 x
 ```
 
-`guard` is intentionally a single-branch construct. It does not open its own
-multi-route `| ... then ...` split.
+`guard` does not open a multi-branch `| ... then ...` split. Use `if` for that.
+
+## `if`
+
+Single-route conditionals must close with `else` or `end`.
+
+```simpl
+if x > 0 then x else ~x
+```
+
+```simpl
+if ready then "ok" end
+```
+
+`end` is shorthand for `else nil`.
+
+Multi-route conditionals start with leading `|` arms:
+
+```simpl
+if
+| n < 0 then "negative"
+| n == 0 then "zero"
+else "positive"
+```
+
+Conditions use Simpl truthiness. They do not have to evaluate to booleans.
 
 ## `if ... is`
 
-Pattern-directed branching lives inside `if ... is`.
+Pattern-directed branching uses `is`, not a separate `match` keyword.
 
 ```simpl
-if value is
-| #Left(x) then x
-| #Right(y) then y
-else 0
+if result is
+| #Ok(value) then value
+| #Err(message) then message
+else nil
 ```
 
-This replaces the need for a separate `match` keyword.
+An `is` condition can also appear as the head of a single route:
 
-## Refinement with `and`
+```simpl
+if #Left(41) is #Left(x) then x + 1 | true then 0 else -1
+```
 
-`and` opens a nested refinement step after an outer branch has already matched.
+For readability, prefer the multi-route layout when matching variants or lists.
+
+## Refinement With `and`
+
+`and` opens a nested refinement after the outer condition or pattern has
+succeeded.
 
 ```simpl
 if user is
@@ -127,59 +152,48 @@ It also works with ordinary expressions:
 if score > 0 and score < 100 then score else 0
 ```
 
-## Closing a nested split with `or`
+Inside this conditional syntax, `and` is structural refinement. For ordinary
+boolean operators in expressions, use `&&` and `||`.
 
-Inside this syntax, `or` is not the boolean operator. It closes the current
-nested split and returns to the enclosing one.
+## Closing Nested Splits With `or`
+
+Inside `if` refinement syntax, `or` closes the current nested split and returns
+to the enclosing split.
 
 ```simpl
-if input is
-| #Some(x) and
-  | x > 10 then "big"
-  | x == 10 then "edge"
+if
+| true and
+  | false then 1
+  | true then 2
   or
-else "small"
+| true then 3
+else 0
 ```
 
-For ordinary boolean logic, use `&&` and `||`.
+For boolean OR, use `||`.
 
-## `else` and `end`
+## Pattern Forms
 
-- `else expr` gives the fallback branch
-- `end` is shorthand for `else nil`
+Supported patterns:
 
-```simpl
-if ready then "ok" end
-```
-
-## Supported pattern forms
-
-Simpl patterns currently include:
-
-- variable binders
-- `_`
-- literal patterns
-- `as`-patterns
-- variant patterns
-- list patterns
-- list-rest patterns
-- record patterns
-- alternatives with `|`
+- variable binder: `x`
+- wildcard: `_`
+- literals: `1`, `true`, `"ok"`, `nil`
+- variants: `#Some(x)`
+- records: `{x; y = renamed}`
+- lists: `[head; second]`
+- list rest: `[head; ..tail]`, `[first; ..middle; last]`
+- alternatives: `#Some(x) | #Ok(x)`
+- as-patterns: `#Ok(x) as whole`
 
 Examples:
 
 ```simpl
-let unwrap(#Some(x) | #Ok(x)) = x;
-let {name; age = years} = person;
-let [first; ..middle; last] = values;
+let [head; ..tail] = [1; 2; 3];
+let {name; score = points} = player;
+let #Ok(x) as whole = #Ok(1);
 ```
 
-## Reading tip
+Duplicate names in one pattern are rejected during evaluation.
 
-When an `if` looks large, read it from the outside in:
-
-1. find the current split
-2. read each `| ... then ...` arm
-3. treat `and`, `or`, `else`, and `end` as structure markers
-
-That mental model makes the syntax much easier to follow.
+Continue with [04 - Data and Mutation](./04-data-and-mutation.md).

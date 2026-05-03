@@ -1,27 +1,18 @@
-# simpl
+# Simpl
 
-`simpl` is a small expression language implemented in MoonBit.
+Simpl is a small dynamic expression language implemented in MoonBit.
 
-It can be used in two ways:
+It is meant to be compact, readable, and easy to embed. The language has a few
+deliberately strong ideas:
 
-- as a MoonBit package for parsing and evaluating Simpl source
-- as a command-line interpreter for `.simpl` files or inline snippets
+- every program is an expression
+- patterns work in bindings, function parameters, and conditional branches
+- many values are callable, not only functions
+- the syntax favors small composable forms over a large statement set
 
 Module: `amistozy/simpl`
 
-## Why Simpl exists
-
-Simpl explores a compact language design built around a few ideas:
-
-- everything is an expression
-- patterns are reused across bindings, parameters, and conditional refinement
-- calls are a general composition mechanism, not just function invocation
-- concise syntax is preferred when it still stays readable
-
-The result is a language that feels small, but still supports structured data,
-closures, mutation through references, and a surprisingly rich call model.
-
-## A quick taste
+## Quick Taste
 
 ```simpl
 let greet(name; title = "friend") =
@@ -31,24 +22,24 @@ greet("Ada")
 ```
 
 ```simpl
-let describe(value) =
-  if value is
-  | #Ok(x) and x > 0 then "positive"
-  | #Ok(0) then "zero"
-  | #Err(msg) then msg
+let score_label(result) =
+  if result is
+  | #Ok(score) and score >= 60 then "pass: "$score
+  | #Ok(score) then "retry: "$score
+  | #Err(message) then message
   else "unknown";
 
-describe(#Ok(3))
+score_label(#Ok(72))
 ```
 
 ```simpl
 let rec qsort(xs) =
-  guard xs is [x; ..xs] else [];
-  let smaller = qsort xs.filter fn _ <= x;
-  let larger = qsort xs.filter fn _ > x;
+  guard xs is [x; ..rest] else [];
+  let smaller = qsort rest.filter(fn _ <= x);
+  let larger = qsort rest.filter(fn _ > x);
   smaller + [x] + larger;
 
-qsort [1; 1; 4; 5; 1; 4]
+qsort([4; 1; 5; 1; 3])
 ```
 
 ```simpl
@@ -57,26 +48,25 @@ qsort [1; 1; 4; 5; 1; 4]
 .filter(fn _ < 10)
 ```
 
-## Feature snapshot
+## Features
 
-- integers, booleans, strings, `nil`, lists, records, variants, references, and functions
-- lexical closures and first-class functions
-- `let`, `let and`, `let rec`, and `let rec ... and ...`
-- `guard ...; body` and `guard ... else fallback; body`
-- destructuring patterns in `let`, parameters, and `if ... is`
-- named arguments and call-time default parameters
-- trailing application such as `f x` and `f(1; 2) 3`
-- `fn expr` eta-expansion with underscore placeholders
-- `with` sugar for passing a trailing lambda
-- record field access with UFCS-style fallback
-- expression-based string interpolation using string calls and `$`
-- source-positioned parse and runtime errors
+- Dynamic values: integers, booleans, strings, `nil`, lists, records, variants,
+  references, closures, and built-ins.
+- Expression forms: `let`, `let and`, `let rec`, `do`, `guard`, `if`, `with`,
+  lambdas, calls, field access, and `=>` probes.
+- Pattern forms: binders, `_`, literals, variants, records, lists, list rests,
+  alternatives, and `as` patterns.
+- Call forms: positional and named arguments, default parameters, trailing
+  application, `fn expr` eta-expansion, and UFCS-style field fallback.
+- Callable data: strings concatenate or join, integers repeat, lists index or
+  collect, and records produce updated copies from named arguments.
+- Diagnostics: parse and runtime errors include source positions.
 
-## Install requirements
+## Requirements
 
-- [MoonBit](https://docs.moonbitlang.com)
+Install [MoonBit](https://docs.moonbitlang.com).
 
-## Quick start
+## Run Simpl
 
 Run the test suite:
 
@@ -84,13 +74,13 @@ Run the test suite:
 moon test
 ```
 
-Evaluate inline code:
+Evaluate inline source:
 
 ```powershell
 moon run cmd/main -- --eval "1 + 2 * 3"
 ```
 
-Parse without evaluation:
+Parse without evaluating:
 
 ```powershell
 moon run cmd/main -- --parse --eval "let x = 1; x"
@@ -102,29 +92,8 @@ Run a file:
 moon run cmd/main -- program.simpl
 ```
 
-## CLI
-
-The interpreter entry point is `cmd/main/main.mbt`.
-
-```text
-simpl [options] [path]
-```
-
-Options:
-
-- `-e`, `--eval <source>`: evaluate an inline source string
-- `-f`, `--file <path>`: read source from a file
-- `-p`, `--parse`: parse only and print the surface AST
-
-Input rules:
-
-- do not combine `--eval` with file input
-- provide a file path only once, either positionally or through `--file`
-- when no input is provided, the CLI prints help
-
-The CLI also supports multi-block input. A line made of at least three dashes,
-such as `---`, splits the source into separate blocks. Each block is parsed or
-evaluated independently.
+The CLI accepts multi-block input. A line containing at least three dashes, such
+as `---`, splits the file into independent parse or evaluation blocks.
 
 ## Library API
 
@@ -136,7 +105,7 @@ Public entry points:
 - `parse_error_text(String) -> String?`
 - `eval_error_text(String) -> String?`
 
-Useful test helpers:
+Test helpers:
 
 - `parse_is_ok`
 - `parse_is_error`
@@ -152,29 +121,29 @@ Public types:
 
 ## Documentation
 
-Read the docs in this order:
+Read the language guide in this order:
 
 1. [01 - Language Tour](docs/01-language-tour.md)
 2. [02 - Functions and Calls](docs/02-functions-and-calls.md)
 3. [03 - Control Flow and Patterns](docs/03-control-flow-and-patterns.md)
 4. [04 - Data and Mutation](docs/04-data-and-mutation.md)
-5. [05 - Composition Patterns](docs/05-composition-patterns.md)
+5. [05 - Callable Composition](docs/05-composition-patterns.md)
 6. [06 - CLI and Embedding](docs/06-cli-and-embedding.md)
 
-## Repository layout
+## Repository Layout
 
-- `simpl.mbt`: core AST, runtime values, evaluator
-- `parser.mbt`: parser and diagnostics
-- `lexer.mbt`: lexer and source spans
+- `simpl.mbt`: AST definitions, runtime values, evaluator, and public helpers
+- `lexer.mbt`: tokenization and source spans
+- `parser.mbt`: surface parser and diagnostics
 - `desugar.mbt`: surface-to-core lowering
-- `pattern.mbt`: pattern logic and truthiness helpers
+- `pattern.mbt`: pattern matching, truthiness, and value summaries
 - `apply.mbt`: call semantics and built-ins
-- `pretty.mbt`: pretty-printing
-- `cmd/main/main.mbt`: CLI
+- `pretty.mbt`: pretty-printers for ASTs and values
+- `cmd/main/main.mbt`: command-line interpreter
 - `simpl_test.mbt`: black-box tests
 - `simpl_wbtest.mbt`: white-box tests
 
-## Development notes
+## Development
 
 Recommended validation loop:
 
@@ -184,7 +153,7 @@ moon info
 moon fmt
 ```
 
-If you intentionally change behavior that affects snapshots:
+If an intentional behavior change affects snapshots, refresh them with:
 
 ```powershell
 moon test --update

@@ -1,7 +1,7 @@
-# 04. Data and Mutation
+# 04. Data And Mutation
 
-This page focuses on the data forms you will use most often: lists, records,
-variants, equality, and references.
+Simpl has structural data, explicit mutable references, and a small set of
+built-ins for common list and numeric work.
 
 ## Lists
 
@@ -11,7 +11,17 @@ List literals use semicolons:
 [1; 2; 3]
 ```
 
-Lists work naturally with patterns:
+Lists concatenate with `+` and repeat with `*`:
+
+```simpl
+[1; 2] + [3; 4]
+[1; 2] * 3
+3 * [1; 2]
+```
+
+Non-positive repetition returns an empty list.
+
+Lists destructure naturally:
 
 ```simpl
 let [x; y] = [1; 2];
@@ -21,13 +31,13 @@ let [first; ..middle; last] = [1; 2; 3; 4];
 
 ## Records
 
-Record literal:
+Record literals use named fields:
 
 ```simpl
 {x = 1; y = 2}
 ```
 
-Field shorthand:
+Field shorthand uses the variable name as the field name:
 
 ```simpl
 let x = 1;
@@ -35,28 +45,51 @@ let y = 2;
 {x; y}
 ```
 
-Field access:
+Functions can be stored as fields:
 
 ```simpl
-point.x
+let r = {inc(x) = x + 1};
+r.inc(41)
 ```
 
-Record pattern with renaming:
+Field access reads fields and supports chaining:
+
+```simpl
+{user = {name = "Moon"}}.user.name
+```
+
+Record patterns can bind or rename fields:
 
 ```simpl
 let {x; y = renamed} = point;
 ```
 
+## Record Updates
+
+Records are callable with named arguments. The result is a new record with
+updated or added fields.
+
+```simpl
+let point = {x = 1; y = 2};
+let moved = point(x = 3; z = 4);
+moved
+```
+
+The original record is not mutated.
+
+Record calls reject positional arguments.
+
 ## Variants
 
-Variants carry a tag and one payload:
+Variants have a tag and one payload:
 
 ```simpl
 #Some(1)
 #Err("bad")
+#Pair([10; 32])
 ```
 
-They are especially useful with `if ... is`:
+They are usually consumed with `if ... is`:
 
 ```simpl
 if result is
@@ -65,17 +98,16 @@ if result is
 else nil
 ```
 
-## Structural equality
+## Equality
 
-`==` compares values structurally.
+`==` and `!=` use structural equality for values such as lists, records, and
+variants.
 
 ```simpl
-[1; 2] == [1; 2]
-{x = 1; y = 2} == {x = 1; y = 2}
-#Some(1) == #Some(1)
+[1; [2; 3]] == [1; [2; 3]]
+{x = 1; y = 2} == {y = 2; x = 1}
+#Some(1) != #Some(2)
 ```
-
-The paired operator `!=` checks structural inequality.
 
 ## References
 
@@ -86,13 +118,14 @@ let r = ref 1;
 !r
 ```
 
-Assignment:
+Assignment returns the new stored value:
 
 ```simpl
-r := 3
+let x = r := 3;
+!r + x
 ```
 
-Compound updates:
+Compound reference updates:
 
 ```simpl
 r += 1
@@ -104,9 +137,9 @@ r &&= expr
 r ||= expr
 ```
 
-These update forms are expressions and return the new stored value.
+`&&=` and `||=` short-circuit using Simpl truthiness.
 
-## `!` has two meanings
+## `!` For References And Logic
 
 If the operand is a reference, `!` dereferences it:
 
@@ -114,38 +147,36 @@ If the operand is a reference, `!` dereferences it:
 !r
 ```
 
-Otherwise, it behaves as logical not using Simpl truthiness:
+For any non-reference value, `!` is logical not:
 
 ```simpl
-!false
-!nil
-!1
+!false -- true
+!nil   -- true
+!1     -- false
 ```
 
-## `do`
+## Built-Ins
 
-`do` is useful when you want an effect before continuing with another
-expression:
+Current built-ins:
+
+- `ref(value)` creates a reference
+- `say(value)` prints a value and returns `nil`
+- `map(list; f)` maps a list without flattening
+- `filter(list; f)` keeps items whose predicate result is truthy
+- `fold(list; init; f)` folds from the left
+- `length(value)` accepts strings and lists
+- `max(a; b)` or `max(list)` accepts integers
+- `min(a; b)` or `min(list)` accepts integers
+- `sum(list)` sums an integer list
+
+Built-ins do not accept named arguments.
+
+Most built-ins work well with UFCS:
 
 ```simpl
-let r = ref 0;
-do r += 1;
-!r
+[1; 2; 3].sum
+"moon".length
+[3; 5; 2].max
 ```
 
-You can read it as a convenient form of "evaluate this, ignore its value, then
-continue".
-
-## A small stateful example
-
-```simpl
-let counter = ref 0;
-let tick() =
-  do counter += 1;
-  !counter;
-
-[tick(); tick(); tick()]
-```
-
-The next page covers the broader composition model that makes lists, strings,
-integers, and records feel callable.
+Continue with [05 - Callable Composition](./05-composition-patterns.md).

@@ -1,35 +1,60 @@
-# 02. Functions and Calls
+# 02. Functions And Calls
 
-Functions are central in Simpl, but call syntax is intentionally broader than
-"call a function". This page starts with ordinary functions and then moves into
-the language's more unusual call behavior.
+Functions are first-class closures, but Simpl's call syntax is broader than
+"invoke a function". This page starts with functions and then explains the call
+forms that make the rest of the language feel compact.
 
-## Defining functions
-
-Lambda form:
+## Lambdas
 
 ```simpl
 fn(x; y) x + y
 ```
 
-Binding sugar:
+Lambdas capture their lexical environment:
+
+```simpl
+let x = 10;
+let add_x(y) = x + y;
+let x = 100;
+add_x(5) -- 15
+```
+
+## Function Binding Sugar
+
+These two forms are equivalent:
+
+```simpl
+let add = fn(x; y) x + y;
+```
 
 ```simpl
 let add(x; y) = x + y;
 ```
 
-Functions are closures and capture the lexical environment where they are
-created.
+Recursive functions use `let rec`:
+
+```simpl
+let rec fact(n) =
+  if n == 0 then 1 else n * fact(n - 1);
+
+fact(5)
+```
+
+Mutually recursive functions use `let rec ... and ...`:
+
+```simpl
+let rec even(n) =
+  if n == 0 then true else odd(n - 1)
+and odd(n) =
+  if n == 0 then false else even(n - 1);
+
+even(10)
+```
 
 ## Parameters
 
-Parameters are separated by semicolons. A parameter can be:
-
-- a name
-- a destructuring pattern
-- a parameter with a default value
-
-Examples:
+Parameters are separated by semicolons. A parameter can be a name, a pattern, or
+a parameter with a default value.
 
 ```simpl
 fn(x; y) x + y
@@ -37,50 +62,49 @@ fn({name}; title = "friend") title" "name
 fn([head; ..tail]) head
 ```
 
-## Default arguments
-
-Default expressions are evaluated when the call happens.
+Defaults are evaluated when the call happens, not when the function is created:
 
 ```simpl
 let r = ref 1;
 let f(x = !r) = x;
 do r := 2;
-f()
+f() -- 2
 ```
 
-This returns `2`, not `1`.
-
-Defaults can also refer to earlier parameters:
+Defaults can refer to earlier parameters:
 
 ```simpl
 let pair(a = 1; b = a + 1) = [a; b];
-pair()
+pair() -- [1; 2]
 ```
 
-## Calling functions
+Required parameters are best placed before defaulted parameters. The parser
+allows some unusual orders, but invalid calls fail at runtime.
 
-Regular call syntax:
+## Positional And Named Arguments
 
 ```simpl
 f(1; 2)
-```
-
-Named arguments:
-
-```simpl
 f(x = 1; y = 2)
-```
-
-Mixed calls:
-
-```simpl
 f(x = 1; 2; z = 3)
 ```
 
-Named arguments are matched first. Remaining positional arguments then fill the
-open parameter slots from left to right.
+Named arguments are matched first. Remaining positional arguments fill open
+parameter slots from left to right.
 
-## Trailing application
+Named function-valued arguments have a shortcut:
+
+```simpl
+apply(f(x) = x + 1)
+```
+
+That is the same idea as:
+
+```simpl
+apply(f = fn(x) x + 1)
+```
+
+## Trailing Application
 
 Simpl supports low-precedence trailing application:
 
@@ -89,8 +113,11 @@ f x
 f(1; 2) 3
 ```
 
-This gives the language a pipeline-like feel without adding a dedicated pipe
-operator.
+`f(1; 2) 3` appends `3` to the same call, so it behaves like:
+
+```simpl
+f(1; 2; 3)
+```
 
 Trailing application associates to the right:
 
@@ -98,21 +125,29 @@ Trailing application associates to the right:
 f g x
 ```
 
-This means:
+means:
 
 ```simpl
 f(g(x))
 ```
 
-## Grouping with `:(...)`
+Use parentheses when you want a nested call result instead:
 
-Use `:(...)` when you need to make the trailing argument boundary explicit.
+```simpl
+(f 2) 3
+```
+
+## Colon Grouping
+
+`:(...)` makes the trailing argument boundary explicit.
 
 ```simpl
 say: (1 + 2) * 3
 ```
 
-This is especially useful around infix expressions and `fn expr`.
+This passes the whole multiplication expression to `say`.
+
+It is especially helpful with `fn expr`:
 
 ```simpl
 [1; 20; 3]
@@ -120,9 +155,10 @@ This is especially useful around infix expressions and `fn expr`.
 .filter(fn _ < 10)
 ```
 
-## `fn expr` eta-expansion
+## `fn expr` Eta-Expansion
 
-Simpl supports an explicit shorthand introduced by `fn`.
+`fn` can introduce a full lambda or eta-expand an expression with underscore
+placeholders.
 
 ```simpl
 fn 42
@@ -140,59 +176,71 @@ fn(x) x + 1
 fn(x; y) x * 2 + y
 ```
 
-Rules of thumb:
+Rules:
 
-- no underscore means a zero-parameter lambda
-- each underscore becomes a fresh parameter
-- bare `_` is only valid when consumed by `fn expr`
+- no underscore creates a zero-argument lambda
+- each underscore creates a fresh parameter from left to right
+- bare `_` is only valid when it is consumed by `fn expr`
 
 ## `with`
 
-`with` is sugar for passing a lambda as the final argument of a call target.
+`with` appends a lambda as the final argument of a call target.
 
 ```simpl
-with(x) use(41); x + 1
+with(v) use(41);
+v + 1
 ```
 
-This means:
+means:
 
 ```simpl
-use(41; fn(x) x + 1)
+use(41; fn(v) v + 1)
 ```
 
-Other supported form:
+Zero-argument forms are supported:
 
 ```simpl
-with run; 42
+with run;
+42
 ```
 
-## UFCS-style fallback
+which means:
 
-Field access can fall back to a same-named function call when the receiver is
-not a record field lookup that succeeds.
+```simpl
+run(fn() 42)
+```
+
+## Field Access And UFCS Fallback
+
+Field access first tries to read a record field.
+
+```simpl
+{x = 1; y = 2}.x
+```
+
+If the receiver is not a record with that field, Simpl tries a same-named
+function in the environment and passes the receiver as the first argument.
 
 ```simpl
 let inc(x) = x + 1;
-41.inc
+41.inc -- inc(41)
 ```
 
 ```simpl
 let add3(x; y; z) = x + y + z;
-1.add3(2; 3)
+1.add3(2; 3) -- add3(1; 2; 3)
 ```
 
-Real record fields still take priority over this fallback.
+Actual record fields take priority over this fallback.
 
-## Common call-time errors
+## Common Call Errors
 
-Because calls are used so widely in Simpl, these failures are important to keep
-in mind:
+Calls can fail because of:
 
 - wrong arity
 - duplicate named arguments
 - unknown named arguments
 - parameter pattern mismatch
-- trying to call a value that is not callable
+- attempting to call a value that is not callable
 
-The next docs explain the data and control-flow forms that often appear inside
-those calls.
+Continue with [03 - Control Flow and Patterns](./03-control-flow-and-patterns.md).

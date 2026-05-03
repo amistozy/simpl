@@ -1,13 +1,13 @@
-# 06. CLI and Embedding
+# 06. CLI And Embedding
 
-This page covers how to run Simpl from the command line and how to use the
-MoonBit package from another module.
+Simpl can be used as a command-line interpreter or as a MoonBit package for
+tools and tests.
 
-## Running the CLI
+## Command Line
 
-The interpreter entry point lives in `cmd/main/main.mbt`.
+The CLI entry point is `cmd/main/main.mbt`.
 
-Run inline source:
+Evaluate inline source:
 
 ```powershell
 moon run cmd/main -- --eval "1 + 2 * 3"
@@ -25,28 +25,31 @@ Run a file:
 moon run cmd/main -- program.simpl
 ```
 
-Or explicitly use `--file`:
+Run a file with the explicit option:
 
 ```powershell
 moon run cmd/main -- --file program.simpl
 ```
 
-## CLI options
+## Options
 
-- `-e`, `--eval <source>`: evaluate inline source
-- `-f`, `--file <path>`: read source from a file
-- `-p`, `--parse`: print the parsed surface AST instead of evaluating
+```text
+simpl [options] [path]
+```
 
-Rules:
+- `-e`, `--eval <source>` evaluates an inline source string
+- `-f`, `--file <path>` reads source from a file
+- `-p`, `--parse` prints the parsed `SurfaceExpr` instead of evaluating
 
-- `--eval` cannot be combined with file input
-- `--file` and positional file input cannot be combined
-- no input means help text is shown
+Input rules:
 
-## Multi-block input
+- do not combine `--eval` with file input
+- provide a file path only once, either positionally or through `--file`
+- with no input, the CLI prints help
 
-The CLI understands block separators. A line containing at least three dashes
-starts a new block:
+## Multi-Block Input
+
+A line containing at least three dashes starts a new block:
 
 ```simpl
 let x = 1;
@@ -56,12 +59,28 @@ let y = 2;
 y
 ```
 
-Each block is parsed or evaluated independently, and errors are reported with
-their block-aware line offsets.
+Each non-blank block is parsed or evaluated independently. The CLI prints `---`
+after each block result. Errors are formatted with the block's original line
+offset.
 
-## Using the library
+## Output Behavior
 
-The public API is intentionally small.
+Evaluation prints visible results as:
+
+```text
+=> value
+```
+
+The CLI hides `nil` and lists that contain only `nil` values. This keeps effect
+oriented programs such as `say` loops from producing noisy final results.
+
+Use `--parse` when you want to inspect the surface AST:
+
+```powershell
+moon run cmd/main -- --parse --eval "=> 1 + 2; it + 3"
+```
+
+## Library API
 
 Core entry points:
 
@@ -71,7 +90,7 @@ Core entry points:
 - `parse_error_text(String) -> String?`
 - `eval_error_text(String) -> String?`
 
-Convenience helpers:
+Test helpers:
 
 - `parse_is_ok`
 - `parse_is_error`
@@ -85,20 +104,35 @@ Public types:
 - `SurfaceExpr`
 - `Value`
 
-## Typical embedding flow
+## Embedding Pattern
 
-For tools, tests, or experiments, the common flow is:
+Use `parse` when a tool needs the surface AST:
 
-1. call `parse` when you need a surface AST
-2. call `eval_source` when you want a runtime value directly
-3. use `format_error` when you need readable diagnostics
+```moonbit
+let expr = @simpl.parse(source)
+```
 
-The convenience helpers are especially useful in tests because they keep common
-assertions short.
+Use `eval_source` when you only need the final runtime value:
 
-## Development workflow
+```moonbit
+let value = @simpl.eval_source(source)
+```
 
-Recommended commands while working on the language:
+Use `format_error` if you catch raised parse or runtime errors and want a
+readable diagnostic:
+
+```moonbit
+try @simpl.eval_source(source) catch {
+  err => println(@simpl.format_error(err, 0))
+}
+```
+
+The `*_error_text` helpers are convenient in tests when you want to assert a
+diagnostic without manually handling exceptions.
+
+## Development Workflow
+
+Recommended commands:
 
 ```powershell
 moon test
@@ -106,8 +140,11 @@ moon info
 moon fmt
 ```
 
-If you intentionally change snapshot output:
+If intended behavior changes require snapshot updates:
 
 ```powershell
 moon test --update
 ```
+
+After changing public APIs, inspect `pkg.generated.mbti` to confirm the visible
+interface changed as expected.
