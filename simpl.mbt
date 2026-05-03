@@ -7,7 +7,7 @@ enum SurfaceExpr {
   SStringLit(String)
   SNilLit
   SUnderscore
-  SList(Array[SurfaceExpr])
+  SList(Array[SurfaceListItem])
   SVar(String)
   SRecord(Array[SurfaceRecordField])
   SVariant(String, SurfaceExpr)
@@ -39,6 +39,12 @@ priv enum SurfaceCallArg {
   SArgPos(SurfaceExpr)
   SArgNamed(String, SurfaceExpr)
   STrailingArgPos(SurfaceExpr)
+} derive(Debug)
+
+///|
+priv enum SurfaceListItem {
+  SListOne(SurfaceExpr)
+  SListSpread(SurfaceExpr)
 } derive(Debug)
 
 ///|
@@ -110,7 +116,7 @@ priv enum Expr {
   BoolLit(Bool)
   StringLit(String)
   NilLit
-  List(Array[Expr])
+  List(Array[ListItem])
   Var(String)
   Record(Array[(String, Expr)])
   Variant(String, Expr)
@@ -135,6 +141,12 @@ priv enum Param {
 priv enum CallArg {
   ArgPos(Expr)
   ArgNamed(String, Expr)
+} derive(Debug)
+
+///|
+priv enum ListItem {
+  ListOne(Expr)
+  ListSpread(Expr)
 } derive(Debug)
 
 ///|
@@ -305,7 +317,7 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     BoolLit(v) => VBool(v)
     StringLit(v) => VString(v)
     NilLit => VNil
-    List(items) => VList(eval_expr_list(items, env))
+    List(items) => VList(eval_list_items(items, env))
     Var(name) => lookup(env, name)
     Record(fields) => VRecord(eval_record_fields(fields, env))
     Variant(tag, value_expr) => VVariant(tag, eval_with_env(value_expr, env))
@@ -678,9 +690,20 @@ fn count_required_params(params : Array[Param], i : Int, acc : Int) -> Int {
 }
 
 ///|
-/// Helpers: expression list evaluation
-fn eval_expr_list(exprs : Array[Expr], env : Env) -> Array[Value] raise {
-  exprs.map(expr => eval_with_env(expr, env))
+/// Helpers: list and argument evaluation
+fn eval_list_items(items : Array[ListItem], env : Env) -> Array[Value] raise {
+  let values = []
+  for item in items {
+    match item {
+      ListOne(expr) => values.push(eval_with_env(expr, env))
+      ListSpread(expr) =>
+        match eval_with_env(expr, env) {
+          VList(spread_items) => values.append(spread_items)
+          value => type_error_unary("list spread", "List", value)
+        }
+    }
+  }
+  values
 }
 
 ///|

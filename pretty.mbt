@@ -44,8 +44,16 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
 }
 
 ///|
-fn surface_expr_list_pretty(items : Array[SurfaceExpr]) -> String {
-  items.map(surface_expr_pretty).join("; ")
+fn surface_expr_list_pretty(items : Array[SurfaceListItem]) -> String {
+  items.map(surface_list_item_pretty).join("; ")
+}
+
+///|
+fn surface_list_item_pretty(item : SurfaceListItem) -> String {
+  match item {
+    SListOne(expr) => surface_expr_pretty(expr)
+    SListSpread(expr) => "..\{surface_expr_pretty(expr)}"
+  }
 }
 
 ///|

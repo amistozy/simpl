@@ -27,6 +27,31 @@ test "list concatenation" {
 }
 
 ///|
+test "list literal spread flattens list values in place" {
+  let code =
+    #| let xs = [1; 2];
+    #| let ys = [4; 5];
+    #| [..xs; 3; ..ys; 5; 6] == [1; 2; 3; 4; 5; 5; 6]
+  assert_true(@simpl.eval_source_is_bool(code, true))
+}
+
+///|
+test "list literal spread accepts expressions and empty lists" {
+  let code =
+    #| let wrap(x) = [x; x + 10];
+    #| [0; ..wrap(1); ..[]; 3] == [0; 1; 11; 3]
+  assert_true(@simpl.eval_source_is_bool(code, true))
+}
+
+///|
+test "list literal spread requires a list value" {
+  assert_eq(
+    @simpl.eval_error_text("[..1]"),
+    Some("type error: list spread expected List, got Int(1) at 1:1-6"),
+  )
+}
+
+///|
 test "string literals support common escape sequences" {
   let code =
     #| "line1\nline2\t\"quote\"\\slash\rend"

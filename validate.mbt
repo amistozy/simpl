@@ -24,7 +24,13 @@ fn validate_expr(
           "underscore placeholder must appear inside 'fn' eta-expansion", span,
         )
       }
-    List(items) => items.each(item => validate_expr(item, span, bound_names))
+    List(items) =>
+      items.each(item => {
+        match item {
+          ListOne(expr) | ListSpread(expr) =>
+            validate_expr(expr, span, bound_names)
+        }
+      })
     Record(fields) => {
       validate_unique_record_fields(fields, span)
       fields.each(field => {

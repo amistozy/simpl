@@ -352,19 +352,29 @@ fn eta_placeholder_name(id : Int) -> String {
 
 ///|
 fn desugar_expr_list_with_placeholders(
-  exprs : Array[SurfaceExpr],
+  items : Array[SurfaceListItem],
   next_placeholder_id : Int,
-  acc : Array[Expr],
+  acc : Array[ListItem],
   names : Array[String],
   i : Int,
-) -> (Array[Expr], Array[String], Int) {
-  guard i < exprs.length() else { (acc, names, next_placeholder_id) }
-  let (head_core, head_names, next_id) = desugar_expr_with_placeholders(
-    exprs[i],
-    next_placeholder_id,
-  )
+) -> (Array[ListItem], Array[String], Int) {
+  guard i < items.length() else { (acc, names, next_placeholder_id) }
+  let (head_core, head_names, next_id) = match items[i] {
+    SListOne(expr) => {
+      let (expr_core, expr_names, next_id) = desugar_expr_with_placeholders(
+        expr, next_placeholder_id,
+      )
+      (ListOne(expr_core), expr_names, next_id)
+    }
+    SListSpread(expr) => {
+      let (expr_core, expr_names, next_id) = desugar_expr_with_placeholders(
+        expr, next_placeholder_id,
+      )
+      (ListSpread(expr_core), expr_names, next_id)
+    }
+  }
   desugar_expr_list_with_placeholders(
-    exprs,
+    items,
     next_id,
     acc + [head_core],
     names + head_names,

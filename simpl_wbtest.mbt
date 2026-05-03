@@ -108,6 +108,22 @@ test "parser preserves guard surface form" {
 }
 
 ///|
+test "parser preserves list literal spread items" {
+  match parse("[..xs; 3]") {
+    SLocated(
+      _,
+      SList(
+        [
+          SListSpread(SLocated(_, SVar("xs"))),
+          SListOne(SLocated(_, SIntLit(3))),
+        ]
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "desugar lowers guard to if" {
   match desugar(parse("guard ok and ready else 0; 42")) {
     Located(

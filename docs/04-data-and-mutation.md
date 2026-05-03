@@ -21,6 +21,14 @@ Lists concatenate with `+` and repeat with `*`:
 
 Non-positive repetition returns an empty list.
 
+List literals can spread other lists in place with `..`:
+
+```simpl
+let xs = [1; 2];
+let ys = [4; 5];
+[..xs; 3; ..ys; 5; 6]
+```
+
 Lists destructure naturally:
 
 ```simpl

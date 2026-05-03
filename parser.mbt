@@ -1837,7 +1837,7 @@ fn parse_list_literal(
   }
   let items = []
   for j = i, _pos = 0 {
-    let (item, next_expr) = parse_expr(tokens, j)
+    let (item, next_expr) = parse_list_literal_item(tokens, j)
     items.push(item)
     if next_expr >= tokens.length() {
       syntax_error_eof(tokens, "unexpected end in list")
@@ -1856,6 +1856,20 @@ fn parse_list_literal(
       next_expr,
       "unexpected token in list: \{token_name(token_kind(tokens, next_expr))}",
     )
+  }
+}
+
+///|
+fn parse_list_literal_item(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceListItem, Int) raise {
+  if i < tokens.length() && token_kind(tokens, i) == DotDotTok {
+    let (expr, next_expr) = parse_expr(tokens, i + 1)
+    (SListSpread(expr), next_expr)
+  } else {
+    let (expr, next_expr) = parse_expr(tokens, i)
+    (SListOne(expr), next_expr)
   }
 }
 

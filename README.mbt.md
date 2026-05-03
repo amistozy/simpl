@@ -54,6 +54,7 @@ qsort [4; 1; 5; 1; 3]
   references, closures, and built-ins.
 - Expression forms: `let`, `let and`, `let rec`, `do`, `guard`, `if`, `with`,
   lambdas, calls, field access, and `=>` probes.
+- List literals support in-place spread with `..list`.
 - Pattern forms: binders, `_`, literals, variants, records, lists, list rests,
   alternatives, and `as` patterns.
 - Call forms: positional and named arguments, default parameters, trailing
