@@ -334,6 +334,45 @@ test "parser preserves zero-parameter with surface form" {
 }
 
 ///|
+test "parser preserves => expr; body as surface probe node" {
+  match parse("=> 1 + 2; it + 3") {
+    SLocated(
+      _,
+      SProbe(
+        SLocated(
+          _,
+          SBinary(Add, SLocated(_, SIntLit(1)), SLocated(_, SIntLit(2)))
+        ),
+        SLocated(
+          _,
+          SBinary(Add, SLocated(_, SVar("it")), SLocated(_, SIntLit(3)))
+        )
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "pretty prints => expr; body surface probe form" {
+  assert_eq(
+    surface_expr_pretty(parse("=> 1 + 2; it + 3")),
+    "=> (1 + 2); (it + 3)",
+  )
+}
+
+///|
+test "desugar lowers surface probe to let it plus do say" {
+  assert_true(
+    match desugar(parse("=> 1 + 2; it + 3")) {
+      Located(_, Let(PBind("it"), _, _)) => true
+      Let(PBind("it"), _, _) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "parser makes trailing application right-associative" {
   match parse("f g x") {
     SLocated(
@@ -506,6 +545,11 @@ test "desugared surface ast evaluates as core ast" {
       _ => false
     },
   )
+}
+
+///|
+test "=> expr; body sugar binds it for body evaluation" {
+  assert_true(eval_source_is_int("=> 1 + 2; it + 3", 6))
 }
 
 ///|

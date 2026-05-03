@@ -112,6 +112,10 @@ fn desugar_expr_with_placeholders(
         next_id,
       )
     }
+    SProbe(value_expr, body) => {
+      let probe_surface = make_probe_surface_expr(value_expr, body)
+      desugar_expr_with_placeholders(probe_surface, next_placeholder_id)
+    }
     SGuard(arm, fallback, body) => {
       let guard_if = desugar_surface_guard_to_surface_if(arm, fallback, body)
       desugar_expr_with_placeholders(guard_if, next_placeholder_id)
@@ -228,6 +232,17 @@ fn desugar_expr_with_placeholders(
       (Binary(op, left_core, right_core), left_names + right_names, next_id)
     }
   }
+}
+
+///|
+fn make_probe_surface_expr(
+  value_expr : SurfaceExpr,
+  body : SurfaceExpr,
+) -> SurfaceExpr {
+  let it_var = SVar("it")
+  let display_expr = SBinary(Add, SStringLit("=> "), SUnary(Dollar, it_var))
+  let print_expr = SCall(SVar("say"), [SArgPos(display_expr)])
+  SLet(SPBind("it"), value_expr, SDo(print_expr, body))
 }
 
 ///|

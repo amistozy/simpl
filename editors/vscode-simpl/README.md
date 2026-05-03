@@ -21,6 +21,7 @@ The extension highlights the main parts of Simpl source, including:
 - keywords such as `let`, `rec`, `if`, `then`, `else`, `guard`, `fn`, `with`, `is`, `and`, and `or`
 - literals such as integers, negative integer literals, strings, `true`, `false`, and `nil`
 - operators including arithmetic, comparison, logical, assignment, and ref-update operators
+- the probe operator `=>` for result-printing forms
 - variant tags such as `#Ok` and `#Err`
 - built-in functions: `ref`, `say`, `map`, `filter`, `fold`, `length`, `max`, `min`, and `sum`
 
@@ -31,6 +32,7 @@ It also includes grammar support for several important Simpl-specific forms:
 - grouped trailing application like `say: (1 + 2) * 3`
 - guard forms like `guard xs is [x; ..rest] else []; x`
 - with forms like `with(v) use(41); v + 1` and `with run; 42`
+- probe forms like `=> 1 + 2; it + 3`
 - UFCS-style member calls like `value.render` and `1.add3(2; 3)`
 - function definition sugar in bindings, record fields, and named arguments
 

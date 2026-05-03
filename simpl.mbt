@@ -15,6 +15,7 @@ enum SurfaceExpr {
   SLet(SurfacePattern, SurfaceExpr, SurfaceExpr)
   SLetAnd(Array[(SurfacePattern, SurfaceExpr)], SurfaceExpr)
   SDo(SurfaceExpr, SurfaceExpr)
+  SProbe(SurfaceExpr, SurfaceExpr)
   SGuard(SurfaceGuardCondArm, SurfaceExpr?, SurfaceExpr)
   SLetFun(String, Array[SurfaceParam], SurfaceExpr, SurfaceExpr)
   SLetRec(String, Array[SurfaceParam], SurfaceExpr, SurfaceExpr)

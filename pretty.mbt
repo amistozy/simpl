@@ -19,6 +19,8 @@ fn surface_expr_pretty(expr : SurfaceExpr) -> String {
       "let \{surface_let_bindings_pretty(bindings)}; \{surface_expr_pretty(body)}"
     SDo(value_expr, body) =>
       "do \{surface_expr_pretty(value_expr)}; \{surface_expr_pretty(body)}"
+    SProbe(value_expr, body) =>
+      "=> \{surface_expr_pretty(value_expr)}; \{surface_expr_pretty(body)}"
     SGuard(arm, fallback, body) =>
       "guard \{surface_guard_cond_arm_pretty(arm)}\{surface_guard_else_pretty(fallback)}; \{surface_expr_pretty(body)}"
     SLetFun(name, params, func_body, body) =>

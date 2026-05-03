@@ -170,6 +170,16 @@ fn lex_loop(
         let n = source.unsafe_get(i + 1).unsafe_to_char()
         if n == '=' {
           push_multi_char_token(source, i, i + 2, line, column, EqEqTok, acc)
+        } else if n == '>' {
+          push_multi_char_token(
+            source,
+            i,
+            i + 2,
+            line,
+            column,
+            FatArrowTok,
+            acc,
+          )
         } else {
           push_single_char_token(source, i, line, column, AssignTok, acc)
         }

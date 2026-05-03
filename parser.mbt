@@ -49,6 +49,7 @@ priv enum Token {
   GeTok
   AndAndTok
   OrOrTok
+  FatArrowTok
   AssignTok
   ColonTok
   ColonAssignTok
@@ -297,6 +298,7 @@ fn token_name(tok : Token) -> String {
     GeTok => ">="
     AndAndTok => "&&"
     OrOrTok => "||"
+    FatArrowTok => "=>"
     AssignTok => "="
     ColonTok => ":"
     ColonAssignTok => ":="
@@ -549,9 +551,28 @@ fn parse_let_expr(
     parse_guard_expr(tokens, i + 1)
   } else if token_kind(tokens, i) == WithTok {
     parse_with_expr(tokens, i + 1)
+  } else if token_kind(tokens, i) == FatArrowTok {
+    parse_it_probe_expr(tokens, i + 1)
   } else {
     parse_if_expr(tokens, i)
   }
+}
+
+///|
+fn parse_it_probe_expr(
+  tokens : Array[SpannedToken],
+  i : Int,
+) -> (SurfaceExpr, Int) raise {
+  if i >= tokens.length() {
+    syntax_error_eof(tokens, "expected expression after '=>'")
+  }
+  let start_i = i - 1
+  let (value_expr, j) = parse_expr(tokens, i)
+  if j >= tokens.length() || token_kind(tokens, j) != SemicolonTok {
+    syntax_error_at(tokens, j, "expected ';' after '=>' expression")
+  }
+  let (body, k) = parse_expr(tokens, j + 1)
+  (located_expr(tokens, start_i, k, SProbe(value_expr, body)), k)
 }
 
 ///|

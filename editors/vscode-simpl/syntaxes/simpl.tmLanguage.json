@@ -261,6 +261,10 @@
           "match": "(?<![|&])(?:\\+=|-=|\\*=|/=|%=|:=|&&=|\\|\\|=)"
         },
         {
+          "name": "keyword.operator.assignment.simpl",
+          "match": "=>"
+        },
+        {
           "name": "keyword.operator.comparison.simpl",
           "match": "==|!=|<=|>=|<|>"
         },
@@ -274,7 +278,7 @@
         },
         {
           "name": "keyword.operator.assignment.simpl",
-          "match": "="
+          "match": "=(?!>)"
         },
         {
           "name": "keyword.operator.other.simpl",
