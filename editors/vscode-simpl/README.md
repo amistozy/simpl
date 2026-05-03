@@ -6,6 +6,7 @@ This extension is focused on the essentials:
 
 - syntax highlighting
 - language-aware bracket and quote pairing
+- lightweight completion for keywords and built-in functions
 - Simpl-specific editor defaults for a smoother typing experience
 
 It is a lightweight extension today. It does not currently provide a language
@@ -100,7 +101,7 @@ features later, the natural next steps would be:
 - diagnostics from the Simpl parser
 - formatter integration
 - hover and go-to-definition support
-- completion for built-ins and language constructs
+- broader completion for built-ins and language constructs
 
 ## Related project
 

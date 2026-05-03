@@ -5,6 +5,8 @@
   "version": "0.1.0",
   "publisher": "amistozy",
   "license": "MIT",
+  "type": "module",
+  "main": "./extension.js",
   "engines": {
     "vscode": "^1.85.0"
   },
