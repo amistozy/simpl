@@ -983,6 +983,48 @@ test "do sugar nests like let _ bindings" {
 }
 
 ///|
+test "top-level trailing semicolon supplies nil body" {
+  let do_code =
+    #| do say "hello";
+  let let_code =
+    #| let x = 1;
+  let guard_code =
+    #| guard false;
+  let with_code =
+    #| let run(f) = f();
+    #| with run;
+
+  assert_true(
+    try @simpl.eval_source(do_code) catch {
+      _ => false
+    } noraise {
+      value => @simpl.value_is_nil_or_nil_only_list(value)
+    },
+  )
+  assert_true(
+    try @simpl.eval_source(let_code) catch {
+      _ => false
+    } noraise {
+      value => @simpl.value_is_nil_or_nil_only_list(value)
+    },
+  )
+  assert_true(
+    try @simpl.eval_source(guard_code) catch {
+      _ => false
+    } noraise {
+      value => @simpl.value_is_nil_or_nil_only_list(value)
+    },
+  )
+  assert_true(
+    try @simpl.eval_source(with_code) catch {
+      _ => false
+    } noraise {
+      value => @simpl.value_is_nil_or_nil_only_list(value)
+    },
+  )
+}
+
+///|
 test "guard without else acts like if ... end" {
   let code =
     #| guard true;

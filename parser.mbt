@@ -79,6 +79,7 @@ priv enum Token {
 ///|
 pub fn parse(source : String) -> SurfaceExpr raise {
   let tokens = lex(source)
+  append_top_level_trailing_nil(tokens)
   let (expr, i) = parse_expr(tokens, 0)
   guard i < tokens.length() else {
     raise SyntaxErrorAt("unexpected end", eof_span(tokens))
@@ -90,6 +91,14 @@ pub fn parse(source : String) -> SurfaceExpr raise {
     )
   }
   expr
+}
+
+///|
+fn append_top_level_trailing_nil(tokens : Array[SpannedToken]) -> Unit {
+  guard tokens.length() >= 2 else {  }
+  guard token_kind(tokens, tokens.length() - 2) == SemicolonTok else {  }
+  let end_span = token_span_at(tokens, tokens.length() - 1)
+  tokens.insert(tokens.length() - 1, (NilTok, end_span))
 }
 
 ///|
