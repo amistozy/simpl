@@ -229,8 +229,49 @@ fn desugar_expr_with_placeholders(
       let (right_core, right_names, next_id) = desugar_expr_with_placeholders(
         right, next_after_left,
       )
-      (Binary(op, left_core, right_core), left_names + right_names, next_id)
+      (
+        desugar_binary_core(op, left_core, right_core),
+        left_names + right_names,
+        next_id,
+      )
     }
+  }
+}
+
+///|
+fn desugar_binary_core(op : BinOp, left : Expr, right : Expr) -> Expr {
+  match op {
+    And => Binary(CoreAnd, left, right)
+    Or => Binary(CoreOr, left, right)
+    RefSet => Binary(CoreRefSet, left, right)
+    RefUpdateAdd => Binary(CoreRefUpdateAdd, left, right)
+    RefUpdateSub => Binary(CoreRefUpdateSub, left, right)
+    RefUpdateMul => Binary(CoreRefUpdateMul, left, right)
+    RefUpdateDiv => Binary(CoreRefUpdateDiv, left, right)
+    RefUpdateMod => Binary(CoreRefUpdateMod, left, right)
+    RefUpdateAnd => Binary(CoreRefUpdateAnd, left, right)
+    RefUpdateOr => Binary(CoreRefUpdateOr, left, right)
+    _ =>
+      Call(Var(binary_operator_builtin_name(op)), [ArgPos(left), ArgPos(right)])
+  }
+}
+
+///|
+fn binary_operator_builtin_name(op : BinOp) -> String {
+  match op {
+    Add => "__operator_add"
+    Sub => "__operator_sub"
+    Mul => "__operator_mul"
+    Div => "__operator_div"
+    Mod => "__operator_mod"
+    Pow => "__operator_pow"
+    Eq => "__operator_eq"
+    Ne => "__operator_ne"
+    Lt => "__operator_lt"
+    Le => "__operator_le"
+    Gt => "__operator_gt"
+    Ge => "__operator_ge"
+    _ => "__operator_invalid"
   }
 }
 

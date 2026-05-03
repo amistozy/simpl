@@ -63,7 +63,7 @@ test "record equality" {
   let left = Record([("a", IntLit(1)), ("b", BoolLit(true))])
   let right = Record([("a", IntLit(1)), ("b", BoolLit(true))])
   assert_true(
-    try eval(Binary(Eq, left, right)) catch {
+    try eval(Call(Var("__operator_eq"), [ArgPos(left), ArgPos(right)])) catch {
       _ => false
     } noraise {
       VBool(v) => v
@@ -85,6 +85,29 @@ test "parser preserves do sugar before desugar" {
 test "desugar lowers do to ignored let" {
   match desugar(SDo(SIntLit(1), SIntLit(2))) {
     Let(PBind("_"), IntLit(1), IntLit(2)) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar lowers pure binary operators to builtin calls" {
+  match desugar(parse("1 + 2")) {
+    Located(
+      _,
+      Call(
+        Var("__operator_add"),
+        [ArgPos(Located(_, IntLit(1))), ArgPos(Located(_, IntLit(2)))]
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar keeps short-circuit operators in core binary form" {
+  match desugar(parse("ok && ready")) {
+    Located(_, Binary(CoreAnd, Located(_, Var("ok")), Located(_, Var("ready")))) =>
+      assert_true(true)
     _ => assert_true(false)
   }
 }
@@ -206,7 +229,7 @@ test "desugar turns trailing arg after call into chained call" {
       [Param(PBind("x"), None, Some("x"))],
       Lambda(
         [Param(PBind("y"), None, Some("y"))],
-        Binary(Add, Var("x"), Var("y")),
+        Call(Var("__operator_add"), [ArgPos(Var("x")), ArgPos(Var("y"))]),
       ),
       initial_env(),
     ),

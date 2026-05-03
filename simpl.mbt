@@ -129,7 +129,7 @@ priv enum Expr {
   Call(Expr, Array[CallArg])
   Field(Expr, String)
   Unary(UnOp, Expr)
-  Binary(BinOp, Expr, Expr)
+  Binary(CoreBinOp, Expr, Expr)
 } derive(Debug)
 
 ///|
@@ -205,6 +205,20 @@ priv enum BinOp {
   RefUpdateMod
   RefUpdateAnd
   RefUpdateOr
+} derive(Debug)
+
+///|
+priv enum CoreBinOp {
+  CoreAnd
+  CoreOr
+  CoreRefSet
+  CoreRefUpdateAdd
+  CoreRefUpdateSub
+  CoreRefUpdateMul
+  CoreRefUpdateDiv
+  CoreRefUpdateMod
+  CoreRefUpdateAnd
+  CoreRefUpdateOr
 } derive(Debug)
 
 ///|
@@ -306,6 +320,18 @@ fn builtin_bindings() -> Array[(String, Builtin)] {
     ("max", BMax),
     ("min", BMin),
     ("sum", BSum),
+    (builtin_name(BOpAdd), BOpAdd),
+    (builtin_name(BOpSub), BOpSub),
+    (builtin_name(BOpMul), BOpMul),
+    (builtin_name(BOpDiv), BOpDiv),
+    (builtin_name(BOpMod), BOpMod),
+    (builtin_name(BOpPow), BOpPow),
+    (builtin_name(BOpEq), BOpEq),
+    (builtin_name(BOpNe), BOpNe),
+    (builtin_name(BOpLt), BOpLt),
+    (builtin_name(BOpLe), BOpLe),
+    (builtin_name(BOpGt), BOpGt),
+    (builtin_name(BOpGe), BOpGe),
   ]
 }
 
@@ -370,7 +396,7 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     Unary(op, one) => eval_unary(op, eval_with_env(one, env))
     Binary(op, left, right) =>
       match op {
-        And => {
+        CoreAnd => {
           let (left_value, left_env) = eval_with_env_and_bindings(left, env)
           if truthy(left_value) {
             let (right_value, _) = eval_with_env_and_bindings(right, left_env)
@@ -379,15 +405,15 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
             left_value
           }
         }
-        RefSet
-        | RefUpdateAdd
-        | RefUpdateSub
-        | RefUpdateMul
-        | RefUpdateDiv
-        | RefUpdateMod
-        | RefUpdateAnd
-        | RefUpdateOr => eval_ref_binop(op, left, right, env)
-        Or => {
+        CoreRefSet
+        | CoreRefUpdateAdd
+        | CoreRefUpdateSub
+        | CoreRefUpdateMul
+        | CoreRefUpdateDiv
+        | CoreRefUpdateMod
+        | CoreRefUpdateAnd
+        | CoreRefUpdateOr => eval_ref_binop(op, left, right, env)
+        CoreOr => {
           let (left_value, left_env) = eval_with_env_and_bindings(left, env)
           if truthy(left_value) {
             left_value
@@ -396,15 +422,13 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
             right_value
           }
         }
-        _ =>
-          eval_binary(op, eval_with_env(left, env), eval_with_env(right, env))
       }
   }
 }
 
 ///|
 fn eval_ref_binop(
-  op : BinOp,
+  op : CoreBinOp,
   left : Expr,
   right : Expr,
   env : Env,
@@ -414,28 +438,31 @@ fn eval_ref_binop(
     VRef(_) as cell => {
       let old_value = cell.value
       let new_value = match op {
-        RefSet => eval_with_env(right, env)
-        RefUpdateAdd
-        | RefUpdateSub
-        | RefUpdateMul
-        | RefUpdateDiv
-        | RefUpdateMod => {
+        CoreRefSet => eval_with_env(right, env)
+        CoreRefUpdateAdd
+        | CoreRefUpdateSub
+        | CoreRefUpdateMul
+        | CoreRefUpdateDiv
+        | CoreRefUpdateMod => {
           let right_value = eval_with_env(right, env)
-          eval_binary(ref_update_to_base_binop(op), old_value, right_value)
+          apply_builtin(ref_update_operator_builtin(op), [
+            EArgPos(old_value),
+            EArgPos(right_value),
+          ])
         }
-        RefUpdateAnd =>
+        CoreRefUpdateAnd =>
           if truthy(old_value) {
             eval_with_env(right, env)
           } else {
             old_value
           }
-        RefUpdateOr =>
+        CoreRefUpdateOr =>
           if truthy(old_value) {
             old_value
           } else {
             eval_with_env(right, env)
           }
-        _ => runtime_error("invalid ref binary operator")
+        CoreAnd | CoreOr => runtime_error("invalid ref binary operator")
       }
       cell.value = new_value
       new_value
@@ -461,7 +488,7 @@ fn eval_with_env_and_bindings(expr : Expr, env : Env) -> (Value, Env) raise {
           )
         _ => raise RuntimeErrorAt("unknown runtime error", span)
       }
-    Binary(And, left, right) => {
+    Binary(CoreAnd, left, right) => {
       let (left_value, left_env) = eval_with_env_and_bindings(left, env)
       if truthy(left_value) {
         eval_with_env_and_bindings(right, left_env)
@@ -469,7 +496,7 @@ fn eval_with_env_and_bindings(expr : Expr, env : Env) -> (Value, Env) raise {
         (left_value, env)
       }
     }
-    Binary(Or, left, right) => {
+    Binary(CoreOr, left, right) => {
       let (left_value, left_env) = eval_with_env_and_bindings(left, env)
       if truthy(left_value) {
         (left_value, left_env)
@@ -918,38 +945,6 @@ fn eval_unary(op : UnOp, value : Value) -> Value raise {
 }
 
 ///|
-fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
-  apply_builtin(binary_op_builtin(op), [EArgPos(left), EArgPos(right)])
-}
-
-///|
-fn binary_op_builtin(op : BinOp) -> Builtin raise {
-  match op {
-    Add => BOpAdd
-    Sub => BOpSub
-    Mul => BOpMul
-    Div => BOpDiv
-    Mod => BOpMod
-    Pow => BOpPow
-    Eq => BOpEq
-    Ne => BOpNe
-    Lt => BOpLt
-    Le => BOpLe
-    Gt => BOpGt
-    Ge => BOpGe
-    And | Or => runtime_error("internal: short-circuit op in eval_binary")
-    RefSet
-    | RefUpdateAdd
-    | RefUpdateSub
-    | RefUpdateMul
-    | RefUpdateDiv
-    | RefUpdateMod
-    | RefUpdateAnd
-    | RefUpdateOr => runtime_error("internal: ref binary op in eval_binary")
-  }
-}
-
-///|
 fn int_pow(base : Int, exponent : Int) -> Int {
   guard exponent >= 0 else { 0 }
   for base = base, exponent = exponent, acc = 1 {
@@ -973,28 +968,28 @@ fn repeat_list(items : Array[Value], times : Int) -> Array[Value] {
 }
 
 ///|
-fn ref_update_to_base_binop(op : BinOp) -> BinOp raise {
+fn ref_update_operator_builtin(op : CoreBinOp) -> Builtin raise {
   match op {
-    RefUpdateAdd => Add
-    RefUpdateSub => Sub
-    RefUpdateMul => Mul
-    RefUpdateDiv => Div
-    RefUpdateMod => Mod
+    CoreRefUpdateAdd => BOpAdd
+    CoreRefUpdateSub => BOpSub
+    CoreRefUpdateMul => BOpMul
+    CoreRefUpdateDiv => BOpDiv
+    CoreRefUpdateMod => BOpMod
     _ => runtime_error("invalid numeric ref update operator")
   }
 }
 
 ///|
-fn ref_binary_operator_text(op : BinOp) -> String {
+fn ref_binary_operator_text(op : CoreBinOp) -> String {
   match op {
-    RefSet => "operator ':='"
-    RefUpdateAdd => "operator '+='"
-    RefUpdateSub => "operator '-='"
-    RefUpdateMul => "operator '*='"
-    RefUpdateDiv => "operator '/='"
-    RefUpdateMod => "operator '%='"
-    RefUpdateAnd => "operator '&&='"
-    RefUpdateOr => "operator '||='"
+    CoreRefSet => "operator ':='"
+    CoreRefUpdateAdd => "operator '+='"
+    CoreRefUpdateSub => "operator '-='"
+    CoreRefUpdateMul => "operator '*='"
+    CoreRefUpdateDiv => "operator '/='"
+    CoreRefUpdateMod => "operator '%='"
+    CoreRefUpdateAnd => "operator '&&='"
+    CoreRefUpdateOr => "operator '||='"
     _ => "ref binary operator"
   }
 }
