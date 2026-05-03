@@ -190,6 +190,103 @@ fn apply_builtin(
   args : Array[EvaluatedCallArg],
 ) -> Value raise {
   match builtin {
+    BOpAdd =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(a), VInt(b)) => VInt(a + b)
+          (VString(a), VString(b)) => VString(a + b)
+          (VList(a), VList(b)) => VList(a + b)
+          _ =>
+            type_error_binary(
+              "operator '+'", "(Int, Int) or (String, String) or (List, List)", left,
+              right,
+            )
+        }
+      })
+    BOpSub =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(a), VInt(b)) => VInt(a - b)
+          _ => type_error_binary("operator '-'", "(Int, Int)", left, right)
+        }
+      })
+    BOpMul =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(a), VInt(b)) => VInt(a * b)
+          (VInt(times), VString(text)) | (VString(text), VInt(times)) =>
+            VString(text.repeat(times))
+          (VInt(times), VList(items)) | (VList(items), VInt(times)) =>
+            VList(repeat_list(items, times))
+          (VInt(times), func_value) | (func_value, VInt(times)) if value_is_function(
+              func_value,
+            ) => VList(repeat_function_results(func_value, times))
+          _ =>
+            type_error_binary(
+              "operator '*'", "(Int, Int) or (Int, String) or (String, Int) or (Int, List) or (List, Int) or (Int, Function) or (Function, Int)",
+              left, right,
+            )
+        }
+      })
+    BOpDiv =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(_), VInt(0)) => VInt(0)
+          (VInt(a), VInt(b)) => VInt(a / b)
+          _ => type_error_binary("operator '/'", "(Int, Int)", left, right)
+        }
+      })
+    BOpMod =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(a), VInt(0)) => VInt(a)
+          (VInt(a), VInt(b)) => VInt(a % b)
+          _ => type_error_binary("operator '%'", "(Int, Int)", left, right)
+        }
+      })
+    BOpPow =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(a), VInt(b)) => VInt(int_pow(a, b))
+          _ => type_error_binary("operator '^'", "(Int, Int)", left, right)
+        }
+      })
+    BOpEq =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) {
+        VBool(left == right)
+      })
+    BOpNe =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) {
+        VBool(left != right)
+      })
+    BOpLt =>
+      apply_int_compare_operator_builtin(builtin, args, "operator '<'", fn(
+        a,
+        b,
+      ) {
+        a < b
+      })
+    BOpLe =>
+      apply_int_compare_operator_builtin(builtin, args, "operator '<='", fn(
+        a,
+        b,
+      ) {
+        a <= b
+      })
+    BOpGt =>
+      apply_int_compare_operator_builtin(builtin, args, "operator '>'", fn(
+        a,
+        b,
+      ) {
+        a > b
+      })
+    BOpGe =>
+      apply_int_compare_operator_builtin(builtin, args, "operator '>='", fn(
+        a,
+        b,
+      ) {
+        a >= b
+      })
     BMap => {
       guard args.length() == 2 else { arity_error(2, args.length()) }
       guard args is [EArgPos(list_value), EArgPos(func_value)] else {
@@ -289,7 +386,47 @@ fn builtin_name(builtin : Builtin) -> String {
     BMax => "max"
     BMin => "min"
     BSum => "sum"
+    BOpAdd => "__operator_add"
+    BOpSub => "__operator_sub"
+    BOpMul => "__operator_mul"
+    BOpDiv => "__operator_div"
+    BOpMod => "__operator_mod"
+    BOpPow => "__operator_pow"
+    BOpEq => "__operator_eq"
+    BOpNe => "__operator_ne"
+    BOpLt => "__operator_lt"
+    BOpLe => "__operator_le"
+    BOpGt => "__operator_gt"
+    BOpGe => "__operator_ge"
   }
+}
+
+///|
+fn apply_binary_operator_builtin(
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+  func : (Value, Value) -> Value raise,
+) -> Value raise {
+  guard args.length() == 2 else { arity_error(2, args.length()) }
+  guard args is [EArgPos(left), EArgPos(right)] else {
+    builtin_named_arg_error(builtin)
+  }
+  func(left, right)
+}
+
+///|
+fn apply_int_compare_operator_builtin(
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+  operator : String,
+  func : (Int, Int) -> Bool,
+) -> Value raise {
+  apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+    match (left, right) {
+      (VInt(a), VInt(b)) => VBool(func(a, b))
+      _ => type_error_binary(operator, "(Int, Int)", left, right)
+    }
+  })
 }
 
 ///|

@@ -251,6 +251,18 @@ priv enum Builtin {
   BMax
   BMin
   BSum
+  BOpAdd
+  BOpSub
+  BOpMul
+  BOpDiv
+  BOpMod
+  BOpPow
+  BOpEq
+  BOpNe
+  BOpLt
+  BOpLe
+  BOpGt
+  BOpGe
 } derive(Debug)
 
 ///|
@@ -907,80 +919,25 @@ fn eval_unary(op : UnOp, value : Value) -> Value raise {
 
 ///|
 fn eval_binary(op : BinOp, left : Value, right : Value) -> Value raise {
+  apply_builtin(binary_op_builtin(op), [EArgPos(left), EArgPos(right)])
+}
+
+///|
+fn binary_op_builtin(op : BinOp) -> Builtin raise {
   match op {
-    Add =>
-      match (left, right) {
-        (VInt(a), VInt(b)) => VInt(a + b)
-        (VString(a), VString(b)) => VString(a + b)
-        (VList(a), VList(b)) => VList(a + b)
-        _ =>
-          type_error_binary(
-            "operator '+'", "(Int, Int) or (String, String) or (List, List)", left,
-            right,
-          )
-      }
-    Sub =>
-      match (left, right) {
-        (VInt(a), VInt(b)) => VInt(a - b)
-        _ => type_error_binary("operator '-'", "(Int, Int)", left, right)
-      }
-    Mul =>
-      match (left, right) {
-        (VInt(a), VInt(b)) => VInt(a * b)
-        (VInt(times), VString(text)) | (VString(text), VInt(times)) =>
-          VString(text.repeat(times))
-        (VInt(times), VList(items)) | (VList(items), VInt(times)) =>
-          VList(repeat_list(items, times))
-        (VInt(times), func_value) | (func_value, VInt(times)) if value_is_function(
-            func_value,
-          ) => VList(repeat_function_results(func_value, times))
-        _ =>
-          type_error_binary(
-            "operator '*'", "(Int, Int) or (Int, String) or (String, Int) or (Int, List) or (List, Int) or (Int, Function) or (Function, Int)",
-            left, right,
-          )
-      }
-    Div =>
-      match (left, right) {
-        (VInt(_), VInt(0)) => VInt(0)
-        (VInt(a), VInt(b)) => VInt(a / b)
-        _ => type_error_binary("operator '/'", "(Int, Int)", left, right)
-      }
-    Mod =>
-      match (left, right) {
-        (VInt(a), VInt(0)) => VInt(a)
-        (VInt(a), VInt(b)) => VInt(a % b)
-        _ => type_error_binary("operator '%'", "(Int, Int)", left, right)
-      }
-    Pow =>
-      match (left, right) {
-        (VInt(a), VInt(b)) => VInt(int_pow(a, b))
-        _ => type_error_binary("operator '^'", "(Int, Int)", left, right)
-      }
-    Eq => VBool(left == right)
-    Ne => VBool(left != right)
-    Lt =>
-      match (left, right) {
-        (VInt(a), VInt(b)) => VBool(a < b)
-        _ => type_error_binary("operator '<'", "(Int, Int)", left, right)
-      }
-    Le =>
-      match (left, right) {
-        (VInt(a), VInt(b)) => VBool(a <= b)
-        _ => type_error_binary("operator '<='", "(Int, Int)", left, right)
-      }
-    Gt =>
-      match (left, right) {
-        (VInt(a), VInt(b)) => VBool(a > b)
-        _ => type_error_binary("operator '>'", "(Int, Int)", left, right)
-      }
-    Ge =>
-      match (left, right) {
-        (VInt(a), VInt(b)) => VBool(a >= b)
-        _ => type_error_binary("operator '>='", "(Int, Int)", left, right)
-      }
-    And => if truthy(left) { right } else { left }
-    Or => if truthy(left) { left } else { right }
+    Add => BOpAdd
+    Sub => BOpSub
+    Mul => BOpMul
+    Div => BOpDiv
+    Mod => BOpMod
+    Pow => BOpPow
+    Eq => BOpEq
+    Ne => BOpNe
+    Lt => BOpLt
+    Le => BOpLe
+    Gt => BOpGt
+    Ge => BOpGe
+    And | Or => runtime_error("internal: short-circuit op in eval_binary")
     RefSet
     | RefUpdateAdd
     | RefUpdateSub
