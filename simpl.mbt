@@ -397,10 +397,9 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     Binary(op, left, right) =>
       match op {
         CoreAnd => {
-          let (left_value, left_env) = eval_with_env_and_bindings(left, env)
+          let left_value = eval_with_env(left, env)
           if truthy(left_value) {
-            let (right_value, _) = eval_with_env_and_bindings(right, left_env)
-            right_value
+            eval_with_env(right, env)
           } else {
             left_value
           }
@@ -414,12 +413,11 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
         | CoreRefUpdateAnd
         | CoreRefUpdateOr => eval_ref_binop(op, left, right, env)
         CoreOr => {
-          let (left_value, left_env) = eval_with_env_and_bindings(left, env)
+          let left_value = eval_with_env(left, env)
           if truthy(left_value) {
             left_value
           } else {
-            let (right_value, _) = eval_with_env_and_bindings(right, left_env)
-            right_value
+            eval_with_env(right, env)
           }
         }
       }
@@ -473,49 +471,8 @@ fn eval_ref_binop(
 }
 
 ///|
-fn eval_with_env_and_bindings(expr : Expr, env : Env) -> (Value, Env) raise {
-  match expr {
-    Located(span, inner) =>
-      eval_with_env_and_bindings(inner, env) catch {
-        RuntimeErrorAt(message, inner_span) =>
-          raise RuntimeErrorAt(
-            message,
-            if inner_span == unknown_source_span() {
-              span
-            } else {
-              inner_span
-            },
-          )
-        _ => raise RuntimeErrorAt("unknown runtime error", span)
-      }
-    Binary(CoreAnd, left, right) => {
-      let (left_value, left_env) = eval_with_env_and_bindings(left, env)
-      if truthy(left_value) {
-        eval_with_env_and_bindings(right, left_env)
-      } else {
-        (left_value, env)
-      }
-    }
-    Binary(CoreOr, left, right) => {
-      let (left_value, left_env) = eval_with_env_and_bindings(left, env)
-      if truthy(left_value) {
-        (left_value, left_env)
-      } else {
-        eval_with_env_and_bindings(right, left_env)
-      }
-    }
-    _ => (eval_with_env(expr, env), env)
-  }
-}
-
-///|
-fn eval_condition_bindings(cond : Expr, env : Env) -> (Bool, Env) raise {
-  let (value, next_env) = eval_with_env_and_bindings(cond, env)
-  if truthy(value) {
-    (true, next_env)
-  } else {
-    (false, env)
-  }
+fn eval_condition(cond : Expr, env : Env) -> Bool raise {
+  truthy(eval_with_env(cond, env))
 }
 
 ///|
@@ -543,11 +500,11 @@ fn eval_if_cond_arms_with_fallback(
     fallback.map(default_expr => eval_with_env(default_expr, env))
   }
   let IfCondArm(cond, arm_guard) = arms[i]
-  let (passes, base_env) = eval_condition_bindings(cond, env)
+  let passes = eval_condition(cond, env)
   guard passes else {
     eval_if_cond_arms_with_fallback(arms, fallback, env, i + 1)
   }
-  guard eval_if_guard(arm_guard, base_env) is Some(result) else {
+  guard eval_if_guard(arm_guard, env) is Some(result) else {
     eval_if_cond_arms_with_fallback(arms, fallback, env, i + 1)
   }
   Some(result)
