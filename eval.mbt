@@ -9,31 +9,6 @@ fn eval(expr : Expr) -> Value raise {
 }
 
 ///|
-fn initial_env() -> Env {
-  let env = builtin_bindings().fold(init=@hashmap.new(), (env, binding) => {
-    let (name, builtin) = binding
-    env.add(name, VBuiltin(builtin))
-  })
-  singleton_bindings().fold(init=env, (env, binding) => {
-    let (name, value) = binding
-    env.add(name, value)
-  })
-}
-
-///|
-fn builtin_bindings() -> Array[(String, Builtin)] {
-  builtin_entries().map(entry => {
-    let (builtin, name, _) = entry
-    (name, builtin)
-  })
-}
-
-///|
-fn singleton_bindings() -> Array[(String, Value)] {
-  [("__true", VBool(true)), ("__false", VBool(false)), ("__nil", VNil)]
-}
-
-///|
 fn eval_with_env(expr : Expr, env : Env) -> Value raise {
   match expr {
     Located(span, inner) =>
@@ -130,13 +105,6 @@ fn eval_if_cond_arms_with_fallback(
 }
 
 ///|
-/// Helpers: environment and apply
-fn lookup(env : Env, name : String) -> Value raise {
-  guard env.get(name) is Some(value) else { undefined_variable_error(name) }
-  value
-}
-
-///|
 fn eval_let_and_bindings(
   bindings : Array[(MatchPattern, Expr)],
   env : Env,
@@ -150,28 +118,6 @@ fn eval_let_and_bindings(
     let (pattern, value) = evaluated
     bind_pattern(pattern, value, env)
   })
-}
-
-///|
-fn build_rec_env(
-  defs : Array[(String, Array[Param], Expr)],
-  closure_env : Env,
-) -> Env {
-  defs.fold(init=closure_env, (env, def) => {
-    let (name, _, _) = def
-    let closure = rec_closure_def(def, closure_env, defs)
-    env.add(name, closure)
-  })
-}
-
-///|
-fn rec_closure_def(
-  def : (String, Array[Param], Expr),
-  closure_env : Env,
-  defs : Array[(String, Array[Param], Expr)],
-) -> Value {
-  let (name, params, body) = def
-  VRecClosure(name, params, body, closure_env, defs)
 }
 
 ///|
@@ -226,7 +172,7 @@ fn eval_field_value_or_ufcs(
     apply_ufcs(name, target_value, [], env)
   }
   guard fields.get(name) is Some(value) else {
-    guard env.get(name) is Some(func_value) && value_is_function(func_value) else {
+    guard lookup_function(env, name) is Some(func_value) else {
       missing_field_error(name, target_value)
     }
     apply(func_value, [EArgPos(target_value)])
@@ -245,7 +191,7 @@ fn eval_field_call_or_ufcs(
     apply_ufcs(name, target_value, args, env)
   }
   guard fields.get(name) is Some(value) else {
-    guard env.get(name) is Some(func_value) && value_is_function(func_value) else {
+    guard lookup_function(env, name) is Some(func_value) else {
       missing_field_error(name, target_value)
     }
     apply(func_value, [EArgPos(target_value)] + args)
@@ -260,7 +206,7 @@ fn apply_ufcs(
   args : Array[EvaluatedCallArg],
   env : Env,
 ) -> Value raise {
-  guard env.get(name) is Some(func_value) && value_is_function(func_value) else {
+  guard lookup_function(env, name) is Some(func_value) else {
     missing_function_error(name)
   }
   apply(func_value, [EArgPos(target_value)] + args)
