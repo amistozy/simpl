@@ -344,6 +344,54 @@ fn apply_builtin(
       ) raise {
         apply_builtin(BOpMod, [EArgPos(left), EArgPos(right)])
       })
+    BOpAnd =>
+      apply_short_circuit_operator_builtin(builtin, args, fn(
+        left,
+        thunk,
+      ) raise {
+        if truthy(left) {
+          apply(thunk, [])
+        } else {
+          left
+        }
+      })
+    BOpOr =>
+      apply_short_circuit_operator_builtin(builtin, args, fn(
+        left,
+        thunk,
+      ) raise {
+        if truthy(left) {
+          left
+        } else {
+          apply(thunk, [])
+        }
+      })
+    BOpRefUpdateAnd =>
+      apply_ref_short_circuit_operator_builtin(
+        builtin,
+        args,
+        "operator '&&='",
+        fn(old_value, thunk) raise {
+          if truthy(old_value) {
+            apply(thunk, [])
+          } else {
+            old_value
+          }
+        },
+      )
+    BOpRefUpdateOr =>
+      apply_ref_short_circuit_operator_builtin(
+        builtin,
+        args,
+        "operator '||='",
+        fn(old_value, thunk) raise {
+          if truthy(old_value) {
+            old_value
+          } else {
+            apply(thunk, [])
+          }
+        },
+      )
     BMap => {
       guard args.length() == 2 else { arity_error(2, args.length()) }
       guard args is [EArgPos(list_value), EArgPos(func_value)] else {
@@ -464,6 +512,10 @@ fn builtin_name(builtin : Builtin) -> String {
     BOpRefUpdateMul => "__operator_ref_update_mul"
     BOpRefUpdateDiv => "__operator_ref_update_div"
     BOpRefUpdateMod => "__operator_ref_update_mod"
+    BOpAnd => "__operator_and"
+    BOpOr => "__operator_or"
+    BOpRefUpdateAnd => "__operator_ref_update_and"
+    BOpRefUpdateOr => "__operator_ref_update_or"
   }
 }
 
@@ -502,6 +554,41 @@ fn apply_ref_operator_builtin(
     match left {
       VRef(_) as cell => {
         let new_value = func(cell.value, right)
+        cell.value = new_value
+        new_value
+      }
+      value => type_error_unary(operator, "Ref on left side", value)
+    }
+  })
+}
+
+///|
+fn apply_short_circuit_operator_builtin(
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+  func : (Value, Value) -> Value raise,
+) -> Value raise {
+  guard args.length() == 2 else { arity_error(2, args.length()) }
+  guard args is [EArgPos(left), EArgPos(thunk)] else {
+    builtin_named_arg_error(builtin)
+  }
+  guard value_is_function(thunk) else {
+    builtin_type_error(builtin_name(builtin), "Function", thunk)
+  }
+  func(left, thunk)
+}
+
+///|
+fn apply_ref_short_circuit_operator_builtin(
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+  operator : String,
+  func : (Value, Value) -> Value raise,
+) -> Value raise {
+  apply_short_circuit_operator_builtin(builtin, args, fn(left, thunk) raise {
+    match left {
+      VRef(_) as cell => {
+        let new_value = func(cell.value, thunk)
         cell.value = new_value
         new_value
       }

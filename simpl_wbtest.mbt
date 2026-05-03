@@ -127,21 +127,35 @@ test "desugar lowers eager ref update operators to builtin calls" {
 }
 
 ///|
-test "desugar keeps short-circuit ref update operators in core binary form" {
+test "desugar lowers short-circuit ref update operators to thunked builtin calls" {
   match desugar(parse("r &&= f()")) {
     Located(
       _,
-      Binary(CoreRefUpdateAnd, Located(_, Var("r")), Located(_, Call(_, _)))
+      Call(
+        Var("__operator_ref_update_and"),
+        [
+          ArgPos(Located(_, Var("r"))),
+          ArgPos(Lambda([], Located(_, Call(_, _)))),
+        ]
+      )
     ) => assert_true(true)
     _ => assert_true(false)
   }
 }
 
 ///|
-test "desugar keeps short-circuit operators in core binary form" {
+test "desugar lowers short-circuit operators to thunked builtin calls" {
   match desugar(parse("ok && ready")) {
-    Located(_, Binary(CoreAnd, Located(_, Var("ok")), Located(_, Var("ready")))) =>
-      assert_true(true)
+    Located(
+      _,
+      Call(
+        Var("__operator_and"),
+        [
+          ArgPos(Located(_, Var("ok"))),
+          ArgPos(Lambda([], Located(_, Var("ready")))),
+        ]
+      )
+    ) => assert_true(true)
     _ => assert_true(false)
   }
 }

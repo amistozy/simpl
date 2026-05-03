@@ -255,10 +255,11 @@ fn unary_operator_builtin_name(op : UnOp) -> String {
 ///|
 fn desugar_binary_core(op : BinOp, left : Expr, right : Expr) -> Expr {
   match op {
-    And => Binary(CoreAnd, left, right)
-    Or => Binary(CoreOr, left, right)
-    RefUpdateAnd => Binary(CoreRefUpdateAnd, left, right)
-    RefUpdateOr => Binary(CoreRefUpdateOr, left, right)
+    And | Or | RefUpdateAnd | RefUpdateOr =>
+      Call(Var(binary_operator_builtin_name(op)), [
+        ArgPos(left),
+        ArgPos(Lambda([], right)),
+      ])
     _ =>
       Call(Var(binary_operator_builtin_name(op)), [ArgPos(left), ArgPos(right)])
   }
@@ -285,7 +286,10 @@ fn binary_operator_builtin_name(op : BinOp) -> String {
     RefUpdateMul => "__operator_ref_update_mul"
     RefUpdateDiv => "__operator_ref_update_div"
     RefUpdateMod => "__operator_ref_update_mod"
-    _ => "__operator_invalid"
+    And => "__operator_and"
+    Or => "__operator_or"
+    RefUpdateAnd => "__operator_ref_update_and"
+    RefUpdateOr => "__operator_ref_update_or"
   }
 }
 

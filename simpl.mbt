@@ -128,7 +128,6 @@ priv enum Expr {
   Lambda(Array[Param], Expr)
   Call(Expr, Array[CallArg])
   Field(Expr, String)
-  Binary(CoreBinOp, Expr, Expr)
 } derive(Debug)
 
 ///|
@@ -207,14 +206,6 @@ priv enum BinOp {
 } derive(Debug)
 
 ///|
-priv enum CoreBinOp {
-  CoreAnd
-  CoreOr
-  CoreRefUpdateAnd
-  CoreRefUpdateOr
-} derive(Debug)
-
-///|
 priv enum UnOp {
   Neg
   Bang
@@ -279,6 +270,10 @@ priv enum Builtin {
   BOpRefUpdateMul
   BOpRefUpdateDiv
   BOpRefUpdateMod
+  BOpAnd
+  BOpOr
+  BOpRefUpdateAnd
+  BOpRefUpdateOr
 } derive(Debug)
 
 ///|
@@ -343,6 +338,10 @@ fn builtin_bindings() -> Array[(String, Builtin)] {
     (builtin_name(BOpRefUpdateMul), BOpRefUpdateMul),
     (builtin_name(BOpRefUpdateDiv), BOpRefUpdateDiv),
     (builtin_name(BOpRefUpdateMod), BOpRefUpdateMod),
+    (builtin_name(BOpAnd), BOpAnd),
+    (builtin_name(BOpOr), BOpOr),
+    (builtin_name(BOpRefUpdateAnd), BOpRefUpdateAnd),
+    (builtin_name(BOpRefUpdateOr), BOpRefUpdateOr),
   ]
 }
 
@@ -404,61 +403,6 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
       let target_value = eval_with_env(target, env)
       eval_field_value_or_ufcs(target_value, name, env)
     }
-    Binary(op, left, right) =>
-      match op {
-        CoreAnd => {
-          let left_value = eval_with_env(left, env)
-          if truthy(left_value) {
-            eval_with_env(right, env)
-          } else {
-            left_value
-          }
-        }
-        CoreRefUpdateAnd | CoreRefUpdateOr =>
-          eval_ref_binop(op, left, right, env)
-        CoreOr => {
-          let left_value = eval_with_env(left, env)
-          if truthy(left_value) {
-            left_value
-          } else {
-            eval_with_env(right, env)
-          }
-        }
-      }
-  }
-}
-
-///|
-fn eval_ref_binop(
-  op : CoreBinOp,
-  left : Expr,
-  right : Expr,
-  env : Env,
-) -> Value raise {
-  let left_value = eval_with_env(left, env)
-  match left_value {
-    VRef(_) as cell => {
-      let old_value = cell.value
-      let new_value = match op {
-        CoreRefUpdateAnd =>
-          if truthy(old_value) {
-            eval_with_env(right, env)
-          } else {
-            old_value
-          }
-        CoreRefUpdateOr =>
-          if truthy(old_value) {
-            old_value
-          } else {
-            eval_with_env(right, env)
-          }
-        CoreAnd | CoreOr => runtime_error("invalid ref binary operator")
-      }
-      cell.value = new_value
-      new_value
-    }
-    value =>
-      type_error_unary(ref_binary_operator_text(op), "Ref on left side", value)
   }
 }
 
@@ -896,15 +840,6 @@ fn repeat_list(items : Array[Value], times : Int) -> Array[Value] {
     []
   } else {
     items.repeat(times)
-  }
-}
-
-///|
-fn ref_binary_operator_text(op : CoreBinOp) -> String {
-  match op {
-    CoreRefUpdateAnd => "operator '&&='"
-    CoreRefUpdateOr => "operator '||='"
-    _ => "ref binary operator"
   }
 }
 

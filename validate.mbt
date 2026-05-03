@@ -93,10 +93,6 @@ fn validate_expr(
       arg_exprs.each(arg => validate_call_arg_expr(arg, span, bound_names))
     }
     Field(target, _) => validate_expr(target, span, bound_names)
-    Binary(_, left, right) => {
-      validate_expr(left, span, bound_names)
-      validate_expr(right, span, bound_names)
-    }
   }
 }
 
