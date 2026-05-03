@@ -16,7 +16,7 @@ fn validate_expr(
 ) -> Unit raise {
   match expr {
     Located(expr_span, inner) => validate_expr(inner, expr_span, bound_names)
-    IntLit(_) | BoolLit(_) | StringLit(_) | NilLit => ()
+    IntLit(_) | StringLit(_) => ()
     Var(name) =>
       if is_eta_placeholder_name(name) &&
         !array_contains_name(bound_names, name) {

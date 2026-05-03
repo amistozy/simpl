@@ -113,9 +113,7 @@ priv enum SurfaceRecordPatternField {
 priv enum Expr {
   Located(SourceSpan, Expr)
   IntLit(Int)
-  BoolLit(Bool)
   StringLit(String)
-  NilLit
   List(Array[ListItem])
   Var(String)
   If(Array[IfCondArm], Expr)
@@ -298,9 +296,13 @@ fn eval(expr : Expr) -> Value raise {
 
 ///|
 fn initial_env() -> Env {
-  builtin_bindings().fold(init=@hashmap.new(), (env, binding) => {
+  let env = builtin_bindings().fold(init=@hashmap.new(), (env, binding) => {
     let (name, builtin) = binding
     env.add(name, VBuiltin(builtin))
+  })
+  singleton_bindings().fold(init=env, (env, binding) => {
+    let (name, value) = binding
+    env.add(name, value)
   })
 }
 
@@ -348,6 +350,11 @@ fn builtin_bindings() -> Array[(String, Builtin)] {
 }
 
 ///|
+fn singleton_bindings() -> Array[(String, Value)] {
+  [("__true", VBool(true)), ("__false", VBool(false)), ("__nil", VNil)]
+}
+
+///|
 fn eval_with_env(expr : Expr, env : Env) -> Value raise {
   match expr {
     Located(span, inner) =>
@@ -364,9 +371,7 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
         _ => raise RuntimeErrorAt("unknown runtime error", span)
       }
     IntLit(v) => VInt(v)
-    BoolLit(v) => VBool(v)
     StringLit(v) => VString(v)
-    NilLit => VNil
     List(items) => VList(eval_list_items(items, env))
     Var(name) => lookup(env, name)
     If(cases, else_expr) => eval_if_cond_arms(cases, else_expr, env, 0)

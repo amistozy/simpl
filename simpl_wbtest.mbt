@@ -62,11 +62,11 @@ test "calling non function errors" {
 test "record equality" {
   let left = Call(Var("__record"), [
     ArgNamed("a", IntLit(1)),
-    ArgNamed("b", BoolLit(true)),
+    ArgNamed("b", Var("__true")),
   ])
   let right = Call(Var("__record"), [
     ArgNamed("a", IntLit(1)),
-    ArgNamed("b", BoolLit(true)),
+    ArgNamed("b", Var("__true")),
   ])
   assert_true(
     try eval(Call(Var("__operator_eq"), [ArgPos(left), ArgPos(right)])) catch {
@@ -91,6 +91,14 @@ test "parser preserves do sugar before desugar" {
 test "desugar lowers do to ignored let" {
   match desugar(SDo(SIntLit(1), SIntLit(2))) {
     Let(PBind("_"), IntLit(1), IntLit(2)) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar lowers singleton literals to builtin values" {
+  match (desugar(SBoolLit(true)), desugar(SBoolLit(false)), desugar(SNilLit)) {
+    (Var("__true"), Var("__false"), Var("__nil")) => assert_true(true)
     _ => assert_true(false)
   }
 }

@@ -26,9 +26,10 @@ fn desugar_expr_with_placeholders(
       (Located(span, core_expr), names, next_id)
     }
     SIntLit(v) => (IntLit(v), [], next_placeholder_id)
-    SBoolLit(v) => (BoolLit(v), [], next_placeholder_id)
+    SBoolLit(v) =>
+      (Var(if v { "__true" } else { "__false" }), [], next_placeholder_id)
     SStringLit(v) => (StringLit(v), [], next_placeholder_id)
-    SNilLit => (NilLit, [], next_placeholder_id)
+    SNilLit => (Var("__nil"), [], next_placeholder_id)
     SUnderscore => {
       let name = eta_placeholder_name(next_placeholder_id)
       (Var(name), [name], next_placeholder_id + 1)
