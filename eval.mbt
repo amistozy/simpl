@@ -211,136 +211,6 @@ fn rec_closure_def(
 }
 
 ///|
-fn[T] builtin_type_error(
-  name : String,
-  expected : String,
-  actual : Value,
-) -> T raise {
-  runtime_error(
-    "builtin '\{name}' expected \{expected}, got \{typed_value_summary(actual)}",
-  )
-}
-
-///|
-fn bind_params(
-  params : Array[Param],
-  args : Array[EvaluatedCallArg],
-  base : Env,
-) -> Env raise {
-  let assigned = params.map(_ => None)
-  bind_named_args(params, args, assigned)
-  bind_positional_args(params, args, assigned, 0, 0)
-  let provided_count = count_assigned_values(assigned, 0, 0)
-  let required_count = count_required_params(params, 0, 0)
-  finalize_param_bindings(
-    params, assigned, provided_count, required_count, base, 0,
-  )
-}
-
-///|
-fn bind_named_args(
-  params : Array[Param],
-  args : Array[EvaluatedCallArg],
-  assigned : Array[Value?],
-) -> Unit raise {
-  for arg in args {
-    guard arg is EArgNamed(name, value) else {  }
-    guard find_param_index_by_name(params, name) is Some(param_i) else {
-      runtime_error("unknown named argument: \{name}")
-    }
-    guard assigned[param_i] is None else {
-      runtime_error("duplicate argument: \{name}")
-    }
-    assigned[param_i] = Some(value)
-  }
-}
-
-///|
-fn find_param_index_by_name(params : Array[Param], name : String) -> Int? {
-  params.search_by(param => {
-    let Param(_, _, param_name) = param
-    param_name is Some(n) && n == name
-  })
-}
-
-///|
-fn bind_positional_args(
-  params : Array[Param],
-  args : Array[EvaluatedCallArg],
-  assigned : Array[Value?],
-  i : Int,
-  next_param_i : Int,
-) -> Unit raise {
-  guard i < args.length() else {  }
-  guard args[i] is EArgPos(value) else {
-    bind_positional_args(params, args, assigned, i + 1, next_param_i)
-  }
-  guard find_next_unassigned_param(assigned, next_param_i) is Some(param_i) else {
-    arity_error(params.length(), args.length())
-  }
-  assigned[param_i] = Some(value)
-  bind_positional_args(params, args, assigned, i + 1, param_i + 1)
-}
-
-///|
-fn find_next_unassigned_param(assigned : Array[Value?], i : Int) -> Int? {
-  guard i < assigned.length() else { None }
-  match assigned[i] {
-    Some(_) => find_next_unassigned_param(assigned, i + 1)
-    None => Some(i)
-  }
-}
-
-///|
-fn finalize_param_bindings(
-  params : Array[Param],
-  assigned : Array[Value?],
-  provided_count : Int,
-  required_count : Int,
-  env : Env,
-  i : Int,
-) -> Env raise {
-  guard i < params.length() else { env }
-  let Param(pattern, default_expr, _) = params[i]
-  let value = match assigned[i] {
-    Some(v) => v
-    None =>
-      match default_expr {
-        Some(expr) => eval_with_env(expr, env)
-        None => arity_error(required_count, provided_count)
-      }
-  }
-  let next_env = bind_pattern(pattern, value, env)
-  finalize_param_bindings(
-    params,
-    assigned,
-    provided_count,
-    required_count,
-    next_env,
-    i + 1,
-  )
-}
-
-///|
-fn count_assigned_values(assigned : Array[Value?], i : Int, acc : Int) -> Int {
-  guard i < assigned.length() else { acc }
-  match assigned[i] {
-    Some(_) => count_assigned_values(assigned, i + 1, acc + 1)
-    None => count_assigned_values(assigned, i + 1, acc)
-  }
-}
-
-///|
-fn count_required_params(params : Array[Param], i : Int, acc : Int) -> Int {
-  guard i < params.length() else { acc }
-  let Param(_, default_expr, _) = params[i]
-  match default_expr {
-    Some(_) => count_required_params(params, i + 1, acc)
-    None => count_required_params(params, i + 1, acc + 1)
-  }
-}
-
-///|
 /// Helpers: list and argument evaluation
 fn eval_list_items(items : Array[ListItem], env : Env) -> Array[Value] raise {
   let values = []
@@ -432,16 +302,6 @@ fn eval_field_call_or_ufcs(
 }
 
 ///|
-fn value_is_function(value : Value) -> Bool {
-  match value {
-    VClosure(_) => true
-    VRecClosure(_) => true
-    VBuiltin(_) => true
-    _ => false
-  }
-}
-
-///|
 fn apply_ufcs(
   name : String,
   target_value : Value,
@@ -526,27 +386,4 @@ fn[T] type_error_binary(
   runtime_error(
     "type error: \{operator} expected \{expected}, got (\{typed_value_summary(left)}, \{typed_value_summary(right)})",
   )
-}
-
-///|
-fn int_pow(base : Int, exponent : Int) -> Int {
-  guard exponent >= 0 else { 0 }
-  for base = base, exponent = exponent, acc = 1 {
-    if exponent == 0 {
-      break acc
-    } else if exponent % 2 == 0 {
-      continue base * base, exponent / 2, acc
-    } else {
-      continue base, exponent - 1, acc * base
-    }
-  }
-}
-
-///|
-fn repeat_list(items : Array[Value], times : Int) -> Array[Value] {
-  if times <= 0 {
-    []
-  } else {
-    items.repeat(times)
-  }
 }
