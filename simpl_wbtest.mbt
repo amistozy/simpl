@@ -60,8 +60,14 @@ test "calling non function errors" {
 
 ///|
 test "record equality" {
-  let left = Record([("a", IntLit(1)), ("b", BoolLit(true))])
-  let right = Record([("a", IntLit(1)), ("b", BoolLit(true))])
+  let left = Call(Var("__record"), [
+    ArgNamed("a", IntLit(1)),
+    ArgNamed("b", BoolLit(true)),
+  ])
+  let right = Call(Var("__record"), [
+    ArgNamed("a", IntLit(1)),
+    ArgNamed("b", BoolLit(true)),
+  ])
   assert_true(
     try eval(Call(Var("__operator_eq"), [ArgPos(left), ArgPos(right)])) catch {
       _ => false
@@ -609,7 +615,17 @@ test "parser gives power higher precedence than multiplication" {
 test "desugar lowers record shorthand to field variable" {
   match
     desugar(SRecord([SRecordShorthand("x"), SRecordField("y", SIntLit(1))])) {
-    Record([("x", Var("x")), ("y", IntLit(1))]) => assert_true(true)
+    Call(Var("__record"), [ArgNamed("x", Var("x")), ArgNamed("y", IntLit(1))]) =>
+      assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar lowers variant construction to builtin call" {
+  match desugar(SVariant("Ok", SIntLit(1))) {
+    Call(Var("__variant"), [ArgPos(StringLit("Ok")), ArgPos(IntLit(1))]) =>
+      assert_true(true)
     _ => assert_true(false)
   }
 }

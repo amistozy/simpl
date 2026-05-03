@@ -118,8 +118,6 @@ priv enum Expr {
   NilLit
   List(Array[ListItem])
   Var(String)
-  Record(Array[(String, Expr)])
-  Variant(String, Expr)
   If(Array[IfCondArm], Expr)
   Let(MatchPattern, Expr, Expr)
   LetAnd(Array[(MatchPattern, Expr)], Expr)
@@ -274,6 +272,8 @@ priv enum Builtin {
   BOpOr
   BOpRefUpdateAnd
   BOpRefUpdateOr
+  BRecord
+  BVariant
 } derive(Debug)
 
 ///|
@@ -342,6 +342,8 @@ fn builtin_bindings() -> Array[(String, Builtin)] {
     (builtin_name(BOpOr), BOpOr),
     (builtin_name(BOpRefUpdateAnd), BOpRefUpdateAnd),
     (builtin_name(BOpRefUpdateOr), BOpRefUpdateOr),
+    (builtin_name(BRecord), BRecord),
+    (builtin_name(BVariant), BVariant),
   ]
 }
 
@@ -367,8 +369,6 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
     NilLit => VNil
     List(items) => VList(eval_list_items(items, env))
     Var(name) => lookup(env, name)
-    Record(fields) => VRecord(eval_record_fields(fields, env))
-    Variant(tag, value_expr) => VVariant(tag, eval_with_env(value_expr, env))
     If(cases, else_expr) => eval_if_cond_arms(cases, else_expr, env, 0)
     Let(pattern, value_expr, body) => {
       let v = eval_with_env(value_expr, env)
@@ -733,17 +733,6 @@ fn apply_ufcs(
     missing_function_error(name)
   }
   apply(func_value, [EArgPos(target_value)] + args)
-}
-
-///|
-fn eval_record_fields(
-  fields : Array[(String, Expr)],
-  env : Env,
-) -> @hashmap.HashMap[String, Value] raise {
-  fields.fold(init=@hashmap.new(), (acc, field) => {
-    let (name, expr) = field
-    acc.add(name, eval_with_env(expr, env))
-  })
 }
 
 ///|

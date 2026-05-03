@@ -458,7 +458,7 @@ test "duplicate names in if-is pattern are rejected statically" {
 }
 
 ///|
-test "duplicate record fields are rejected statically" {
+test "duplicate record fields are rejected before value evaluation" {
   assert_true(@simpl.parse_is_ok("let r = {x = 1; x = missing}; 0"))
   assert_true(@simpl.eval_source_is_error("let r = {x = 1; x = missing}; 0"))
 }

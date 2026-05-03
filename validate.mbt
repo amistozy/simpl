@@ -31,14 +31,6 @@ fn validate_expr(
             validate_expr(expr, span, bound_names)
         }
       })
-    Record(fields) => {
-      validate_unique_record_fields(fields, span)
-      fields.each(field => {
-        let (_, value_expr) = field
-        validate_expr(value_expr, span, bound_names)
-      })
-    }
-    Variant(_, value_expr) => validate_expr(value_expr, span, bound_names)
     If(cases, else_expr) => {
       cases.each(arm => validate_if_cond_arm(arm, span, bound_names))
       validate_expr(else_expr, span, bound_names)
@@ -286,20 +278,6 @@ fn is_eta_placeholder_name(name : String) -> Bool {
 ///|
 fn array_contains_name(items : Array[String], target : String) -> Bool {
   items.contains(target)
-}
-
-///|
-fn validate_unique_record_fields(
-  fields : Array[(String, Expr)],
-  span : SourceSpan,
-) -> Unit raise {
-  let seen = Set::new()
-  for field in fields {
-    let (name, _) = field
-    if !seen.add_and_check(name) {
-      static_error_at("duplicate field: \{name}", span)
-    }
-  }
 }
 
 ///|

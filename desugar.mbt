@@ -45,20 +45,24 @@ fn desugar_expr_with_placeholders(
       (List(items_core), names, next_id)
     }
     SRecord(fields) => {
-      let (fields_core, names, next_id) = desugar_record_fields_with_placeholders(
+      let (args_core, names, next_id) = desugar_record_fields_with_placeholders(
         fields,
         next_placeholder_id,
         [],
         [],
         0,
       )
-      (Record(fields_core), names, next_id)
+      (Call(Var("__record"), args_core), names, next_id)
     }
     SVariant(tag, value_expr) => {
       let (value_core, names, next_id) = desugar_expr_with_placeholders(
         value_expr, next_placeholder_id,
       )
-      (Variant(tag, value_core), names, next_id)
+      (
+        Call(Var("__variant"), [ArgPos(StringLit(tag)), ArgPos(value_core)]),
+        names,
+        next_id,
+      )
     }
     SIf(cases, else_expr) => {
       let (cases_core, case_names, next_after_cases) = desugar_if_cond_arms_with_placeholders(
@@ -445,10 +449,10 @@ fn desugar_expr_list_with_placeholders(
 fn desugar_record_fields_with_placeholders(
   fields : Array[SurfaceRecordField],
   next_placeholder_id : Int,
-  acc : Array[(String, Expr)],
+  acc : Array[CallArg],
   names : Array[String],
   i : Int,
-) -> (Array[(String, Expr)], Array[String], Int) {
+) -> (Array[CallArg], Array[String], Int) {
   guard i < fields.length() else { (acc, names, next_placeholder_id) }
   let (name, value_expr) = match fields[i] {
     SRecordField(field_name, expr) => (field_name, expr)
@@ -460,7 +464,7 @@ fn desugar_record_fields_with_placeholders(
   desugar_record_fields_with_placeholders(
     fields,
     next_id,
-    acc + [(name, value_core)],
+    acc + [ArgNamed(name, value_core)],
     names + value_names,
     i + 1,
   )

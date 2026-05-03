@@ -392,6 +392,8 @@ fn apply_builtin(
           }
         },
       )
+    BRecord => apply_builtin_record(args)
+    BVariant => apply_builtin_variant(args)
     BMap => {
       guard args.length() == 2 else { arity_error(2, args.length()) }
       guard args is [EArgPos(list_value), EArgPos(func_value)] else {
@@ -516,6 +518,29 @@ fn builtin_name(builtin : Builtin) -> String {
     BOpOr => "__operator_or"
     BOpRefUpdateAnd => "__operator_ref_update_and"
     BOpRefUpdateOr => "__operator_ref_update_or"
+    BRecord => "__record"
+    BVariant => "__variant"
+  }
+}
+
+///|
+fn apply_builtin_record(args : Array[EvaluatedCallArg]) -> Value raise {
+  VRecord <| args.fold(init=@hashmap.new(), (fields, arg) => {
+    guard arg is EArgNamed(name, value) else {
+      runtime_error("builtin '__record' only accepts named arguments")
+    }
+    fields.add(name, value)
+  })
+}
+
+///|
+fn apply_builtin_variant(args : Array[EvaluatedCallArg]) -> Value raise {
+  guard args.length() == 2 else { arity_error(2, args.length()) }
+  match args {
+    [EArgPos(VString(tag)), EArgPos(payload)] => VVariant(tag, payload)
+    [EArgPos(tag_value), EArgPos(_)] =>
+      builtin_type_error("__variant", "String tag", tag_value)
+    _ => builtin_named_arg_error(BVariant)
   }
 }
 
