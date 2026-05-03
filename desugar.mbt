@@ -14,6 +14,21 @@ fn append_call_arg_core(target_expr : Expr, arg_expr : Expr) -> Expr {
 }
 
 ///|
+fn desugar_expr_pair_with_placeholders(
+  first : SurfaceExpr,
+  second : SurfaceExpr,
+  next_placeholder_id : Int,
+) -> ((Expr, Expr), Array[String], Int) {
+  let (first_core, first_names, next_after_first) = desugar_expr_with_placeholders(
+    first, next_placeholder_id,
+  )
+  let (second_core, second_names, next_id) = desugar_expr_with_placeholders(
+    second, next_after_first,
+  )
+  ((first_core, second_core), first_names + second_names, next_id)
+}
+
+///|
 fn desugar_expr_with_placeholders(
   expr : SurfaceExpr,
   next_placeholder_id : Int,
@@ -79,17 +94,10 @@ fn desugar_expr_with_placeholders(
       (If(cases_core, else_core), case_names + else_names, next_id)
     }
     SLet(pattern, value_expr, body) => {
-      let (value_core, value_names, next_after_value) = desugar_expr_with_placeholders(
-        value_expr, next_placeholder_id,
+      let ((value_core, body_core), names, next_id) = desugar_expr_pair_with_placeholders(
+        value_expr, body, next_placeholder_id,
       )
-      let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body, next_after_value,
-      )
-      (
-        Let(desugar_pattern(pattern), value_core, body_core),
-        value_names + body_names,
-        next_id,
-      )
+      (Let(desugar_pattern(pattern), value_core, body_core), names, next_id)
     }
     SLetAnd(bindings, body) => {
       let (bindings_core, binding_names, next_after_bindings) = desugar_let_bindings_with_placeholders(
@@ -105,17 +113,10 @@ fn desugar_expr_with_placeholders(
       (LetAnd(bindings_core, body_core), binding_names + body_names, next_id)
     }
     SDo(value_expr, body) => {
-      let (value_core, value_names, next_after_value) = desugar_expr_with_placeholders(
-        value_expr, next_placeholder_id,
+      let ((value_core, body_core), names, next_id) = desugar_expr_pair_with_placeholders(
+        value_expr, body, next_placeholder_id,
       )
-      let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body, next_after_value,
-      )
-      (
-        Let(PBind("_"), value_core, body_core),
-        value_names + body_names,
-        next_id,
-      )
+      (Let(PBind("_"), value_core, body_core), names, next_id)
     }
     SProbe(value_expr, body) => {
       let probe_surface = make_probe_surface_expr(value_expr, body)
@@ -126,11 +127,8 @@ fn desugar_expr_with_placeholders(
       desugar_expr_with_placeholders(guard_if, next_placeholder_id)
     }
     SLetFun(name, params, func_body, body) => {
-      let (func_body_core, func_names, next_after_func) = desugar_expr_with_placeholders(
-        func_body, next_placeholder_id,
-      )
-      let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body, next_after_func,
+      let ((func_body_core, body_core), names, next_id) = desugar_expr_pair_with_placeholders(
+        func_body, body, next_placeholder_id,
       )
       (
         Let(
@@ -138,16 +136,13 @@ fn desugar_expr_with_placeholders(
           Lambda(params.map(param => desugar_param(param)), func_body_core),
           body_core,
         ),
-        func_names + body_names,
+        names,
         next_id,
       )
     }
     SLetRec(name, params, func_body, body) => {
-      let (func_body_core, func_names, next_after_func) = desugar_expr_with_placeholders(
-        func_body, next_placeholder_id,
-      )
-      let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body, next_after_func,
+      let ((func_body_core, body_core), names, next_id) = desugar_expr_pair_with_placeholders(
+        func_body, body, next_placeholder_id,
       )
       (
         LetRec(
@@ -156,7 +151,7 @@ fn desugar_expr_with_placeholders(
           func_body_core,
           body_core,
         ),
-        func_names + body_names,
+        names,
         next_id,
       )
     }
@@ -174,18 +169,15 @@ fn desugar_expr_with_placeholders(
       (LetRecAnd(defs_core, body_core), def_names + body_names, next_id)
     }
     SWith(params, target_expr, body) => {
-      let (target_core, target_names, next_after_target) = desugar_expr_with_placeholders(
-        target_expr, next_placeholder_id,
-      )
-      let (body_core, body_names, next_id) = desugar_expr_with_placeholders(
-        body, next_after_target,
+      let ((target_core, body_core), names, next_id) = desugar_expr_pair_with_placeholders(
+        target_expr, body, next_placeholder_id,
       )
       (
         append_call_arg_core(
           target_core,
           Lambda(params.map(param => desugar_param(param)), body_core),
         ),
-        target_names + body_names,
+        names,
         next_id,
       )
     }
@@ -228,17 +220,10 @@ fn desugar_expr_with_placeholders(
       (desugar_unary_core(op, one_core), names, next_id)
     }
     SBinary(op, left, right) => {
-      let (left_core, left_names, next_after_left) = desugar_expr_with_placeholders(
-        left, next_placeholder_id,
+      let ((left_core, right_core), names, next_id) = desugar_expr_pair_with_placeholders(
+        left, right, next_placeholder_id,
       )
-      let (right_core, right_names, next_id) = desugar_expr_with_placeholders(
-        right, next_after_left,
-      )
-      (
-        desugar_binary_core(op, left_core, right_core),
-        left_names + right_names,
-        next_id,
-      )
+      (desugar_binary_core(op, left_core, right_core), names, next_id)
     }
   }
 }

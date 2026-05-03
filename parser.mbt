@@ -1218,21 +1218,42 @@ fn parse_or_expr(
 }
 
 ///|
+fn parse_left_assoc_binary_tail(
+  left : SurfaceExpr,
+  tokens : Array[SpannedToken],
+  i : Int,
+  parse_next : (Array[SpannedToken], Int) -> (SurfaceExpr, Int) raise,
+  token_to_op : (Token) -> BinOp?,
+) -> (SurfaceExpr, Int) raise {
+  guard i < tokens.length() else { (left, i) }
+  guard token_to_op(token_kind(tokens, i)) is Some(op) else { (left, i) }
+  let (right, j) = parse_next(tokens, i + 1)
+  parse_left_assoc_binary_tail(
+    located_expr_from_left(left, tokens, j, SBinary(op, left, right)),
+    tokens,
+    j,
+    parse_next,
+    token_to_op,
+  )
+}
+
+///|
+fn parse_or_tail_operator(tok : Token) -> BinOp? {
+  match tok {
+    OrOrTok => Some(Or)
+    _ => None
+  }
+}
+
+///|
 fn parse_or_tail(
   left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  if i < tokens.length() && token_kind(tokens, i) == OrOrTok {
-    let (right, j) = parse_and_expr(tokens, i + 1)
-    parse_or_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Or, left, right)),
-      tokens,
-      j,
-    )
-  } else {
-    (left, i)
-  }
+  parse_left_assoc_binary_tail(
+    left, tokens, i, parse_and_expr, parse_or_tail_operator,
+  )
 }
 
 ///|
@@ -1245,21 +1266,22 @@ fn parse_and_expr(
 }
 
 ///|
+fn parse_and_tail_operator(tok : Token) -> BinOp? {
+  match tok {
+    AndAndTok => Some(And)
+    _ => None
+  }
+}
+
+///|
 fn parse_and_tail(
   left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  if i < tokens.length() && token_kind(tokens, i) == AndAndTok {
-    let (right, j) = parse_eq_expr(tokens, i + 1)
-    parse_and_tail(
-      located_expr_from_left(left, tokens, j, SBinary(And, left, right)),
-      tokens,
-      j,
-    )
-  } else {
-    (left, i)
-  }
+  parse_left_assoc_binary_tail(
+    left, tokens, i, parse_eq_expr, parse_and_tail_operator,
+  )
 }
 
 ///|
@@ -1272,28 +1294,23 @@ fn parse_eq_expr(
 }
 
 ///|
+fn parse_eq_tail_operator(tok : Token) -> BinOp? {
+  match tok {
+    EqEqTok => Some(Eq)
+    BangEqTok => Some(Ne)
+    _ => None
+  }
+}
+
+///|
 fn parse_eq_tail(
   left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  if i < tokens.length() && token_kind(tokens, i) == EqEqTok {
-    let (right, j) = parse_cmp_expr(tokens, i + 1)
-    parse_eq_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Eq, left, right)),
-      tokens,
-      j,
-    )
-  } else if i < tokens.length() && token_kind(tokens, i) == BangEqTok {
-    let (right, j) = parse_cmp_expr(tokens, i + 1)
-    parse_eq_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Ne, left, right)),
-      tokens,
-      j,
-    )
-  } else {
-    (left, i)
-  }
+  parse_left_assoc_binary_tail(
+    left, tokens, i, parse_cmp_expr, parse_eq_tail_operator,
+  )
 }
 
 ///|
@@ -1306,42 +1323,25 @@ fn parse_cmp_expr(
 }
 
 ///|
+fn parse_cmp_tail_operator(tok : Token) -> BinOp? {
+  match tok {
+    LtTok => Some(Lt)
+    LeTok => Some(Le)
+    GtTok => Some(Gt)
+    GeTok => Some(Ge)
+    _ => None
+  }
+}
+
+///|
 fn parse_cmp_tail(
   left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  if i < tokens.length() && token_kind(tokens, i) == LtTok {
-    let (right, j) = parse_add_expr(tokens, i + 1)
-    parse_cmp_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Lt, left, right)),
-      tokens,
-      j,
-    )
-  } else if i < tokens.length() && token_kind(tokens, i) == LeTok {
-    let (right, j) = parse_add_expr(tokens, i + 1)
-    parse_cmp_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Le, left, right)),
-      tokens,
-      j,
-    )
-  } else if i < tokens.length() && token_kind(tokens, i) == GtTok {
-    let (right, j) = parse_add_expr(tokens, i + 1)
-    parse_cmp_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Gt, left, right)),
-      tokens,
-      j,
-    )
-  } else if i < tokens.length() && token_kind(tokens, i) == GeTok {
-    let (right, j) = parse_add_expr(tokens, i + 1)
-    parse_cmp_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Ge, left, right)),
-      tokens,
-      j,
-    )
-  } else {
-    (left, i)
-  }
+  parse_left_assoc_binary_tail(
+    left, tokens, i, parse_add_expr, parse_cmp_tail_operator,
+  )
 }
 
 ///|
@@ -1354,28 +1354,23 @@ fn parse_add_expr(
 }
 
 ///|
+fn parse_add_tail_operator(tok : Token) -> BinOp? {
+  match tok {
+    PlusTok => Some(Add)
+    MinusTok => Some(Sub)
+    _ => None
+  }
+}
+
+///|
 fn parse_add_tail(
   left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  if i < tokens.length() && token_kind(tokens, i) == PlusTok {
-    let (right, j) = parse_mul_expr(tokens, i + 1)
-    parse_add_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Add, left, right)),
-      tokens,
-      j,
-    )
-  } else if i < tokens.length() && token_kind(tokens, i) == MinusTok {
-    let (right, j) = parse_mul_expr(tokens, i + 1)
-    parse_add_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Sub, left, right)),
-      tokens,
-      j,
-    )
-  } else {
-    (left, i)
-  }
+  parse_left_assoc_binary_tail(
+    left, tokens, i, parse_mul_expr, parse_add_tail_operator,
+  )
 }
 
 ///|
@@ -1388,35 +1383,24 @@ fn parse_mul_expr(
 }
 
 ///|
+fn parse_mul_tail_operator(tok : Token) -> BinOp? {
+  match tok {
+    StarTok => Some(Mul)
+    SlashTok => Some(Div)
+    PercentTok => Some(Mod)
+    _ => None
+  }
+}
+
+///|
 fn parse_mul_tail(
   left : SurfaceExpr,
   tokens : Array[SpannedToken],
   i : Int,
 ) -> (SurfaceExpr, Int) raise {
-  if i < tokens.length() && token_kind(tokens, i) == StarTok {
-    let (right, j) = parse_unary_expr(tokens, i + 1)
-    parse_mul_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Mul, left, right)),
-      tokens,
-      j,
-    )
-  } else if i < tokens.length() && token_kind(tokens, i) == SlashTok {
-    let (right, j) = parse_unary_expr(tokens, i + 1)
-    parse_mul_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Div, left, right)),
-      tokens,
-      j,
-    )
-  } else if i < tokens.length() && token_kind(tokens, i) == PercentTok {
-    let (right, j) = parse_unary_expr(tokens, i + 1)
-    parse_mul_tail(
-      located_expr_from_left(left, tokens, j, SBinary(Mod, left, right)),
-      tokens,
-      j,
-    )
-  } else {
-    (left, i)
-  }
+  parse_left_assoc_binary_tail(
+    left, tokens, i, parse_unary_expr, parse_mul_tail_operator,
+  )
 }
 
 ///|
