@@ -29,6 +29,7 @@ priv enum RefUpdateBuiltinKind {
   RefUpdateMulBuiltin
   RefUpdateDivBuiltin
   RefUpdateModBuiltin
+  RefUpdatePowBuiltin
 }
 
 ///|
@@ -126,6 +127,11 @@ fn builtin_entries() -> Array[(Builtin, String, BuiltinKind)] {
       BOpRefUpdateMod,
       "__operator_ref_update_mod",
       BuiltinRefUpdate(RefUpdateModBuiltin),
+    ),
+    (
+      BOpRefUpdatePow,
+      "__operator_ref_update_pow",
+      BuiltinRefUpdate(RefUpdatePowBuiltin),
     ),
     (BOpAnd, "__operator_and", BuiltinShortCircuit(ShortCircuitAnd)),
     (BOpOr, "__operator_or", BuiltinShortCircuit(ShortCircuitOr)),
@@ -388,6 +394,13 @@ fn apply_builtin_ref_update(
         right,
       ) raise {
         apply_builtin(BOpMod, [EArgPos(left), EArgPos(right)])
+      })
+    RefUpdatePowBuiltin =>
+      apply_ref_operator_builtin(builtin, args, "operator '^='", fn(
+        left,
+        right,
+      ) raise {
+        apply_builtin(BOpPow, [EArgPos(left), EArgPos(right)])
       })
   }
 }

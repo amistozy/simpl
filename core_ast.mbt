@@ -87,6 +87,7 @@ priv enum BinOp {
   RefUpdateMul
   RefUpdateDiv
   RefUpdateMod
+  RefUpdatePow
   RefUpdateAnd
   RefUpdateOr
 } derive(Debug)

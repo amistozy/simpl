@@ -258,7 +258,7 @@
       "patterns": [
         {
           "name": "keyword.operator.assignment.simpl",
-          "match": "(?<![|&])(?:\\+=|-=|\\*=|/=|%=|:=|&&=|\\|\\|=)"
+          "match": "(?<![|&])(?:\\+=|-=|\\*=|/=|%=|\\^=|:=|&&=|\\|\\|=)"
         },
         {
           "name": "keyword.operator.assignment.simpl",

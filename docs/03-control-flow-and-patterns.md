@@ -31,7 +31,7 @@ let x += 41;
 x
 ```
 
-Supported compound forms are `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, and `||=`.
+Supported compound forms are `+=`, `-=`, `*=`, `/=`, `%=`, `^=`, `&&=`, and `||=`.
 
 ## `do`
 
@@ -40,6 +40,7 @@ Supported compound forms are `+=`, `-=`, `*=`, `/=`, `%=`, `&&=`, and `||=`.
 ```simpl
 let r = ref 0;
 do r += 1;
+do r ^= 2;
 !r
 ```
 

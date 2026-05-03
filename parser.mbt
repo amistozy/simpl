@@ -58,6 +58,7 @@ priv enum Token {
   StarAssignTok
   SlashAssignTok
   PercentAssignTok
+  CaretAssignTok
   AndAndAssignTok
   OrOrAssignTok
   TildeTok
@@ -270,6 +271,7 @@ fn token_name(tok : Token) -> String {
     StarAssignTok => "*="
     SlashAssignTok => "/="
     PercentAssignTok => "%="
+    CaretAssignTok => "^="
     AndAndAssignTok => "&&="
     OrOrAssignTok => "||="
     TildeTok => "~"
@@ -326,6 +328,7 @@ fn assign_token_to_binop(tok : Token) -> BinOp? {
     StarAssignTok => Some(RefUpdateMul)
     SlashAssignTok => Some(RefUpdateDiv)
     PercentAssignTok => Some(RefUpdateMod)
+    CaretAssignTok => Some(RefUpdatePow)
     AndAndAssignTok => Some(RefUpdateAnd)
     OrOrAssignTok => Some(RefUpdateOr)
     _ => None
@@ -340,6 +343,7 @@ fn let_compound_assign_binop(tok : Token) -> BinOp? {
     StarAssignTok => Some(Mul)
     SlashAssignTok => Some(Div)
     PercentAssignTok => Some(Mod)
+    CaretAssignTok => Some(Pow)
     AndAndAssignTok => Some(And)
     OrOrAssignTok => Some(Or)
     _ => None

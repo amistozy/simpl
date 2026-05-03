@@ -56,6 +56,7 @@ priv enum Builtin {
   BOpRefUpdateMul
   BOpRefUpdateDiv
   BOpRefUpdateMod
+  BOpRefUpdatePow
   BOpAnd
   BOpOr
   BOpRefUpdateAnd

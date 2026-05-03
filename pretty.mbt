@@ -278,6 +278,7 @@ fn surface_bin_op_text(op : BinOp) -> String {
     RefUpdateMul => "*="
     RefUpdateDiv => "/="
     RefUpdateMod => "%="
+    RefUpdatePow => "^="
     RefUpdateAnd => "&&="
     RefUpdateOr => "||="
   }

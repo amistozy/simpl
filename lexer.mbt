@@ -150,7 +150,21 @@ fn lex_loop(
       } else {
         push_single_char_token(source, i, line, column, PercentTok, acc)
       }
-    '^' => push_single_char_token(source, i, line, column, CaretTok, acc)
+    '^' =>
+      if i + 1 < source.length() &&
+        source.unsafe_get(i + 1).unsafe_to_char() == '=' {
+        push_multi_char_token(
+          source,
+          i,
+          i + 2,
+          line,
+          column,
+          CaretAssignTok,
+          acc,
+        )
+      } else {
+        push_single_char_token(source, i, line, column, CaretTok, acc)
+      }
     '>' =>
       if i + 1 < source.length() &&
         source.unsafe_get(i + 1).unsafe_to_char() == '=' {

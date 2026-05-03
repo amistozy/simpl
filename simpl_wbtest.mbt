@@ -141,6 +141,20 @@ test "desugar lowers eager ref update operators to builtin calls" {
 }
 
 ///|
+test "desugar lowers ref power update operator to builtin call" {
+  match desugar(parse("r ^= 3")) {
+    Located(
+      _,
+      Call(
+        Var("__operator_ref_update_pow"),
+        [ArgPos(Located(_, Var("r"))), ArgPos(Located(_, IntLit(3)))]
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "desugar lowers short-circuit ref update operators to thunked builtin calls" {
   match desugar(parse("r &&= f()")) {
     Located(
@@ -507,6 +521,24 @@ test "parser lowers let x += sugar into let with binary value" {
         SLocated(
           _,
           SBinary(Add, SLocated(_, SVar("x")), SLocated(_, SIntLit(1)))
+        ),
+        _
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "parser lowers let x ^= sugar into let with power value" {
+  match parse("let x ^= 3; x") {
+    SLocated(
+      _,
+      SLet(
+        SPBind("x"),
+        SLocated(
+          _,
+          SBinary(Pow, SLocated(_, SVar("x")), SLocated(_, SIntLit(3)))
         ),
         _
       )

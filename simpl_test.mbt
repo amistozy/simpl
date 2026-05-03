@@ -1171,6 +1171,15 @@ test "ref -=, *=, /=, %= chain correctly" {
 }
 
 ///|
+test "ref ^= updates using power and returns new value" {
+  let code =
+    #| let r = ref 2;
+    #| do r ^= 5;
+    #| !r
+  assert_true(@simpl.eval_source_is_int(code, 32))
+}
+
+///|
 test "ref &&= short-circuits right-hand side" {
   let code =
     #| let r = ref false;
@@ -1339,6 +1348,15 @@ test "let compound sugar supports -=, *=, /=, %=" {
     #| let x %= 5;
     #| x
   assert_true(@simpl.eval_source_is_int(code, 4))
+}
+
+///|
+test "let compound sugar supports ^=" {
+  let code =
+    #| let x = 2;
+    #| let x ^= 5;
+    #| x
+  assert_true(@simpl.eval_source_is_int(code, 32))
 }
 
 ///|

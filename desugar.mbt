@@ -276,6 +276,7 @@ fn binary_operator_builtin_name(op : BinOp) -> String {
     RefUpdateMul => "__operator_ref_update_mul"
     RefUpdateDiv => "__operator_ref_update_div"
     RefUpdateMod => "__operator_ref_update_mod"
+    RefUpdatePow => "__operator_ref_update_pow"
     And => "__operator_and"
     Or => "__operator_or"
     RefUpdateAnd => "__operator_ref_update_and"
