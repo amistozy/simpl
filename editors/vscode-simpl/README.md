@@ -23,7 +23,7 @@ The extension highlights the main parts of Simpl source, including:
 - operators including arithmetic, comparison, logical, assignment, and ref-update operators
 - the probe operator `=>` for result-printing forms
 - variant tags such as `#Ok` and `#Err`
-- built-in functions: `ref`, `say`, `map`, `filter`, `fold`, `length`, `max`, `min`, and `sum`
+- built-in functions: `ref`, `say`, `map`, `filter`, `fold`, `length`, `reverse`, `max`, `min`, and `sum`
 
 It also includes grammar support for several important Simpl-specific forms:
 

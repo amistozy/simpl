@@ -235,6 +235,7 @@ priv enum Builtin {
   BFilter
   BFold
   BLength
+  BReverse
   BMax
   BMin
   BSum
@@ -277,6 +278,7 @@ fn builtin_bindings() -> Array[(String, Builtin)] {
     ("filter", BFilter),
     ("fold", BFold),
     ("length", BLength),
+    ("reverse", BReverse),
     ("max", BMax),
     ("min", BMin),
     ("sum", BSum),

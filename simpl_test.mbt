@@ -580,6 +580,24 @@ test "length validates argument type" {
 }
 
 ///|
+test "reverse supports string and list, including ufcs" {
+  assert_true(@simpl.eval_source_is_string("reverse \"hello\"", "olleh"))
+  assert_true(@simpl.eval_source_is_string("\"moon\".reverse", "noom"))
+  assert_true(
+    @simpl.eval_source_is_bool("reverse([1; 2; 3]) == [3; 2; 1]", true),
+  )
+  assert_true(@simpl.eval_source_is_bool("[1; 2].reverse == [2; 1]", true))
+}
+
+///|
+test "reverse validates argument type" {
+  assert_eq(
+    @simpl.eval_error_text("reverse 1"),
+    Some("builtin 'reverse' expected String or List, got Int(1) at 1:1-10"),
+  )
+}
+
+///|
 test "max and min support two args and one list arg" {
   assert_true(@simpl.eval_source_is_int("max(3; 5)", 5))
   assert_true(@simpl.eval_source_is_int("min(3; 5)", 3))

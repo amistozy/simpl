@@ -165,6 +165,7 @@ Current built-ins:
 - `filter(list; f)` keeps items whose predicate result is truthy
 - `fold(list; init; f)` folds from the left
 - `length(value)` accepts strings and lists
+- `reverse(value)` accepts strings and lists
 - `max(a; b)` or `max(list)` accepts integers
 - `min(a; b)` or `min(list)` accepts integers
 - `sum(list)` sums an integer list
@@ -176,6 +177,8 @@ Most built-ins work well with UFCS:
 ```simpl
 [1; 2; 3].sum
 "moon".length
+"moon".reverse
+[1; 2; 3].reverse
 [3; 5; 2].max
 ```
 

@@ -239,6 +239,15 @@ fn apply_builtin(
         _ => builtin_type_error("length", "String or List", v)
       }
     }
+    BReverse => {
+      guard args.length() == 1 else { arity_error(1, args.length()) }
+      guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
+      match v {
+        VString(text) => VString(text.rev())
+        VList(items) => VList(items.rev())
+        _ => builtin_type_error("reverse", "String or List", v)
+      }
+    }
     BMax => apply_builtin_max_or_min(true, args)
     BMin => apply_builtin_max_or_min(false, args)
     BSum => apply_builtin_sum(args)
@@ -276,6 +285,7 @@ fn builtin_name(builtin : Builtin) -> String {
     BFilter => "filter"
     BFold => "fold"
     BLength => "length"
+    BReverse => "reverse"
     BMax => "max"
     BMin => "min"
     BSum => "sum"

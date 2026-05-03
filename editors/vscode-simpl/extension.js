@@ -24,6 +24,7 @@ const BUILTINS = [
   ["filter", "Filter a list"],
   ["fold", "Reduce a list from the left"],
   ["length", "Length of a string or list"],
+  ["reverse", "Reverse a string or list"],
   ["max", "Maximum of two ints or a list"],
   ["min", "Minimum of two ints or a list"],
   ["sum", "Sum a list of ints"],

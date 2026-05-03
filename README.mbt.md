@@ -60,6 +60,8 @@ qsort [4; 1; 5; 1; 3]
   application, `fn expr` eta-expansion, and UFCS-style field fallback.
 - Callable data: strings concatenate or join, integers repeat, lists index or
   collect, and records produce updated copies from named arguments.
+- Built-ins for references, printing, list transforms, length, reverse, min,
+  max, and sum.
 - Diagnostics: parse and runtime errors include source positions.
 
 ## Requirements
