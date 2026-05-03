@@ -78,8 +78,7 @@ let pair(a = 1; b = a + 1) = [a; b];
 pair() -- [1; 2]
 ```
 
-Required parameters are best placed before defaulted parameters. The parser
-allows some unusual orders, but invalid calls fail at runtime.
+Required parameters are best placed before defaulted parameters.
 
 ## Positional And Named Arguments
 

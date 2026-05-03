@@ -38,7 +38,7 @@ answer + 1
 ```
 
 ```simpl
-do say("warming up");
+do say "warming up";
 42
 ```
 
@@ -136,16 +136,13 @@ Use grouped `$` forms when the expression is not a single atom:
 ```simpl
 let render(result) =
   if result is
-  | #Ok({name; score}) and score >= 60 then
-    name": pass ("$score")"
-  | #Ok({name; score}) then
-    name": retry ("$score")"
-  | #Err(message) then
-    message
-  else
-    "unknown";
+  | #Ok({name; score}) and
+    | score >= 60 then name": pass ("$score")"
+    else name": retry ("$score")"
+  | #Err(message) then message
+  else "unknown";
 
-render(#Ok({name = "Mina"; score = 72}))
+render #Ok({name = "Mina"; score = 72})
 ```
 
 ## Next

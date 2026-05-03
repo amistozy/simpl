@@ -18,7 +18,7 @@ Module: `amistozy/simpl`
 let greet(name; title = "friend") =
   "Hello, "title" "name"!";
 
-greet("Ada")
+greet "Ada"
 ```
 
 ```simpl
@@ -29,17 +29,17 @@ let score_label(result) =
   | #Err(message) then message
   else "unknown";
 
-score_label(#Ok(72))
+score_label #Ok(72)
 ```
 
 ```simpl
 let rec qsort(xs) =
   guard xs is [x; ..rest] else [];
-  let smaller = qsort rest.filter(fn _ <= x);
-  let larger = qsort rest.filter(fn _ > x);
+  let smaller = qsort rest.filter fn _ <= x;
+  let larger = qsort rest.filter fn _ > x;
   smaller + [x] + larger;
 
-qsort([4; 1; 5; 1; 3])
+qsort [4; 1; 5; 1; 3]
 ```
 
 ```simpl
