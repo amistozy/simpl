@@ -1181,7 +1181,7 @@ test "! works as logical not for non-reference values" {
 ///|
 test "$ converts values to pretty string" {
   assert_true(@simpl.eval_source_is_string("$42", "42"))
-  assert_true(@simpl.eval_source_is_string("$\"moon\"", "moon"))
+  assert_true(@simpl.eval_source_is_string("$\"moon\"", "\"moon\""))
   assert_true(@simpl.eval_source_is_string("$[1; 2]", "[1; 2]"))
   assert_true(@simpl.eval_source_is_string("$#Some(1)", "#Some(1)"))
 }

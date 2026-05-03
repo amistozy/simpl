@@ -876,11 +876,7 @@ fn eval_unary(op : UnOp, value : Value) -> Value raise {
         VRef(_) as cell => cell.value
         _ => VBool(!truthy(value))
       }
-    Dollar =>
-      match value {
-        VString(v) => VString(v)
-        _ => VString(value.to_string())
-      }
+    Dollar => VString(value.to_string())
   }
 }
 
