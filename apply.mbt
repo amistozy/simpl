@@ -219,9 +219,6 @@ fn bind_named_args(
     guard find_param_index_by_name(params, name) is Some(param_i) else {
       runtime_error("unknown named argument: \{name}")
     }
-    guard assigned[param_i] is None else {
-      runtime_error("duplicate argument: \{name}")
-    }
     assigned[param_i] = Some(value)
   }
 }
@@ -455,29 +452,12 @@ fn apply_record_with_named_args(
   fields : @hashmap.HashMap[String, Value],
   args : Array[EvaluatedCallArg],
 ) -> Value raise {
-  VRecord <| args.foldi(init=fields, (i, fields, arg) => {
+  VRecord <| args.fold(init=fields, (fields, arg) => {
     guard arg is EArgNamed(name, value) else {
       runtime_error("record call only accepts named arguments")
     }
-    guard !record_call_has_duplicate_named_arg(args, name, i, 0) else {
-      runtime_error("duplicate argument: \{name}")
-    }
     fields.add(name, value)
   })
-}
-
-///|
-fn record_call_has_duplicate_named_arg(
-  args : Array[EvaluatedCallArg],
-  name : String,
-  limit_i : Int,
-  j : Int,
-) -> Bool {
-  guard j < limit_i else { false }
-  match args[j] {
-    EArgNamed(n, _) if n == name => true
-    _ => record_call_has_duplicate_named_arg(args, name, limit_i, j + 1)
-  }
 }
 
 ///|
