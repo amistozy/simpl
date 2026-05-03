@@ -272,7 +272,7 @@ priv enum Builtin {
   BOpRefUpdateOr
   BRecord
   BVariant
-} derive(Debug)
+} derive(Debug, Eq)
 
 ///|
 pub impl Show for SurfaceExpr with output(self : SurfaceExpr, logger : &Logger) -> Unit {

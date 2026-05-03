@@ -22,45 +22,10 @@ fn initial_env() -> Env {
 
 ///|
 fn builtin_bindings() -> Array[(String, Builtin)] {
-  [
-    ("ref", BRef),
-    ("say", BSay),
-    ("map", BMap),
-    ("filter", BFilter),
-    ("fold", BFold),
-    ("length", BLength),
-    ("reverse", BReverse),
-    ("max", BMax),
-    ("min", BMin),
-    ("sum", BSum),
-    (builtin_name(BOpAdd), BOpAdd),
-    (builtin_name(BOpSub), BOpSub),
-    (builtin_name(BOpMul), BOpMul),
-    (builtin_name(BOpDiv), BOpDiv),
-    (builtin_name(BOpMod), BOpMod),
-    (builtin_name(BOpPow), BOpPow),
-    (builtin_name(BOpEq), BOpEq),
-    (builtin_name(BOpNe), BOpNe),
-    (builtin_name(BOpLt), BOpLt),
-    (builtin_name(BOpLe), BOpLe),
-    (builtin_name(BOpGt), BOpGt),
-    (builtin_name(BOpGe), BOpGe),
-    (builtin_name(BOpNeg), BOpNeg),
-    (builtin_name(BOpBang), BOpBang),
-    (builtin_name(BOpDollar), BOpDollar),
-    (builtin_name(BOpRefSet), BOpRefSet),
-    (builtin_name(BOpRefUpdateAdd), BOpRefUpdateAdd),
-    (builtin_name(BOpRefUpdateSub), BOpRefUpdateSub),
-    (builtin_name(BOpRefUpdateMul), BOpRefUpdateMul),
-    (builtin_name(BOpRefUpdateDiv), BOpRefUpdateDiv),
-    (builtin_name(BOpRefUpdateMod), BOpRefUpdateMod),
-    (builtin_name(BOpAnd), BOpAnd),
-    (builtin_name(BOpOr), BOpOr),
-    (builtin_name(BOpRefUpdateAnd), BOpRefUpdateAnd),
-    (builtin_name(BOpRefUpdateOr), BOpRefUpdateOr),
-    (builtin_name(BRecord), BRecord),
-    (builtin_name(BVariant), BVariant),
-  ]
+  builtin_entries().map(entry => {
+    let (builtin, name, _) = entry
+    (name, builtin)
+  })
 }
 
 ///|

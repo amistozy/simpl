@@ -5,6 +5,173 @@ priv enum EvaluatedCallArg {
 }
 
 ///|
+priv enum UnaryBuiltinKind {
+  UnaryNeg
+  UnaryBang
+  UnaryDollar
+}
+
+///|
+priv enum BinaryBuiltinKind {
+  BinaryAdd
+  BinarySub
+  BinaryMul
+  BinaryDiv
+  BinaryMod
+  BinaryPow
+  BinaryEq
+  BinaryNe
+  BinaryLt
+  BinaryLe
+  BinaryGt
+  BinaryGe
+}
+
+///|
+priv enum RefUpdateBuiltinKind {
+  RefSetBuiltin
+  RefUpdateAddBuiltin
+  RefUpdateSubBuiltin
+  RefUpdateMulBuiltin
+  RefUpdateDivBuiltin
+  RefUpdateModBuiltin
+}
+
+///|
+priv enum ShortCircuitBuiltinKind {
+  ShortCircuitAnd
+  ShortCircuitOr
+}
+
+///|
+priv enum CollectionBuiltinKind {
+  CollectionMap
+  CollectionFilter
+  CollectionFold
+  CollectionLength
+  CollectionReverse
+  CollectionMax
+  CollectionMin
+  CollectionSum
+}
+
+///|
+priv enum EffectBuiltinKind {
+  EffectRef
+  EffectSay
+}
+
+///|
+priv enum ConstructorBuiltinKind {
+  ConstructorRecord
+  ConstructorVariant
+}
+
+///|
+priv enum BuiltinKind {
+  BuiltinUnary(UnaryBuiltinKind)
+  BuiltinBinary(BinaryBuiltinKind)
+  BuiltinRefUpdate(RefUpdateBuiltinKind)
+  BuiltinShortCircuit(ShortCircuitBuiltinKind)
+  BuiltinRefShortCircuit(ShortCircuitBuiltinKind)
+  BuiltinCollection(CollectionBuiltinKind)
+  BuiltinEffect(EffectBuiltinKind)
+  BuiltinConstructor(ConstructorBuiltinKind)
+}
+
+///|
+fn builtin_entries() -> Array[(Builtin, String, BuiltinKind)] {
+  [
+    (BRef, "ref", BuiltinEffect(EffectRef)),
+    (BSay, "say", BuiltinEffect(EffectSay)),
+    (BMap, "map", BuiltinCollection(CollectionMap)),
+    (BFilter, "filter", BuiltinCollection(CollectionFilter)),
+    (BFold, "fold", BuiltinCollection(CollectionFold)),
+    (BLength, "length", BuiltinCollection(CollectionLength)),
+    (BReverse, "reverse", BuiltinCollection(CollectionReverse)),
+    (BMax, "max", BuiltinCollection(CollectionMax)),
+    (BMin, "min", BuiltinCollection(CollectionMin)),
+    (BSum, "sum", BuiltinCollection(CollectionSum)),
+    (BOpAdd, "__operator_add", BuiltinBinary(BinaryAdd)),
+    (BOpSub, "__operator_sub", BuiltinBinary(BinarySub)),
+    (BOpMul, "__operator_mul", BuiltinBinary(BinaryMul)),
+    (BOpDiv, "__operator_div", BuiltinBinary(BinaryDiv)),
+    (BOpMod, "__operator_mod", BuiltinBinary(BinaryMod)),
+    (BOpPow, "__operator_pow", BuiltinBinary(BinaryPow)),
+    (BOpEq, "__operator_eq", BuiltinBinary(BinaryEq)),
+    (BOpNe, "__operator_ne", BuiltinBinary(BinaryNe)),
+    (BOpLt, "__operator_lt", BuiltinBinary(BinaryLt)),
+    (BOpLe, "__operator_le", BuiltinBinary(BinaryLe)),
+    (BOpGt, "__operator_gt", BuiltinBinary(BinaryGt)),
+    (BOpGe, "__operator_ge", BuiltinBinary(BinaryGe)),
+    (BOpNeg, "__operator_neg", BuiltinUnary(UnaryNeg)),
+    (BOpBang, "__operator_bang", BuiltinUnary(UnaryBang)),
+    (BOpDollar, "__operator_dollar", BuiltinUnary(UnaryDollar)),
+    (BOpRefSet, "__operator_ref_set", BuiltinRefUpdate(RefSetBuiltin)),
+    (
+      BOpRefUpdateAdd,
+      "__operator_ref_update_add",
+      BuiltinRefUpdate(RefUpdateAddBuiltin),
+    ),
+    (
+      BOpRefUpdateSub,
+      "__operator_ref_update_sub",
+      BuiltinRefUpdate(RefUpdateSubBuiltin),
+    ),
+    (
+      BOpRefUpdateMul,
+      "__operator_ref_update_mul",
+      BuiltinRefUpdate(RefUpdateMulBuiltin),
+    ),
+    (
+      BOpRefUpdateDiv,
+      "__operator_ref_update_div",
+      BuiltinRefUpdate(RefUpdateDivBuiltin),
+    ),
+    (
+      BOpRefUpdateMod,
+      "__operator_ref_update_mod",
+      BuiltinRefUpdate(RefUpdateModBuiltin),
+    ),
+    (BOpAnd, "__operator_and", BuiltinShortCircuit(ShortCircuitAnd)),
+    (BOpOr, "__operator_or", BuiltinShortCircuit(ShortCircuitOr)),
+    (
+      BOpRefUpdateAnd,
+      "__operator_ref_update_and",
+      BuiltinRefShortCircuit(ShortCircuitAnd),
+    ),
+    (
+      BOpRefUpdateOr,
+      "__operator_ref_update_or",
+      BuiltinRefShortCircuit(ShortCircuitOr),
+    ),
+    (BRecord, "__record", BuiltinConstructor(ConstructorRecord)),
+    (BVariant, "__variant", BuiltinConstructor(ConstructorVariant)),
+  ]
+}
+
+///|
+fn find_builtin_entry(builtin : Builtin) -> (Builtin, String, BuiltinKind) {
+  find_builtin_entry_from(builtin_entries(), builtin, 0)
+}
+
+///|
+fn find_builtin_entry_from(
+  entries : Array[(Builtin, String, BuiltinKind)],
+  builtin : Builtin,
+  i : Int,
+) -> (Builtin, String, BuiltinKind) {
+  guard i < entries.length() else { abort("unknown builtin") }
+  let entry = entries[i]
+  let (candidate, _, _) = entry
+  if candidate == builtin {
+    entry
+  } else {
+    find_builtin_entry_from(entries, builtin, i + 1)
+  }
+}
+
+///|
 fn bind_params(
   params : Array[Param],
   args : Array[EvaluatedCallArg],
@@ -318,287 +485,17 @@ fn apply_builtin(
   builtin : Builtin,
   args : Array[EvaluatedCallArg],
 ) -> Value raise {
-  match builtin {
-    BOpNeg =>
-      apply_unary_operator_builtin(builtin, args, fn(value) raise {
-        match value {
-          VInt(v) => VInt(-v)
-          _ => type_error_unary("unary '~'", "Int", value)
-        }
-      })
-    BOpBang =>
-      apply_unary_operator_builtin(builtin, args, fn(value) {
-        match value {
-          VRef(value~) => value
-          _ => VBool(!truthy(value))
-        }
-      })
-    BOpDollar =>
-      apply_unary_operator_builtin(builtin, args, fn(value) {
-        VString(value.to_string())
-      })
-    BOpAdd =>
-      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
-        match (left, right) {
-          (VInt(a), VInt(b)) => VInt(a + b)
-          (VString(a), VString(b)) => VString(a + b)
-          (VList(a), VList(b)) => VList(a + b)
-          _ =>
-            type_error_binary(
-              "operator '+'", "(Int, Int) or (String, String) or (List, List)", left,
-              right,
-            )
-        }
-      })
-    BOpSub =>
-      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
-        match (left, right) {
-          (VInt(a), VInt(b)) => VInt(a - b)
-          _ => type_error_binary("operator '-'", "(Int, Int)", left, right)
-        }
-      })
-    BOpMul =>
-      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
-        match (left, right) {
-          (VInt(a), VInt(b)) => VInt(a * b)
-          (VInt(times), VString(text)) | (VString(text), VInt(times)) =>
-            VString(text.repeat(times))
-          (VInt(times), VList(items)) | (VList(items), VInt(times)) =>
-            VList(repeat_list(items, times))
-          (VInt(times), func_value) | (func_value, VInt(times)) if value_is_function(
-              func_value,
-            ) => VList(repeat_function_results(func_value, times))
-          _ =>
-            type_error_binary(
-              "operator '*'", "(Int, Int) or (Int, String) or (String, Int) or (Int, List) or (List, Int) or (Int, Function) or (Function, Int)",
-              left, right,
-            )
-        }
-      })
-    BOpDiv =>
-      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
-        match (left, right) {
-          (VInt(_), VInt(0)) => VInt(0)
-          (VInt(a), VInt(b)) => VInt(a / b)
-          _ => type_error_binary("operator '/'", "(Int, Int)", left, right)
-        }
-      })
-    BOpMod =>
-      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
-        match (left, right) {
-          (VInt(a), VInt(0)) => VInt(a)
-          (VInt(a), VInt(b)) => VInt(a % b)
-          _ => type_error_binary("operator '%'", "(Int, Int)", left, right)
-        }
-      })
-    BOpPow =>
-      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
-        match (left, right) {
-          (VInt(a), VInt(b)) => VInt(int_pow(a, b))
-          _ => type_error_binary("operator '^'", "(Int, Int)", left, right)
-        }
-      })
-    BOpEq =>
-      apply_binary_operator_builtin(builtin, args, fn(left, right) {
-        VBool(left == right)
-      })
-    BOpNe =>
-      apply_binary_operator_builtin(builtin, args, fn(left, right) {
-        VBool(left != right)
-      })
-    BOpLt =>
-      apply_int_compare_operator_builtin(builtin, args, "operator '<'", fn(
-        a,
-        b,
-      ) {
-        a < b
-      })
-    BOpLe =>
-      apply_int_compare_operator_builtin(builtin, args, "operator '<='", fn(
-        a,
-        b,
-      ) {
-        a <= b
-      })
-    BOpGt =>
-      apply_int_compare_operator_builtin(builtin, args, "operator '>'", fn(
-        a,
-        b,
-      ) {
-        a > b
-      })
-    BOpGe =>
-      apply_int_compare_operator_builtin(builtin, args, "operator '>='", fn(
-        a,
-        b,
-      ) {
-        a >= b
-      })
-    BOpRefSet =>
-      apply_ref_operator_builtin(builtin, args, "operator ':='", fn(_, right) {
-        right
-      })
-    BOpRefUpdateAdd =>
-      apply_ref_operator_builtin(builtin, args, "operator '+='", fn(
-        left,
-        right,
-      ) raise {
-        apply_builtin(BOpAdd, [EArgPos(left), EArgPos(right)])
-      })
-    BOpRefUpdateSub =>
-      apply_ref_operator_builtin(builtin, args, "operator '-='", fn(
-        left,
-        right,
-      ) raise {
-        apply_builtin(BOpSub, [EArgPos(left), EArgPos(right)])
-      })
-    BOpRefUpdateMul =>
-      apply_ref_operator_builtin(builtin, args, "operator '*='", fn(
-        left,
-        right,
-      ) raise {
-        apply_builtin(BOpMul, [EArgPos(left), EArgPos(right)])
-      })
-    BOpRefUpdateDiv =>
-      apply_ref_operator_builtin(builtin, args, "operator '/='", fn(
-        left,
-        right,
-      ) raise {
-        apply_builtin(BOpDiv, [EArgPos(left), EArgPos(right)])
-      })
-    BOpRefUpdateMod =>
-      apply_ref_operator_builtin(builtin, args, "operator '%='", fn(
-        left,
-        right,
-      ) raise {
-        apply_builtin(BOpMod, [EArgPos(left), EArgPos(right)])
-      })
-    BOpAnd =>
-      apply_short_circuit_operator_builtin(builtin, args, fn(
-        left,
-        thunk,
-      ) raise {
-        if truthy(left) {
-          apply(thunk, [])
-        } else {
-          left
-        }
-      })
-    BOpOr =>
-      apply_short_circuit_operator_builtin(builtin, args, fn(
-        left,
-        thunk,
-      ) raise {
-        if truthy(left) {
-          left
-        } else {
-          apply(thunk, [])
-        }
-      })
-    BOpRefUpdateAnd =>
-      apply_ref_short_circuit_operator_builtin(
-        builtin,
-        args,
-        "operator '&&='",
-        fn(old_value, thunk) raise {
-          if truthy(old_value) {
-            apply(thunk, [])
-          } else {
-            old_value
-          }
-        },
-      )
-    BOpRefUpdateOr =>
-      apply_ref_short_circuit_operator_builtin(
-        builtin,
-        args,
-        "operator '||='",
-        fn(old_value, thunk) raise {
-          if truthy(old_value) {
-            old_value
-          } else {
-            apply(thunk, [])
-          }
-        },
-      )
-    BRecord => apply_builtin_record(args)
-    BVariant => apply_builtin_variant(args)
-    BMap => {
-      guard args.length() == 2 else { arity_error(2, args.length()) }
-      guard args is [EArgPos(list_value), EArgPos(func_value)] else {
-        builtin_named_arg_error(builtin)
-      }
-      guard list_value is VList(items) else {
-        builtin_type_error("map", "List", list_value)
-      }
-      guard value_is_function(func_value) else {
-        builtin_type_error("map", "Function", func_value)
-      }
-      VList(items.map(item => apply(func_value, [EArgPos(item)])))
-    }
-    BFilter => {
-      guard args.length() == 2 else { arity_error(2, args.length()) }
-      guard args is [EArgPos(list_value), EArgPos(func_value)] else {
-        builtin_named_arg_error(builtin)
-      }
-      guard list_value is VList(items) else {
-        builtin_type_error("filter", "List", list_value)
-      }
-      guard value_is_function(func_value) else {
-        builtin_type_error("filter", "Function", func_value)
-      }
-      VList(filter_builtin_items(items, func_value))
-    }
-    BFold => {
-      guard args.length() == 3 else { arity_error(3, args.length()) }
-      guard args
-        is [EArgPos(list_value), EArgPos(init_value), EArgPos(func_value)] else {
-        builtin_named_arg_error(builtin)
-      }
-      guard list_value is VList(items) else {
-        builtin_type_error("fold", "List", list_value)
-      }
-      guard value_is_function(func_value) else {
-        builtin_type_error("fold", "Function", func_value)
-      }
-      fold_builtin_items(items, init_value, func_value)
-    }
-    BLength => {
-      guard args.length() == 1 else { arity_error(1, args.length()) }
-      guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
-      match v {
-        VString(text) => VInt(text.length())
-        VList(items) => VInt(items.length())
-        _ => builtin_type_error("length", "String or List", v)
-      }
-    }
-    BReverse => {
-      guard args.length() == 1 else { arity_error(1, args.length()) }
-      guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
-      match v {
-        VString(text) => VString(text.rev())
-        VList(items) => VList(items.rev())
-        _ => builtin_type_error("reverse", "String or List", v)
-      }
-    }
-    BMax => apply_builtin_max_or_min(true, args)
-    BMin => apply_builtin_max_or_min(false, args)
-    BSum => apply_builtin_sum(args)
-    _ => {
-      guard args.length() == 1 else { arity_error(1, args.length()) }
-      guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
-      match builtin {
-        BRef => VRef(value=v)
-        BSay => {
-          match v {
-            VString(text) => println(text)
-            _ => println(v)
-          }
-          VNil
-        }
-        _ => runtime_error("unknown builtin")
-      }
-    }
+  let (_, name, kind) = find_builtin_entry(builtin)
+  match kind {
+    BuiltinUnary(op) => apply_builtin_unary(op, builtin, args)
+    BuiltinBinary(op) => apply_builtin_binary(op, builtin, args)
+    BuiltinRefUpdate(op) => apply_builtin_ref_update(op, builtin, args)
+    BuiltinShortCircuit(op) => apply_builtin_short_circuit(op, builtin, args)
+    BuiltinRefShortCircuit(op) =>
+      apply_builtin_ref_short_circuit(op, builtin, args)
+    BuiltinCollection(op) => apply_builtin_collection(op, name, builtin, args)
+    BuiltinEffect(op) => apply_builtin_effect(op, builtin, args)
+    BuiltinConstructor(op) => apply_builtin_constructor(op, args)
   }
 }
 
@@ -622,44 +519,362 @@ fn[T] builtin_type_error(
 
 ///|
 fn builtin_name(builtin : Builtin) -> String {
-  match builtin {
-    BRef => "ref"
-    BSay => "say"
-    BMap => "map"
-    BFilter => "filter"
-    BFold => "fold"
-    BLength => "length"
-    BReverse => "reverse"
-    BMax => "max"
-    BMin => "min"
-    BSum => "sum"
-    BOpAdd => "__operator_add"
-    BOpSub => "__operator_sub"
-    BOpMul => "__operator_mul"
-    BOpDiv => "__operator_div"
-    BOpMod => "__operator_mod"
-    BOpPow => "__operator_pow"
-    BOpEq => "__operator_eq"
-    BOpNe => "__operator_ne"
-    BOpLt => "__operator_lt"
-    BOpLe => "__operator_le"
-    BOpGt => "__operator_gt"
-    BOpGe => "__operator_ge"
-    BOpNeg => "__operator_neg"
-    BOpBang => "__operator_bang"
-    BOpDollar => "__operator_dollar"
-    BOpRefSet => "__operator_ref_set"
-    BOpRefUpdateAdd => "__operator_ref_update_add"
-    BOpRefUpdateSub => "__operator_ref_update_sub"
-    BOpRefUpdateMul => "__operator_ref_update_mul"
-    BOpRefUpdateDiv => "__operator_ref_update_div"
-    BOpRefUpdateMod => "__operator_ref_update_mod"
-    BOpAnd => "__operator_and"
-    BOpOr => "__operator_or"
-    BOpRefUpdateAnd => "__operator_ref_update_and"
-    BOpRefUpdateOr => "__operator_ref_update_or"
-    BRecord => "__record"
-    BVariant => "__variant"
+  let (_, name, _) = find_builtin_entry(builtin)
+  name
+}
+
+///|
+fn apply_builtin_unary(
+  op : UnaryBuiltinKind,
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  match op {
+    UnaryNeg =>
+      apply_unary_operator_builtin(builtin, args, fn(value) raise {
+        match value {
+          VInt(v) => VInt(-v)
+          _ => type_error_unary("unary '~'", "Int", value)
+        }
+      })
+    UnaryBang =>
+      apply_unary_operator_builtin(builtin, args, fn(value) {
+        match value {
+          VRef(value~) => value
+          _ => VBool(!truthy(value))
+        }
+      })
+    UnaryDollar =>
+      apply_unary_operator_builtin(builtin, args, fn(value) {
+        VString(value.to_string())
+      })
+  }
+}
+
+///|
+fn apply_builtin_binary(
+  op : BinaryBuiltinKind,
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  match op {
+    BinaryAdd =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(a), VInt(b)) => VInt(a + b)
+          (VString(a), VString(b)) => VString(a + b)
+          (VList(a), VList(b)) => VList(a + b)
+          _ =>
+            type_error_binary(
+              "operator '+'", "(Int, Int) or (String, String) or (List, List)", left,
+              right,
+            )
+        }
+      })
+    BinarySub =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(a), VInt(b)) => VInt(a - b)
+          _ => type_error_binary("operator '-'", "(Int, Int)", left, right)
+        }
+      })
+    BinaryMul =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(a), VInt(b)) => VInt(a * b)
+          (VInt(times), VString(text)) | (VString(text), VInt(times)) =>
+            VString(text.repeat(times))
+          (VInt(times), VList(items)) | (VList(items), VInt(times)) =>
+            VList(repeat_list(items, times))
+          (VInt(times), func_value) | (func_value, VInt(times)) if value_is_function(
+              func_value,
+            ) => VList(repeat_function_results(func_value, times))
+          _ =>
+            type_error_binary(
+              "operator '*'", "(Int, Int) or (Int, String) or (String, Int) or (Int, List) or (List, Int) or (Int, Function) or (Function, Int)",
+              left, right,
+            )
+        }
+      })
+    BinaryDiv =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(_), VInt(0)) => VInt(0)
+          (VInt(a), VInt(b)) => VInt(a / b)
+          _ => type_error_binary("operator '/'", "(Int, Int)", left, right)
+        }
+      })
+    BinaryMod =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(a), VInt(0)) => VInt(a)
+          (VInt(a), VInt(b)) => VInt(a % b)
+          _ => type_error_binary("operator '%'", "(Int, Int)", left, right)
+        }
+      })
+    BinaryPow =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+        match (left, right) {
+          (VInt(a), VInt(b)) => VInt(int_pow(a, b))
+          _ => type_error_binary("operator '^'", "(Int, Int)", left, right)
+        }
+      })
+    BinaryEq =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) {
+        VBool(left == right)
+      })
+    BinaryNe =>
+      apply_binary_operator_builtin(builtin, args, fn(left, right) {
+        VBool(left != right)
+      })
+    BinaryLt =>
+      apply_int_compare_operator_builtin(builtin, args, "operator '<'", fn(
+        a,
+        b,
+      ) {
+        a < b
+      })
+    BinaryLe =>
+      apply_int_compare_operator_builtin(builtin, args, "operator '<='", fn(
+        a,
+        b,
+      ) {
+        a <= b
+      })
+    BinaryGt =>
+      apply_int_compare_operator_builtin(builtin, args, "operator '>'", fn(
+        a,
+        b,
+      ) {
+        a > b
+      })
+    BinaryGe =>
+      apply_int_compare_operator_builtin(builtin, args, "operator '>='", fn(
+        a,
+        b,
+      ) {
+        a >= b
+      })
+  }
+}
+
+///|
+fn apply_builtin_ref_update(
+  op : RefUpdateBuiltinKind,
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  match op {
+    RefSetBuiltin =>
+      apply_ref_operator_builtin(builtin, args, "operator ':='", fn(_, right) {
+        right
+      })
+    RefUpdateAddBuiltin =>
+      apply_ref_operator_builtin(builtin, args, "operator '+='", fn(
+        left,
+        right,
+      ) raise {
+        apply_builtin(BOpAdd, [EArgPos(left), EArgPos(right)])
+      })
+    RefUpdateSubBuiltin =>
+      apply_ref_operator_builtin(builtin, args, "operator '-='", fn(
+        left,
+        right,
+      ) raise {
+        apply_builtin(BOpSub, [EArgPos(left), EArgPos(right)])
+      })
+    RefUpdateMulBuiltin =>
+      apply_ref_operator_builtin(builtin, args, "operator '*='", fn(
+        left,
+        right,
+      ) raise {
+        apply_builtin(BOpMul, [EArgPos(left), EArgPos(right)])
+      })
+    RefUpdateDivBuiltin =>
+      apply_ref_operator_builtin(builtin, args, "operator '/='", fn(
+        left,
+        right,
+      ) raise {
+        apply_builtin(BOpDiv, [EArgPos(left), EArgPos(right)])
+      })
+    RefUpdateModBuiltin =>
+      apply_ref_operator_builtin(builtin, args, "operator '%='", fn(
+        left,
+        right,
+      ) raise {
+        apply_builtin(BOpMod, [EArgPos(left), EArgPos(right)])
+      })
+  }
+}
+
+///|
+fn apply_builtin_short_circuit(
+  op : ShortCircuitBuiltinKind,
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  match op {
+    ShortCircuitAnd =>
+      apply_short_circuit_operator_builtin(builtin, args, fn(
+        left,
+        thunk,
+      ) raise {
+        if truthy(left) {
+          apply(thunk, [])
+        } else {
+          left
+        }
+      })
+    ShortCircuitOr =>
+      apply_short_circuit_operator_builtin(builtin, args, fn(
+        left,
+        thunk,
+      ) raise {
+        if truthy(left) {
+          left
+        } else {
+          apply(thunk, [])
+        }
+      })
+  }
+}
+
+///|
+fn apply_builtin_ref_short_circuit(
+  op : ShortCircuitBuiltinKind,
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  match op {
+    ShortCircuitAnd =>
+      apply_ref_short_circuit_operator_builtin(
+        builtin,
+        args,
+        "operator '&&='",
+        fn(old_value, thunk) raise {
+          if truthy(old_value) {
+            apply(thunk, [])
+          } else {
+            old_value
+          }
+        },
+      )
+    ShortCircuitOr =>
+      apply_ref_short_circuit_operator_builtin(
+        builtin,
+        args,
+        "operator '||='",
+        fn(old_value, thunk) raise {
+          if truthy(old_value) {
+            old_value
+          } else {
+            apply(thunk, [])
+          }
+        },
+      )
+  }
+}
+
+///|
+fn apply_builtin_collection(
+  op : CollectionBuiltinKind,
+  name : String,
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  match op {
+    CollectionMap => {
+      guard args.length() == 2 else { arity_error(2, args.length()) }
+      guard args is [EArgPos(list_value), EArgPos(func_value)] else {
+        builtin_named_arg_error(builtin)
+      }
+      guard list_value is VList(items) else {
+        builtin_type_error(name, "List", list_value)
+      }
+      guard value_is_function(func_value) else {
+        builtin_type_error(name, "Function", func_value)
+      }
+      VList(items.map(item => apply(func_value, [EArgPos(item)])))
+    }
+    CollectionFilter => {
+      guard args.length() == 2 else { arity_error(2, args.length()) }
+      guard args is [EArgPos(list_value), EArgPos(func_value)] else {
+        builtin_named_arg_error(builtin)
+      }
+      guard list_value is VList(items) else {
+        builtin_type_error(name, "List", list_value)
+      }
+      guard value_is_function(func_value) else {
+        builtin_type_error(name, "Function", func_value)
+      }
+      VList(filter_builtin_items(items, func_value))
+    }
+    CollectionFold => {
+      guard args.length() == 3 else { arity_error(3, args.length()) }
+      guard args
+        is [EArgPos(list_value), EArgPos(init_value), EArgPos(func_value)] else {
+        builtin_named_arg_error(builtin)
+      }
+      guard list_value is VList(items) else {
+        builtin_type_error(name, "List", list_value)
+      }
+      guard value_is_function(func_value) else {
+        builtin_type_error(name, "Function", func_value)
+      }
+      fold_builtin_items(items, init_value, func_value)
+    }
+    CollectionLength => {
+      guard args.length() == 1 else { arity_error(1, args.length()) }
+      guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
+      match v {
+        VString(text) => VInt(text.length())
+        VList(items) => VInt(items.length())
+        _ => builtin_type_error(name, "String or List", v)
+      }
+    }
+    CollectionReverse => {
+      guard args.length() == 1 else { arity_error(1, args.length()) }
+      guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
+      match v {
+        VString(text) => VString(text.rev())
+        VList(items) => VList(items.rev())
+        _ => builtin_type_error(name, "String or List", v)
+      }
+    }
+    CollectionMax => apply_builtin_max_or_min(true, args)
+    CollectionMin => apply_builtin_max_or_min(false, args)
+    CollectionSum => apply_builtin_sum(args)
+  }
+}
+
+///|
+fn apply_builtin_effect(
+  op : EffectBuiltinKind,
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  guard args.length() == 1 else { arity_error(1, args.length()) }
+  guard args is [EArgPos(v)] else { builtin_named_arg_error(builtin) }
+  match op {
+    EffectRef => VRef(value=v)
+    EffectSay => {
+      match v {
+        VString(text) => println(text)
+        _ => println(v)
+      }
+      VNil
+    }
+  }
+}
+
+///|
+fn apply_builtin_constructor(
+  op : ConstructorBuiltinKind,
+  args : Array[EvaluatedCallArg],
+) -> Value raise {
+  match op {
+    ConstructorRecord => apply_builtin_record(args)
+    ConstructorVariant => apply_builtin_variant(args)
   }
 }
 
