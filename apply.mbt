@@ -305,6 +305,45 @@ fn apply_builtin(
       ) {
         a >= b
       })
+    BOpRefSet =>
+      apply_ref_operator_builtin(builtin, args, "operator ':='", fn(_, right) {
+        right
+      })
+    BOpRefUpdateAdd =>
+      apply_ref_operator_builtin(builtin, args, "operator '+='", fn(
+        left,
+        right,
+      ) raise {
+        apply_builtin(BOpAdd, [EArgPos(left), EArgPos(right)])
+      })
+    BOpRefUpdateSub =>
+      apply_ref_operator_builtin(builtin, args, "operator '-='", fn(
+        left,
+        right,
+      ) raise {
+        apply_builtin(BOpSub, [EArgPos(left), EArgPos(right)])
+      })
+    BOpRefUpdateMul =>
+      apply_ref_operator_builtin(builtin, args, "operator '*='", fn(
+        left,
+        right,
+      ) raise {
+        apply_builtin(BOpMul, [EArgPos(left), EArgPos(right)])
+      })
+    BOpRefUpdateDiv =>
+      apply_ref_operator_builtin(builtin, args, "operator '/='", fn(
+        left,
+        right,
+      ) raise {
+        apply_builtin(BOpDiv, [EArgPos(left), EArgPos(right)])
+      })
+    BOpRefUpdateMod =>
+      apply_ref_operator_builtin(builtin, args, "operator '%='", fn(
+        left,
+        right,
+      ) raise {
+        apply_builtin(BOpMod, [EArgPos(left), EArgPos(right)])
+      })
     BMap => {
       guard args.length() == 2 else { arity_error(2, args.length()) }
       guard args is [EArgPos(list_value), EArgPos(func_value)] else {
@@ -419,6 +458,12 @@ fn builtin_name(builtin : Builtin) -> String {
     BOpNeg => "__operator_neg"
     BOpBang => "__operator_bang"
     BOpDollar => "__operator_dollar"
+    BOpRefSet => "__operator_ref_set"
+    BOpRefUpdateAdd => "__operator_ref_update_add"
+    BOpRefUpdateSub => "__operator_ref_update_sub"
+    BOpRefUpdateMul => "__operator_ref_update_mul"
+    BOpRefUpdateDiv => "__operator_ref_update_div"
+    BOpRefUpdateMod => "__operator_ref_update_mod"
   }
 }
 
@@ -444,6 +489,25 @@ fn apply_binary_operator_builtin(
     builtin_named_arg_error(builtin)
   }
   func(left, right)
+}
+
+///|
+fn apply_ref_operator_builtin(
+  builtin : Builtin,
+  args : Array[EvaluatedCallArg],
+  operator : String,
+  func : (Value, Value) -> Value raise,
+) -> Value raise {
+  apply_binary_operator_builtin(builtin, args, fn(left, right) raise {
+    match left {
+      VRef(_) as cell => {
+        let new_value = func(cell.value, right)
+        cell.value = new_value
+        new_value
+      }
+      value => type_error_unary(operator, "Ref on left side", value)
+    }
+  })
 }
 
 ///|

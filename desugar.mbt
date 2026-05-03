@@ -257,12 +257,6 @@ fn desugar_binary_core(op : BinOp, left : Expr, right : Expr) -> Expr {
   match op {
     And => Binary(CoreAnd, left, right)
     Or => Binary(CoreOr, left, right)
-    RefSet => Binary(CoreRefSet, left, right)
-    RefUpdateAdd => Binary(CoreRefUpdateAdd, left, right)
-    RefUpdateSub => Binary(CoreRefUpdateSub, left, right)
-    RefUpdateMul => Binary(CoreRefUpdateMul, left, right)
-    RefUpdateDiv => Binary(CoreRefUpdateDiv, left, right)
-    RefUpdateMod => Binary(CoreRefUpdateMod, left, right)
     RefUpdateAnd => Binary(CoreRefUpdateAnd, left, right)
     RefUpdateOr => Binary(CoreRefUpdateOr, left, right)
     _ =>
@@ -285,6 +279,12 @@ fn binary_operator_builtin_name(op : BinOp) -> String {
     Le => "__operator_le"
     Gt => "__operator_gt"
     Ge => "__operator_ge"
+    RefSet => "__operator_ref_set"
+    RefUpdateAdd => "__operator_ref_update_add"
+    RefUpdateSub => "__operator_ref_update_sub"
+    RefUpdateMul => "__operator_ref_update_mul"
+    RefUpdateDiv => "__operator_ref_update_div"
+    RefUpdateMod => "__operator_ref_update_mod"
     _ => "__operator_invalid"
   }
 }

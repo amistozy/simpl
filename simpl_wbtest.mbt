@@ -113,6 +113,31 @@ test "desugar lowers unary operators to builtin calls" {
 }
 
 ///|
+test "desugar lowers eager ref update operators to builtin calls" {
+  match desugar(parse("r := 42")) {
+    Located(
+      _,
+      Call(
+        Var("__operator_ref_set"),
+        [ArgPos(Located(_, Var("r"))), ArgPos(Located(_, IntLit(42)))]
+      )
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "desugar keeps short-circuit ref update operators in core binary form" {
+  match desugar(parse("r &&= f()")) {
+    Located(
+      _,
+      Binary(CoreRefUpdateAnd, Located(_, Var("r")), Located(_, Call(_, _)))
+    ) => assert_true(true)
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "desugar keeps short-circuit operators in core binary form" {
   match desugar(parse("ok && ready")) {
     Located(_, Binary(CoreAnd, Located(_, Var("ok")), Located(_, Var("ready")))) =>

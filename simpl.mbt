@@ -210,12 +210,6 @@ priv enum BinOp {
 priv enum CoreBinOp {
   CoreAnd
   CoreOr
-  CoreRefSet
-  CoreRefUpdateAdd
-  CoreRefUpdateSub
-  CoreRefUpdateMul
-  CoreRefUpdateDiv
-  CoreRefUpdateMod
   CoreRefUpdateAnd
   CoreRefUpdateOr
 } derive(Debug)
@@ -279,6 +273,12 @@ priv enum Builtin {
   BOpNeg
   BOpBang
   BOpDollar
+  BOpRefSet
+  BOpRefUpdateAdd
+  BOpRefUpdateSub
+  BOpRefUpdateMul
+  BOpRefUpdateDiv
+  BOpRefUpdateMod
 } derive(Debug)
 
 ///|
@@ -337,6 +337,12 @@ fn builtin_bindings() -> Array[(String, Builtin)] {
     (builtin_name(BOpNeg), BOpNeg),
     (builtin_name(BOpBang), BOpBang),
     (builtin_name(BOpDollar), BOpDollar),
+    (builtin_name(BOpRefSet), BOpRefSet),
+    (builtin_name(BOpRefUpdateAdd), BOpRefUpdateAdd),
+    (builtin_name(BOpRefUpdateSub), BOpRefUpdateSub),
+    (builtin_name(BOpRefUpdateMul), BOpRefUpdateMul),
+    (builtin_name(BOpRefUpdateDiv), BOpRefUpdateDiv),
+    (builtin_name(BOpRefUpdateMod), BOpRefUpdateMod),
   ]
 }
 
@@ -408,14 +414,8 @@ fn eval_with_env(expr : Expr, env : Env) -> Value raise {
             left_value
           }
         }
-        CoreRefSet
-        | CoreRefUpdateAdd
-        | CoreRefUpdateSub
-        | CoreRefUpdateMul
-        | CoreRefUpdateDiv
-        | CoreRefUpdateMod
-        | CoreRefUpdateAnd
-        | CoreRefUpdateOr => eval_ref_binop(op, left, right, env)
+        CoreRefUpdateAnd | CoreRefUpdateOr =>
+          eval_ref_binop(op, left, right, env)
         CoreOr => {
           let left_value = eval_with_env(left, env)
           if truthy(left_value) {
@@ -440,18 +440,6 @@ fn eval_ref_binop(
     VRef(_) as cell => {
       let old_value = cell.value
       let new_value = match op {
-        CoreRefSet => eval_with_env(right, env)
-        CoreRefUpdateAdd
-        | CoreRefUpdateSub
-        | CoreRefUpdateMul
-        | CoreRefUpdateDiv
-        | CoreRefUpdateMod => {
-          let right_value = eval_with_env(right, env)
-          apply_builtin(ref_update_operator_builtin(op), [
-            EArgPos(old_value),
-            EArgPos(right_value),
-          ])
-        }
         CoreRefUpdateAnd =>
           if truthy(old_value) {
             eval_with_env(right, env)
@@ -912,26 +900,8 @@ fn repeat_list(items : Array[Value], times : Int) -> Array[Value] {
 }
 
 ///|
-fn ref_update_operator_builtin(op : CoreBinOp) -> Builtin raise {
-  match op {
-    CoreRefUpdateAdd => BOpAdd
-    CoreRefUpdateSub => BOpSub
-    CoreRefUpdateMul => BOpMul
-    CoreRefUpdateDiv => BOpDiv
-    CoreRefUpdateMod => BOpMod
-    _ => runtime_error("invalid numeric ref update operator")
-  }
-}
-
-///|
 fn ref_binary_operator_text(op : CoreBinOp) -> String {
   match op {
-    CoreRefSet => "operator ':='"
-    CoreRefUpdateAdd => "operator '+='"
-    CoreRefUpdateSub => "operator '-='"
-    CoreRefUpdateMul => "operator '*='"
-    CoreRefUpdateDiv => "operator '/='"
-    CoreRefUpdateMod => "operator '%='"
     CoreRefUpdateAnd => "operator '&&='"
     CoreRefUpdateOr => "operator '||='"
     _ => "ref binary operator"
