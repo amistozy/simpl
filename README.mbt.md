@@ -37,7 +37,7 @@ let rec qsort(xs) =
   guard xs is [x; ..rest] else [];
   let smaller = qsort rest.filter fn _ <= x;
   let larger = qsort rest.filter fn _ > x;
-  smaller + [x] + larger;
+  [..smaller; x; ..larger];
 
 qsort [4; 1; 5; 1; 3]
 ```
